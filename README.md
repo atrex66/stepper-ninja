@@ -1,6 +1,8 @@
 # stepper-ninja
 An open-source, free step/generator and quadrature encoder interface for LinuxCNC using W5100S-evb-pico.
 
+![w5100s-evb-pico](docs/images/20250516_004009.jpg)
+
 ## Features
 - **communication**: 
   - W5100S-evb-pico UDP (data integrity check) Ethernet. https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico
