@@ -1,0 +1,29 @@
+loadrt stepgen-ninja ip_address="192.168.0.177:8888"
+
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send servo-thread
+addf stepgen-ninja.0.process-recv servo-thread
+
+net estop-loop-in iocontrol.0.user-enable-out stepgen-ninja.0.io-ready-in 
+net estop-loop-out iocontrol.0.emc-enable-in stepgen-ninja.0.io-ready-out
+
+net Xpos stepgen-ninja.0.stepgen.0.command
+net Ypos stepgen-ninja.0.stepgen.1.command
+net Zpos stepgen-ninja.0.stepgen.2.command
+
+setp stepgen-ninja.0.stepgen.0.step-scale [JOINT_0]INPUT_SCALE
+setp stepgen-ninja.0.stepgen.1.step-scale [JOINT_1]INPUT_SCALE
+setp stepgen-ninja.0.stepgen.2.step-scale [JOINT_2]INPUT_SCALE
+
+setp stepgen-ninja.0.encoder.0.scale 0.25
+setp stepgen-ninja.0.encoder.1.scale 0.25
+setp stepgen-ninja.0.encoder.2.scale 0.25
+
+setp axis.x.jog-scale 0.01
+setp axis.y.jog-scale 0.01
+setp axis.z.jog-scale 0.01
+
+net encoder-counts <= stepgen-ninja.0.encoder.0.scaled-count
+net encoder-counts => axis.x.jog-counts
+net encoder-counts => axis.y.jog-counts
+net encoder-counts => axis.z.jog-counts

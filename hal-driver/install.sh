@@ -1,1 +1,1 @@
-sudo halcompile --install udp-warrior.c
+sudo halcompile --install stepgen-ninja.c

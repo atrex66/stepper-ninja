@@ -15,7 +15,7 @@
 #include "../firmware/w5100s-evb-pico/inc/jump_table.h"
 
 // name of the module
-#define module_name "udp-warrior"
+#define module_name "stepgen-ninja"
 
 /* module information */
 MODULE_AUTHOR("Viola Zsolt");
@@ -431,7 +431,7 @@ int rtapi_app_main(void) {
         init_socket(&hal_data[j]);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: init_socket ready..\n", j);
 
-        memchr(name, 0, sizeof(name));
+        memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.connected", j);
 
         r = hal_pin_bit_newf(HAL_IN, &hal_data[j].connected, comp_id, name, j);
@@ -444,7 +444,7 @@ int rtapi_app_main(void) {
         for (int i = 0; i<stepgens; i++)
         {
             hal_data[j].first_send = true;
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.command", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].command[i], comp_id, name, j);
             if (r < 0) {
@@ -452,7 +452,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.step-scale", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].scale[i], comp_id, name, j);
             if (r < 0) {
@@ -460,7 +460,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.feedback", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].feedback[i], comp_id, name, j);
             if (r < 0) {
@@ -472,7 +472,7 @@ int rtapi_app_main(void) {
 
         for (int i = 0; i<encoders; i++)
         {
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.raw-count", j, i);
             r = hal_pin_s32_newf(HAL_IN, &hal_data[j].raw_count[i], comp_id, name, j);
             if (r < 0) {
@@ -480,7 +480,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scaled-count", j, i);
             r = hal_pin_s32_newf(HAL_IN, &hal_data[j].scaled_count[i], comp_id, name, j);
             if (r < 0) {
@@ -488,7 +488,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scale", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].enc_scale[i], comp_id, name, j);
             if (r < 0) {
@@ -497,7 +497,7 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].scale[i] = 1;
-            memchr(name, 0, sizeof(name));
+            memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scaled-value", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_value[i], comp_id, name, j);
             if (r < 0) {
@@ -509,7 +509,7 @@ int rtapi_app_main(void) {
 
 
 
-        memchr(name, 0, sizeof(name));
+        memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.period", j);
 
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].period, comp_id, name, j);
@@ -519,7 +519,7 @@ int rtapi_app_main(void) {
             return r;
         }
 
-        memchr(name, 0, sizeof(name));
+        memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.io-ready-in", j);
 
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].io_ready_in, comp_id, name, j);
@@ -529,7 +529,7 @@ int rtapi_app_main(void) {
             return r;
         }
 
-        memchr(name, 0, sizeof(name));
+        memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.io-ready-out", j);
 
         r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].io_ready_out, comp_id, name, j);
