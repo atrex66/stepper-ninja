@@ -1,0 +1,23 @@
+loadrt io-samurai ip_address="192.168.0.177"
+
+# unlink user-enable-out and emc-enable-in
+unlinkp iocontrol.0.user-enable-out
+unlinkp iocontrol.0.emc-enable-in
+
+# estop loopback (io-samurai safety)
+net estop-loop-in iocontrol.0.user-enable-out io-samurai.io-ready-in
+net estop-loop-out iocontrol.0.emc-enable-in io-samurai.io-ready-out
+
+addf io-samurai.udp-io-process-send servo-thread
+addf io-samurai.udp-io-process-recv servo-thread
+addf io-samurai.watchdog-process servo-thread
+
+# net in-pos motion.in-position io-samurai.output-00
+# net j0-homing joint.0.homing io-samurai.output-01
+# net j1-homing joint.1.homing io-samurai.output-02
+# net j2-homing joint.2.homing io-samurai.output-03
+
+# net spin spindle.0.on io-samurai.output-04
+# net idle halui.program.is-idle io-samurai.output-05
+# net running halui.program.is-running io-samurai.output-06
+

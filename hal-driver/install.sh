@@ -1,0 +1,1 @@
+sudo halcompile --install udp-warrior.c

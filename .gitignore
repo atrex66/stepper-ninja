@@ -1,0 +1,12 @@
+build/
+
+# ioLibrary_Driver build fájlok
+firmware/w5100s-evb-pico/ioLibrary_Driver/build/
+firmware/w5100s-evb-pico/ioLibrary_Driver/
+firmware/w5100s-evb-pico/python/
+
+utility/
+hardware/
+.vscode/
+firmware.zip
+hal-driver.zip
