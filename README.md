@@ -14,4 +14,5 @@ An open-source, free step/generator and quadrature encoder interface for LinuxCN
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
+This project is also uses code under BSD-3 license. See [LICENSE.TXT](LICENSE.TXT) /firmware/w5100s-evb-pico/src/quadrature_encoder.pio
 The `ioLibrary_Driver` in `firmware/pico/ioLibrary_Driver.zip` is licensed under the MIT License by Wiznet. See [firmware/pico/ioLibrary_Driver.zip/LICENSE.txt](firmware/pico/ioLibrary_Driver.zip/LICENSE.txt).
