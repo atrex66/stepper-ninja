@@ -4,7 +4,7 @@
 The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal interface for configuring the stepper-ninja device. It allows users to set network parameters (IP, MAC, port, etc.), manage timeouts, save configurations to flash, and reset the device. Commands are entered via a serial connection, processed in real-time, and validated for correct formatting.
 
 ## Prerequisites
-- A serial terminal emulator (e.g., **minicom** on Linux) configured to connect to the device's serial port (e.g., `/dev/ttyUSB0`) at the appropriate baud rate (typically 115200 8N1).
+- A serial terminal emulator (e.g., **minicom** on Linux) configured to connect to the device's serial port (e.g., `/dev/ttyACM0`) at the appropriate baud rate (typically 115200 8N1).
 - The user must be part of the `dialout` group to access serial ports on Linux:
   ```
   sudo usermod -a -G dialout $USER
@@ -17,7 +17,7 @@ The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal i
    sudo apt update
    sudo apt install minicom
    ```
-2. Start minicom for the appropriate serial port (e.g., `/dev/ttyUSB0`):
+2. Start minicom for the appropriate serial port (e.g., `/dev/ttyACM0`):
    ```
    minicom -D /dev/ttyACM0 -b 115200
    ```
