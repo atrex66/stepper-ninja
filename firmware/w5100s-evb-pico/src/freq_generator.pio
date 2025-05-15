@@ -3,6 +3,12 @@
 ;
 ; License: MIT
 ;
+; The linuxcnc driver computes the steps need to out in the given time (servo-thread)
+; core0 push the next number of steps and the low time to the pio program
+; x holds the remaining steps
+; osr holds the low cycles count
+; y used for both the high time and low time counter
+
 .pio_version 0
 
 .program freq_generator
@@ -15,7 +21,7 @@ loop0:
     set pins, 1      ; step pin high 1.
     set y, 31        ; set y to 32 cycles 2.
 loop1:
-    nop [4]          ; (32 + 1) * 5 = 160 (1320nS high) 162.
+    nop [4]          ; (31 + 1) * 5 = 160 (1320nS high) 162.
     jmp y--, loop1   ; decrement high 163.
     set pins, 0      ; set step pin to low 164.
     mov y, osr       ; restore y from osr 165.
@@ -24,4 +30,3 @@ loop2:
     jmp x--, loop0   ; decrement step number 169
     nop
     jmp again        ; unconditional jump to start (pull new value) 6.
-
