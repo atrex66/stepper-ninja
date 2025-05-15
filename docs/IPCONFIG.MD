@@ -9,7 +9,7 @@ The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal i
   ```
   sudo usermod -a -G dialout $USER
   ```
-- The device must be powered on and connected via a serial cable or USB-to-serial adapter.
+- The device must be powered on and connected via USB cable used for device programming.
 
 ## Serial Terminal Setup (Linux)
 1. Install minicom:
