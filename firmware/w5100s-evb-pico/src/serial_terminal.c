@@ -8,7 +8,6 @@
 
 char buffer[64];
 int buffer_pos = 0;
-extern stepgens;
 extern wiz_NetInfo net_info;
 extern uint32_t TIMEOUT_US;
 extern configuration_t *flash_config;

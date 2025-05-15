@@ -21,7 +21,6 @@
 #include "config.h"
 #include "freq_generator.pio.h"
 #include "quadrature_encoder.pio.h"
-#include "counter.pio.h"
 
 // Author:Viola Zsolt (atrex66@gmail.com)
 // Date: 2025
