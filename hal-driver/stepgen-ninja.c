@@ -36,7 +36,7 @@ RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 #define rx_size 25
 
 // maximum number of channels
-#define MAX_CHAN 6
+#define MAX_CHAN 4
 
 uint32_t total_cycles;
 
