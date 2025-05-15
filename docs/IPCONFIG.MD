@@ -1,7 +1,7 @@
-# IPCONFIG - io-samurai Serial Terminal Configuration
+# IPCONFIG - stepper-ninja Serial Terminal Configuration
 
 ## Overview
-The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal interface for configuring the io-samurai device. It allows users to set network parameters (IP, MAC, port, etc.), manage timeouts, save configurations to flash, and reset the device. Commands are entered via a serial connection, processed in real-time, and validated for correct formatting.
+The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal interface for configuring the stepper-ninja device. It allows users to set network parameters (IP, MAC, port, etc.), manage timeouts, save configurations to flash, and reset the device. Commands are entered via a serial connection, processed in real-time, and validated for correct formatting.
 
 ## Prerequisites
 - A serial terminal emulator (e.g., **minicom** on Linux) configured to connect to the device's serial port (e.g., `/dev/ttyUSB0`) at the appropriate baud rate (typically 115200 8N1).
@@ -19,7 +19,7 @@ The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal i
    ```
 2. Start minicom for the appropriate serial port (e.g., `/dev/ttyUSB0`):
    ```
-   minicom -D /dev/ttyUSB0 -b 115200
+   minicom -D /dev/ttyACM0 -b 115200
    ```
 3. Ensure hardware/software flow control is disabled in minicom (`Ctrl+A`, then `O`, select **Serial port setup**, set **F** and **G** to `No`).
 
@@ -55,7 +55,7 @@ The serial terminal accepts commands typed into the terminal, terminated by a ca
 ## Usage Example
 1. Connect to the device using minicom:
    ```
-   minicom -D /dev/ttyUSB0 -b 115200
+   minicom -D /dev/ttyACM0 -b 115200
    ```
 2. Check the current configuration:
    ```
@@ -122,4 +122,4 @@ The serial terminal accepts commands typed into the terminal, terminated by a ca
 - `config.h`: Likely defines the `configuration_t` structure and functions like `save_config_to_flash`, `load_config_from_flash`, and `restore_default_config`.
 - `wizchip_conf.h`: Defines the `wiz_NetInfo` structure and functions like `getPHYSR` for network configuration.
 
-For further assistance, consult the io-samurai device documentation or contact the device manufacturer.
+For further assistance, consult the stepper-ninja device documentation or contact the device manufacturer.
