@@ -56,6 +56,7 @@ typedef struct {
     hal_float_t *enc_scale[encoders];
     hal_float_t *scale[stepgens];
     hal_float_t *feedback[stepgens];
+    hal_bit_t *mode[stepgens];
     hal_u32_t *period;
     hal_bit_t *connected;  
     hal_bit_t *io_ready_in;  
@@ -258,24 +259,54 @@ void udp_io_process_send(void *arg, long period) {
         memset(d->tx_buffer, 0, tx_size);
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
-            if (d->first_send) {
-                d->prev_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
-            }
-            d->curr_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
-            steps = (int16_t)(d->prev_pos[i] - d->curr_pos[i]);
-            if (steps < 0){
-                steps = steps * -1;
-            }
-            sign = 0;
-            if (d->prev_pos[i] < d->curr_pos[i]){
-                sign = 1;
-            }
-            d->prev_pos[i] = d->curr_pos[i];
-            if (steps > 0){
-                cmd[i] = timing[steps] | (sign << 31);
+            if (*d->mode[i] == 0) {
+                // position mode
+                if (d->first_send) {
+                    d->prev_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
+                }
+                d->curr_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
+                steps = (int16_t)(d->prev_pos[i] - d->curr_pos[i]);
+                if (steps < 0){
+                    steps = steps * -1;
+                }
+                sign = 0;
+                if (d->prev_pos[i] < d->curr_pos[i]){
+                    sign = 1;
+                }
+                d->prev_pos[i] = d->curr_pos[i];
+                if (steps > 0){
+                    cmd[i] = timing[steps] | (sign << 31);
+                }
+                else{
+                    cmd[i] = 0;
+                }
             }
             else{
-                cmd[i] = 0;
+                // velocity mode
+                // Sebesség mód
+                float velocity = *d->command[i]; // Sebesség RPM-ben
+                float steps_per_sec = velocity * (*d->scale[i] / 60.0); // Lépés/másodperc
+                uint8_t sign = (velocity >= 0) ? 1 : 0; // Irány meghatározása
+                steps_per_sec = fabs(steps_per_sec); // Abszolút érték a frekvenciához
+
+                // Biztonsági korlát: maximum 255 kHz
+                if (steps_per_sec > 255000) {
+                    steps_per_sec = 255000;
+                    rtapi_print_msg(RTAPI_MSG_WARN, module_name ".%d: Velocity capped at 255 kHz\n", d->index);
+                }
+
+                // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
+                uint32_t steps_per_ms = (uint32_t)(steps_per_sec * 0.001); // Lépések 1 ms alatt
+                if (steps_per_ms > 255) {
+                    steps_per_ms = 255; // Korlátozás 255 lépés/ms-re
+                }
+
+                // PIO parancs: a timing táblázatból vesszük a megfelelő értéket
+                if (steps_per_ms > 0) {
+                    cmd[i] = timing[steps_per_ms] | (sign << 31);
+                } else {
+                    cmd[i] = 0; // Ha a sebesség 0, nincs lépés
+                }
             }
             *d->feedback[i] = *d->command[i];
         }
@@ -469,6 +500,15 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.mode", j, i);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].mode[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].mode[i] = 0;
         }
 
         for (int i = 0; i<encoders; i++)

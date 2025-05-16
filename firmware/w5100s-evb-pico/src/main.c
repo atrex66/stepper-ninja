@@ -87,7 +87,6 @@ bool __time_critical_func(stepgen_update_handler)() {
     if (checksum_error){
         return false;
     }
-
     // get command from rx_buffer and set direction signals
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
@@ -104,6 +103,7 @@ bool __time_critical_func(stepgen_update_handler)() {
         }
     }
 
+    //pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
@@ -112,6 +112,7 @@ bool __time_critical_func(stepgen_update_handler)() {
             pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
             }
     }
+    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 
     restore_interrupts(irq);
     return true;
