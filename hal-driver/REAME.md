@@ -45,6 +45,7 @@ Pins are prefixed with `stepgen-ninja.<instance>` where `<instance>` is 0 to 3.
 | `stepgen-ninja.<instance>.stepgen.<n>.command` | float  | IN        | Position command for the step generator in user units.                     |
 | `stepgen-ninja.<instance>.stepgen.<n>.step-scale` | float | IN        | Scaling factor for step commands (steps per user unit).                    |
 | `stepgen-ninja.<instance>.stepgen.<n>.feedback` | float | OUT       | Feedback position (not currently implemented).                              |
+| `stepgen-ninja.<instance>.stepgen.<n>.mode` | bit | IN       | Position = 0 or Velocity = 1 mode                                             |
 
 ### Encoder Pins (for each `<n>`, 0 to 3)
 
