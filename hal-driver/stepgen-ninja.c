@@ -277,6 +277,7 @@ void udp_io_process_send(void *arg, long period) {
             else{
                 cmd[i] = 0;
             }
+            *d->feedback[i] = *d->command[i];
         }
         
         for (uint8_t i = 0; i < stepgens; i++) {
