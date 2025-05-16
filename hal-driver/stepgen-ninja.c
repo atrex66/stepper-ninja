@@ -50,13 +50,14 @@ typedef struct {
 
 typedef struct {
     hal_float_t *command[stepgens];
+    hal_float_t *feedback[stepgens];
+    hal_float_t *scale[stepgens];
+    hal_bit_t *mode[stepgens];
+    hal_bit_t *enable[stepgens];
     hal_s32_t *raw_count[encoders];
     hal_s32_t *scaled_count[encoders];
     hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
-    hal_float_t *scale[stepgens];
-    hal_float_t *feedback[stepgens];
-    hal_bit_t *mode[stepgens];
     hal_u32_t *period;
     hal_bit_t *connected;  
     hal_bit_t *io_ready_in;  
@@ -259,6 +260,10 @@ void udp_io_process_send(void *arg, long period) {
         memset(d->tx_buffer, 0, tx_size);
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
+            if (*d->enable[i] == 0) {
+                cmd[i] = 0; // disable stepgen
+                continue;
+            }
             if (*d->mode[i] == 0) {
                 // position mode
                 if (d->first_send) {
@@ -296,14 +301,15 @@ void udp_io_process_send(void *arg, long period) {
                 }
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
-                uint32_t steps_per_ms = (uint32_t)(steps_per_sec * 0.001); // Lépések 1 ms alatt
-                if (steps_per_ms > 255) {
-                    steps_per_ms = 255; // Korlátozás 255 lépés/ms-re
+                // uint32_t steps_per_ms = (uint32_t)(steps_per_sec * 0.001); // Lépések 1 ms alatt
+                uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
+                if (steps_per_cycle > 255) {
+                    steps_per_cycle = 255; // Korlátozás 255 lépés/ms-re
                 }
 
                 // PIO parancs: a timing táblázatból vesszük a megfelelő értéket
-                if (steps_per_ms > 0) {
-                    cmd[i] = timing[steps_per_ms] | (sign << 31);
+                if (steps_per_cycle > 0) {
+                    cmd[i] = timing[steps_per_cycle] | (sign << 31);
                 } else {
                     cmd[i] = 0; // Ha a sebesség 0, nincs lépés
                 }
@@ -509,6 +515,16 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].mode[i] = 0;
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.enable", j, i);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enable[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].enable[i] = 0;
+
         }
 
         for (int i = 0; i<encoders; i++)
