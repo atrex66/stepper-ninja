@@ -62,8 +62,18 @@ target_include_directories(stepper-ninja PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
 )
 
+# WIZnet chip típusának beállítása (alapértelmezett: W5100S)
+set(WIZCHIP_TYPE "W5100S" CACHE STRING "WIZnet chip type (W5100S or W5500)")
+set_property(CACHE WIZCHIP_TYPE PROPERTY STRINGS "W5100S" "W5500")
+
+# Ellenőrizzük az érvényes értékeket
+if(NOT WIZCHIP_TYPE MATCHES "^(W5100S|W5500)$")
+    message(FATAL_ERROR "Invalid WIZCHIP_TYPE: ${WIZCHIP_TYPE}. Must be W5100S or W5500.")
+endif()
+
+# Fordítási definíciók
 target_compile_definitions(stepper-ninja PRIVATE
-    _WIZCHIP_=W5100S
+    _WIZCHIP_=${WIZCHIP_TYPE}
     WIZCHIP_USE_CS=1
 )
 
