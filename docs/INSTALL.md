@@ -100,8 +100,7 @@ To integrate Stepper-Ninja with LinuxCNC:
 2. **Create a HAL File** (e.g., `stepper-ninja.hal`):
    ```
    loadrt stepper-ninja ip_address="192.168.1.100:5000"
-   setp stepper-ninja.0.stepgen.0.step-scale 6400
-   setp stepper-ninja.0.stepgen.0.mode 1
+   setp stepper-ninja.0.stepgen.0.step-scale 1000
    net x-pos-cmd joint.0.motor-pos-cmd => stepper-ninja.0.stepgen.0.command
    net x-pos-fb stepper-ninja.0.stepgen.0.feedback => joint.0.motor-pos-fb
    net x-enable axis.0.amp-enable-out => stepper-ninja.0.stepgen.0.enable
