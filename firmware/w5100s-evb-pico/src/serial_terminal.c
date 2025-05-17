@@ -86,6 +86,7 @@ void process_command(char* command) {
         printf("DNS: %d.%d.%d.%d\n", net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]);
         printf("DHCP: %d   (1-Static, 2-Dinamic)\n", net_info.dhcp);
         printf("PORT: %d\n", port);
+    #if _WIZCHIP_ == WIZCHIP_5100
         printf("*******************PHY status**************\n");
         uint8_t phyconf = getPHYSR();
         uint8_t speed = phyconf >> 1 & 0x01;
@@ -93,6 +94,7 @@ void process_command(char* command) {
         printf("PHY Duplex: %s\n", speed ? "Full" : "Half");
         printf("PHY Speed: %s\n", duplex ? "100Mbps" : "10Mbps");
         printf("*******************************************\n");
+    #endif
         printf("Timeout: %d\n", TIMEOUT_US);
         printf("Ready.\n");
     }

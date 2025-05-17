@@ -23,6 +23,7 @@ file(GLOB_RECURSE WIZNET_SOURCES
     "ioLibrary_Driver/Internet/DHCP/*.c"
     "ioLibrary_Driver/Ethernet/*.c"
     "ioLibrary_Driver/Ethernet/W5100S/*.c"
+    "ioLibrary_Driver/Ethernet/W5500/*.c"
 )
 
 # Cortex-M0+ cél explicit megadása

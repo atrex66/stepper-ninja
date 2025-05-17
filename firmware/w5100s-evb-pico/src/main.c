@@ -383,15 +383,17 @@ void __not_in_flash_func(core0_wait)(void) {
     }
 }
 
-
 // -------------------------------------------
 // UDP handler
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
-    setPHYCR1(0x00); // auto-negotiation
+
     setIMR(0x01);
+#if _WIZCHIP_ == W5100S
     setIMR2(0x00);
+#endif
+
     last_packet_time = get_absolute_time();
     while (1){
         while(gpio_get(IRQ_PIN) == 1)
