@@ -1,0 +1,8 @@
+#net xjog-enable axisui.jog.x halui.axis.x.is-selected
+#net yjog-enable axisui.jog.y halui.axis.y.is-selected
+#net zjog-enable axisui.jog.z halui.axis.z.is-selected
+
+net xjog-enable axis.x.jog-enable joint.0.jog-enable axisui.jog.x
+net yjog-enable axis.y.jog-enable joint.1.jog-enable axisui.jog.y
+net zjog-enable axis.z.jog-enable joint.2.jog-enable axisui.jog.z
+
