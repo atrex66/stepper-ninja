@@ -182,7 +182,7 @@ int main() {
     printf("\033[2J");
     printf("\033[H");
     
-    printf("\n\n--- udp-warrior V1.0 ---\n");
+    printf("\n\n--- stepper-ninja V1.0 ---\n");
     printf("Viola Zsolt 2025\n");
     printf("E-mail:atrex66@gmail.com\n");
     printf("\n");
@@ -495,7 +495,13 @@ void w5100s_init() {
 void network_init() {
     wiz_PhyConf phyconf;
 
-    wizchip_init(0, 0);
+    uint8_t tx[_WIZCHIP_SOCK_NUM_] = {0,};
+    uint8_t rx[_WIZCHIP_SOCK_NUM_] = {0,};
+    memset(tx, 2, _WIZCHIP_SOCK_NUM_);
+    memset(rx, 2, _WIZCHIP_SOCK_NUM_);
+    wizchip_init(tx, rx);
+
+    // wizchip_init(0, 0);
     wizchip_setnetinfo(&net_info);
 
     setSn_CR(0, Sn_CR_CLOSE);
@@ -506,7 +512,7 @@ void network_init() {
     printf("Network Init Done\n");
     wizchip_getnetinfo(&net_info);
     wizphy_getphyconf(&phyconf);
-    printf("**************Network Info read from W5100S\n");
+    printf("**************Network Info read from WIZCHIP\n");
     printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", net_info.mac[0], net_info.mac[1], net_info.mac[2], net_info.mac[3], net_info.mac[4], net_info.mac[5]);
     printf("IP: %d.%d.%d.%d\n", net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3]);
     printf("Subnet: %d.%d.%d.%d\n", net_info.sn[0], net_info.sn[1], net_info.sn[2], net_info.sn[3]);
