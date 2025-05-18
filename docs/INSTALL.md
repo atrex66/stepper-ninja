@@ -1,6 +1,6 @@
 # Installation and Build Instructions for Stepper-Ninja
 
-This guide explains how to build **Stepper-Ninja**, a LinuxCNC HAL driver for Raspberry Pi Pico, using **CMake** with the Unix Makefiles generator (`make`). The project supports W5100S-EVB-Pico and standard Pico with W5500 Ethernet modules, achieving 255 kHz step generation and 12.5 MHz encoder counting.
+This guide explains how to build **Stepper-Ninja**, a LinuxCNC HAL driver for Raspberry Pi Pico, using **CMake** with the Unix Makefiles generator (`make`). The project supports W5100S-EVB-Pico and ~~standard Pico with W5500 Ethernet~~ modules, achieving 255 kHz step generation and 12.5 MHz encoder counting.
 
 Tested with Pico SDK 1.5.1, CMake 3.20.6, and GNU ARM Embedded Toolchain. See [Troubleshooting](#troubleshooting) for common issues.
 
@@ -59,11 +59,6 @@ Run CMake to generate Makefiles, specifying the WIZnet chip type (`W5100S` or `W
 - For **W5100S-EVB-Pico** (default):
   ```
   cmake ..
-  ```
-
-- For **standard Pico with W5500**:
-  ```
-  cmake -DWIZCHIP_TYPE=W5500 ..
   ```
 
 ### 3. Build the Project

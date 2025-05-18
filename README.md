@@ -1,5 +1,5 @@
 # stepper-ninja
-An open-source, free step/generator and quadrature encoder interface for LinuxCNC using W5100S-evb-pico.
+An open-source, free, high performance step/generator and quadrature encoder interface for LinuxCNC using W5100S-evb-pico.
 
 ![w5100s-evb-pico](docs/images/20250516_004009.jpg)
 
@@ -13,6 +13,10 @@ An open-source, free step/generator and quadrature encoder interface for LinuxCN
   - 1-8 PIO step generators and or quadrature encoders (current config 4 stepgen + 4 encoder)
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
 - **Open-Source**: code and docs under MIT License, quadrature-encoder PIO program uses BSD-3 license.
+
+## Contact
+- **Discord**:
+ - (stepper-ninja Discord)[https://discord.gg/bM2mQNCt]
 
 ## License
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
