@@ -8,5 +8,6 @@ firmware/w5100s-evb-pico/python/
 utility/
 hardware/
 .vscode/
+.obsidian/
 firmware.zip
 hal-driver.zip
