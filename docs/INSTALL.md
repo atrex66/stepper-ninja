@@ -11,22 +11,26 @@ Tested with Pico SDK 1.5.1, CMake 3.20.6, and GNU ARM Embedded Toolchain. See [T
 Before building, install the following dependencies:
 
 1. **CMake** (version 3.12 or higher, 3.20.6 recommended):
-   ```
+
+   ```bash
    sudo apt install cmake  # Debian/Ubuntu
    ```
 
 2. **GNU ARM Embedded Toolchain**:
-   Download from https://developer.arm.com/downloads/-/gnu-rm and add to PATH.
+   Download from <https://developer.arm.com/downloads/-/gnu-rm> and add to PATH.
    Example (Linux):
-   ```
+
+   ```bash
    export PATH=$PATH:/path/to/arm-none-eabi/bin
    ```
 
 3. **Pico SDK** (version 1.5.1 recommended):
-   ```
-   git clone -b 1.5.1 https://github.com/raspberrypi/pico-sdk
-   export PICO_SDK_PATH=/path/to/pico-sdk
-   ```
+
+```bash
+git clone -b 1.5.1 https://github.com/raspberrypi/pico-sdk
+export PICO_SDK_PATH=/path/to/pico-sdk
+```
+
    Add `PICO_SDK_PATH` to your shell profile (e.g., `~/.bashrc`).
 
 4. **Build Tools**:
@@ -37,7 +41,8 @@ Before building, install the following dependencies:
 ## Cloning the Repository
 
 Clone the Stepper-Ninja repository:
-```
+
+```bash
 git clone https://github.com/atrex66/stepper-ninja
 cd stepper-ninja
 ```
@@ -49,27 +54,33 @@ cd stepper-ninja
 Follow these steps to build Stepper-Ninja using CMake with Unix Makefiles.
 
 ### 1. Create a Build Directory
-```
+
+```bash
 mkdir build && cd build
 ```
 
 ### 2. Configure CMake
+
 Run CMake to generate Makefiles, specifying the WIZnet chip type (`W5100S` or `W5500`). The default is `W5100S` if not specified.
 
 - For **W5100S-EVB-Pico** (default):
-  ```
+  
+  ```bash
   cmake ..
   ```
 
 ### 3. Build the Project
+
 Compile the project using `make`:
-```
+
+```bash
 make
 ```
 
 This generates `stepper-ninja.uf2` (for flashing the Pico).
 
 ### 4. Flash the Pico
+
 - Connect the Pico in BOOTSEL mode (hold BOOTSEL, plug in USB).
 - Copy `stepper-ninja.uf2` to the Pico’s mass storage device.
 - The Pico reboots and runs the firmware.
@@ -79,6 +90,7 @@ This generates `stepper-ninja.uf2` (for flashing the Pico).
 ## W5500 Support
 
 For a standard Pico with a W5500 module, ensure:
+
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DWIZCHIP_TYPE=W5500` in the CMake step.
 
@@ -87,13 +99,15 @@ For a standard Pico with a W5500 module, ensure:
 To integrate Stepper-Ninja with LinuxCNC:
 
 1. **Install the HAL Driver**:
-   ```
+
+   ```bash
    cd hal-driver
    ./install.sh
    ```
 
 2. **Create a HAL File** (e.g., `stepper-ninja.hal`):
-   ```
+
+   ```hal
    loadrt stepper-ninja ip_address="192.168.1.100:5000"
    setp stepper-ninja.0.stepgen.0.step-scale 1000
    net x-pos-cmd joint.0.motor-pos-cmd => stepper-ninja.0.stepgen.0.command
@@ -102,7 +116,8 @@ To integrate Stepper-Ninja with LinuxCNC:
    ```
 
 3. **Update the INI File** (e.g., `your_config.ini`):
-   ```
+
+   ```ini
    [HAL]
    HALFILE = stepper-ninja.hal
 
@@ -111,7 +126,8 @@ To integrate Stepper-Ninja with LinuxCNC:
    ```
 
 4. **Run LinuxCNC**:
-   ```
+
+   ```bash
    linuxcnc your_config.ini
    ```
 
@@ -121,13 +137,15 @@ To integrate Stepper-Ninja with LinuxCNC:
 
 - **CMake Error: PICO_SDK_PATH not found**:
   Ensure `PICO_SDK_PATH` is set and points to the Pico SDK directory.
-  ```
+  
+  ```bash
   export PICO_SDK_PATH=/path/to/pico-sdk
   ```
 
 - **Missing pioasm/elf2uf2**:
   Build these tools in the Pico SDK:
-  ```
+  
+  ```bash
   cd pico-sdk/tools/pioasm
   mkdir build && cd build
   cmake .. && make
@@ -135,19 +153,22 @@ To integrate Stepper-Ninja with LinuxCNC:
 
 - **UTF-8 BOM Errors** (e.g., `∩╗┐` in linker output):
   Use CMake 3.20.6 or add `-DCMAKE_UTF8_BOM=OFF`:
-  ```
+  
+  ```bash
   cmake -DCMAKE_UTF8_BOM=OFF ..
   ```
 
 - **W5500 Network Issues**:
   Verify SPI wiring, power, and IP settings in `src/main.c` (e.g., `192.168.1.100:5000`). Test with:
-  ```
+  
+  ```bash
   ping 192.168.1.100
   ```
 
 - **HAL Driver Errors**:
   Check `dmesg` for UDP connection issues:
-  ```
+  
+  ```bash
   dmesg | grep stepgen-ninja
   ```
 
@@ -157,6 +178,6 @@ For more help, share error logs on the [GitHub Issues page](https://github.com/a
 
 ## Community Notes
 
-Thanks to the r/hobbycnc community (4.7k views!) for testing, especially the user who compiled with CMake and a Pico+W5500 module! Stepper-Ninja v1.0 is now tagged as a stable release: https://github.com/atrex66/stepper-ninja/releases/tag/v1.0
+Thanks to the r/hobbycnc community (4.7k views!) for testing, especially the user who compiled with CMake and a Pico+W5500 module! Stepper-Ninja v1.0 is now tagged as a stable release: <https://github.com/atrex66/stepper-ninja/releases/tag/v1.0>
 
 For Ninja builds or other setups, see the [README](README.md).
