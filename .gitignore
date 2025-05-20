@@ -5,7 +5,6 @@ firmware/w5100s-evb-pico/ioLibrary_Driver/build/
 firmware/w5100s-evb-pico/ioLibrary_Driver/
 firmware/w5100s-evb-pico/python/
 
-utility/
 hardware/
 .vscode/
 .obsidian/
