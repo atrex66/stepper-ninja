@@ -114,11 +114,15 @@ To integrate Stepper-Ninja with LinuxCNC:
 2. **Create a HAL File** (e.g., `stepper-ninja.hal`):
 
    ```hal
-   loadrt stepper-ninja ip_address="192.168.1.100:5000"
-   setp stepper-ninja.0.stepgen.0.step-scale 1000
-   net x-pos-cmd joint.0.motor-pos-cmd => stepper-ninja.0.stepgen.0.command
-   net x-pos-fb stepper-ninja.0.stepgen.0.feedback => joint.0.motor-pos-fb
-   net x-enable axis.0.amp-enable-out => stepper-ninja.0.stepgen.0.enable
+   loadrt stepgen-ninja ip_address="192.168.0.177:8888"
+
+   addf stepgen-ninja.0.watchdog-process servo-thread
+   addf stepgen-ninja.0.process-send servo-thread
+   addf stepgen-ninja.0.process-recv servo-thread
+
+   net x-pos-cmd joint.0.motor-pos-cmd => stepgen-ninja.0.stepgen.0.command
+   net x-pos-fb stepgen-ninja.0.stepgen.0.feedback => joint.0.motor-pos-fb
+   net x-enable axis.0.amp-enable-out => stepgen-ninja.0.stepgen.0.enable
    ```
 
 3. **Update the INI File** (e.g., `your_config.ini`):
@@ -162,13 +166,6 @@ To integrate Stepper-Ninja with LinuxCNC:
   
   ```bash
   cmake -DCMAKE_UTF8_BOM=OFF ..
-  ```
-
-- **W5500 Network Issues**:
-  Verify SPI wiring, power, and IP settings in `src/main.c` (e.g., `192.168.1.100:5000`). Test with:
-  
-  ```bash
-  ping 192.168.1.100
   ```
 
 - **HAL Driver Errors**:
