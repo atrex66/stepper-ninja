@@ -395,9 +395,12 @@ void __not_in_flash_func(handle_udp)() {
 #endif
 
     last_packet_time = get_absolute_time();
+    time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
     while (1){
     // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
-#if WIZCHIP_TYPE == W5100S
+#if _WIZCHIP_ == W1500S
+#warning " **************************************************** Using W5100S in interrupt mode ************************************"
+
         while(gpio_get(IRQ_PIN) == 1)
         {
             time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
@@ -406,15 +409,16 @@ void __not_in_flash_func(handle_udp)() {
             }
         }
 #endif
+#if _WIZCHIP_ == W5500
+#warning " **************************************************** Using W5500 in polling mode ************************************"
+                time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+#endif
         setSn_IR(0, Sn_IR_RECV);  // clear interrupt
         if(getSn_RX_RSR(0) != 0) {
             int len = _recvfrom(0, rx_buffer, rx_size, src_ip, &src_port);
             if (len == rx_size) {
                 last_packet_time = get_absolute_time();
                 jump_table_checksum();
-#if WIZCHIP_TYPE == W5500
-                time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-#endif
                 // update stepgens
                 stepgen_update_handler();
                 // update encoders
