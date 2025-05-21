@@ -387,7 +387,7 @@ void __not_in_flash_func(handle_udp)() {
 #endif
 
     last_packet_time = get_absolute_time();
-    time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+    time_diff = 0xFFFFFFFF;
     while (1){
     // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
 #if _WIZCHIP_ == W1500S
