@@ -34,6 +34,7 @@ export PICO_SDK_PATH=/path/to/pico-sdk
    Add `PICO_SDK_PATH` to your shell profile (e.g., `~/.bashrc`).
 
 4. **Build Tools**:
+
    - Linux: Ensure `make` is installed (`sudo apt install build-essential`).
 
 ---
@@ -56,6 +57,7 @@ Follow these steps to build Stepper-Ninja using CMake with Unix Makefiles.
 ### 1. Create a Build Directory
 
 ```bash
+cd firmware/w5100s-evb-pico
 mkdir build && cd build
 ```
 
@@ -88,6 +90,7 @@ This generates `stepper-ninja.uf2` (for flashing the Pico).
 ### 4. Flash the Pico
 
 - Connect the Pico in BOOTSEL mode (hold BOOTSEL, plug in USB).
+- If you are using the pico with other firmware use flash_nuke to erase previous data from the flash memory
 - Copy `stepper-ninja.uf2` to the Pico’s mass storage device.
 - The Pico reboots and runs the firmware.
 
