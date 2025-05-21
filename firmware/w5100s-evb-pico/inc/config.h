@@ -3,6 +3,7 @@
 
 
 // only one page of flash is used for configuration max 4096 bytes
+#pragma pack(push, 1)
 typedef struct {
     uint8_t mac[6]; // MAC address
     uint8_t ip[4];  // IP address
@@ -12,8 +13,9 @@ typedef struct {
     uint8_t dhcp;   // DHCP mode (0: Static, 1: DHCP)
     uint16_t port; // UDP port
     uint32_t timeout; // Timeout in microseconds
-    uint32_t time_constant;
+    uint8_t checksum;
 } configuration_t;
+#pragma pack(pop)
 
 void clear_flash();
 void restore_default_config();

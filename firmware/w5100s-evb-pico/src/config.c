@@ -26,7 +26,7 @@ configuration_t default_config = {
     .dhcp = 1,
     .port = 8888,
     .timeout = 1000000,
-    .time_constant = 32000
+    .checksum = 0
 };
 
 uint16_t port = 0;
@@ -38,6 +38,13 @@ configuration_t *flash_config = NULL;
 #define FLASH_TARGET_OFFSET (1024 * 1024) // 1mb offset
 #define FLASH_DATA_SIZE (sizeof(configuration_t))
 
+uint8_t calculate_checksum(configuration_t *config) {
+    uint8_t checksum = 0;
+    for (int i = 0; i < sizeof(configuration_t) - 1; i++) {
+        checksum += ((uint8_t *)config)[i];
+    }
+    return checksum;
+}
 
 void __time_critical_func(save_config_to_flash)() {
     if (flash_config == NULL) {
@@ -71,8 +78,10 @@ void __time_critical_func(save_config_to_flash)() {
         printf("Core0 is ready, proceeding with flash write...\n");
     }
 
+    flash_config->checksum = calculate_checksum(flash_config);
+
     memset(data, 0xFF, FLASH_SECTOR_SIZE);
-    memcpy(data, flash_config, FLASH_SECTOR_SIZE);
+    memcpy(data, flash_config, sizeof(configuration_t));
     uint32_t ints = save_and_disable_interrupts();
     flash_safe_execute_core_deinit();
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
@@ -89,11 +98,13 @@ void __time_critical_func(save_config_to_flash)() {
 
 void load_config_from_flash() {
     if (flash_config == NULL) {
-        flash_config = (configuration_t *)malloc(sizeof(configuration_t) + 1);
+        flash_config = (configuration_t *)malloc(sizeof(configuration_t));
     }
     memcpy(flash_config, (configuration_t *)(XIP_BASE + FLASH_TARGET_OFFSET), sizeof(configuration_t));
-    if (flash_config->dhcp < 1 || flash_config->dhcp > 2) {
-        printf("Invalid DHCP mode restore config.\n");
+    uint8_t checksum = calculate_checksum(flash_config);
+    if (checksum != flash_config->checksum){
+        printf("Invalid checksum restoring default configuration.\n");
+        printf("Checksum: %02X, Flash Checksum: %02X\n", checksum, flash_config->checksum);
         for (int i = 0; i < sizeof(configuration_t); i++) {
             printf(" %02X", ((uint8_t *)flash_config)[i]);
         }
@@ -108,5 +119,7 @@ void restore_default_config() {
         flash_config = (configuration_t *)malloc(sizeof(configuration_t));
     }
     memcpy(flash_config, &default_config, sizeof(configuration_t));
+    // calculate checksum
+    flash_config->checksum = calculate_checksum(flash_config);
     save_config_to_flash();
 }

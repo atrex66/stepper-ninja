@@ -343,14 +343,6 @@ int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, 
     return (int32_t)pack_len;
 }
 
-void __time_critical_func(calculate_checksum)(uint8_t *data, uint8_t len) {
-    uint8_t sum = 0;
-    for (uint8_t i = 0; i < len; i++) {
-        sum += data[i];
-    }
-    data[len] = sum;
-}
-
 void __time_critical_func(jump_table_checksum)() {
     if (checksum_error == 0) {
         for (uint8_t i = 0; i < rx_size - 1; i++) {
