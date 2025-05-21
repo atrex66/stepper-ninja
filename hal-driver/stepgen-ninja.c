@@ -40,7 +40,8 @@ RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 
 uint32_t total_cycles;
 
-#define high_cycles 198
+#define dormant_cycles 6
+#define high_cycles 377
 
 typedef struct {
     char ip[16]; // Holds IPv4 address
@@ -245,7 +246,7 @@ void udp_io_process_send(void *arg, long period) {
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: total_cycles = %d\n", d->index, total_cycles);
         // pregenerate timing
         for (int i=1; i < 256; i++){
-            step_counter = (total_cycles / i) - high_cycles;
+            step_counter = (((total_cycles ) / i) - high_cycles) - dormant_cycles;
             pio_cmd = (uint32_t)(step_counter << 8 | (uint8_t) i - 1);
             timing[i] = pio_cmd;
         }
