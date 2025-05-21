@@ -31,7 +31,6 @@ void save_configuration(){
     memcpy(flash_config->dns, &net_info.dns, 4);
     flash_config->port = port;
     flash_config->timeout = TIMEOUT_US;
-    flash_config->time_constant = time_constant;
 }
 
 void load_configuration(){
@@ -45,7 +44,6 @@ void load_configuration(){
     net_info.dhcp = flash_config->dhcp;
     port = flash_config->port;
     TIMEOUT_US = flash_config->timeout;
-    time_constant = flash_config->time_constant;
 }
 
 // Function: process_command
@@ -127,19 +125,7 @@ void process_command(char* command) {
             printf("Invalid timeout format\n");
         }
     }
-    else if (strncmp(command, "tim ", 4) == 0) {
-        int tim;
-        if (sscanf(command, "tim %d", &tim) == 1) {
-            time_constant = tim;
-            save_configuration();
-            printf("Time const changed to %d\n", tim);
-        }
-        else {
-            printf("Invalid time const format\n");
-        }
-    }
-
-     else if (strncmp(command, "port ", 5) == 0) {
+    else if (strncmp(command, "port ", 5) == 0) {
         int new_port;
         if (sscanf(command, "port %d", &new_port) == 1) {
             port = new_port;

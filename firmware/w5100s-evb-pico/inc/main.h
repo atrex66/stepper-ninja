@@ -55,7 +55,6 @@ void handle_udp();
 void w5100s_interrupt_init();
 void w5100s_init();
 void network_init();
-void calculate_checksum(uint8_t *data, uint8_t len);
 uint8_t xor_checksum(const uint8_t *data, uint8_t len);
 void core1_entry();
 
