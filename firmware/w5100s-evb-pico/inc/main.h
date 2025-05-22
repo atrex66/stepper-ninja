@@ -24,11 +24,6 @@
 #define Sn_IR_RECV    0x04
 #define SOCKET_DHCP   0
 
-#define rx_size       25
-#define tx_size       25  // 6 * 4 bytes + 1 byte for the checksum
-
-#define stepgens 4
-#define encoders 4
 #define TIMER_INTERVAL_US 1000  // 1ms
 
 // Interrupt konfiguráció

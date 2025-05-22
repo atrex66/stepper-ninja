@@ -12,7 +12,8 @@
 #include <fcntl.h>
 #include <math.h>
 #include <stdlib.h>
-#include "../firmware/w5100s-evb-pico/inc/jump_table.h"
+#include "transmission.h" // Include the header file for transmission structure
+#include "pio_settings.h" // Include the header file for PIO settings
 
 // name of the module
 #define module_name "stepgen-ninja"
@@ -30,10 +31,12 @@ RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 #define encoders 4
 
 // receive buffer size 
-#define tx_size 25
+// #define tx_size 25
+uint8_t tx_size = 25; // transmit buffer size
 
 // transmit buffer size
-#define rx_size 25
+// #define rx_size 25
+uint8_t rx_size = 25; // receive buffer size
 
 // maximum number of channels
 #define MAX_CHAN 4
@@ -41,7 +44,8 @@ RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 uint32_t total_cycles;
 
 #define dormant_cycles 6
-#define high_cycles 377
+#define width 1500 // 3000 ns pulse width
+// #define high_cycles 250
 
 typedef struct {
     char ip[16]; // Holds IPv4 address
@@ -59,6 +63,7 @@ typedef struct {
     hal_s32_t *scaled_count[encoders];
     hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
+    hal_u32_t *pulse_width;
     hal_u32_t *period;
     hal_bit_t *connected;  
     hal_bit_t *io_ready_in;  
@@ -66,8 +71,6 @@ typedef struct {
     IpPort *ip_address;
     int sockfd;
     struct sockaddr_in local_addr, remote_addr;
-    uint8_t rx_buffer[rx_size];
-    uint8_t tx_buffer[tx_size];
     long long last_received_time;
     long long watchdog_timeout;
     int watchdog_expired; 
@@ -80,7 +83,7 @@ typedef struct {
     int32_t curr_pos[6];
     bool watchdog_running;
     bool error_triggered;
-    bool first_send;
+    bool first_data;
 } module_data_t;
 
 static int instances = 0; // Példányok száma
@@ -89,11 +92,34 @@ static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adat
 static int checksum_error = 0;
 static int bufsize = 65536;
 static uint32_t timing[1024] = {0, };
+static bool first_send = true;
+static transmission_pc_pico_t *tx_buffer;
+static transmission_pico_pc_t *rx_buffer;
+static uint32_t old_pulse_width = 0;
 
 uint64_t get_time_ns() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
     return (uint64_t)ts.tv_sec * 1000000000ull + ts.tv_nsec;
+}
+
+void module_init(void) {
+    rtapi_print_msg(RTAPI_MSG_INFO, module_name ": module_init\n");
+    tx_size = sizeof(transmission_pc_pico_t);
+    rx_size = sizeof(transmission_pico_pc_t);
+    rtapi_print_msg(RTAPI_MSG_INFO, module_name ": tx_size: %d\n", tx_size);
+    rtapi_print_msg(RTAPI_MSG_INFO, module_name ": rx_size: %d\n", rx_size);
+
+    rx_buffer = (transmission_pico_pc_t *)malloc(rx_size);
+    if (rx_buffer == NULL) {
+        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": rx_buffer allocation failed\n");
+        return;
+    }
+    tx_buffer = (transmission_pc_pico_t *)malloc(tx_size);
+    if (tx_buffer == NULL) {
+        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": tx_buffer allocation failed\n");
+        return ;
+    }
 }
 
 /*
@@ -151,7 +177,6 @@ static void init_socket(module_data_t *arg) {
     }
     setsockopt(d->sockfd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
     setsockopt(d->sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
-
 }
 
 // Watchdog process
@@ -184,81 +209,111 @@ void watchdog_process(void *arg, long period) {
     }
 }
 
+uint8_t nearest(uint16_t period){
+    int min_diff = 655535;
+    int value = (uint16_t)period / 8;
+    int calc = 0;
+    uint8_t index = 0;
+    if (value < pio_settings[0].high_cycles){
+        return 0;
+    }
+    if (value > pio_settings[100].high_cycles){
+        return 100;
+    }
+    for (int i = 0; i < 101; i++){
+        calc = abs(pio_settings[i].high_cycles - value);
+        if (calc < min_diff){
+            min_diff = calc;
+            index = i;
+        }
+    }   
+    return index;
+}
+
+uint8_t checksum(void* buffer, uint8_t len) {
+    uint8_t checksum = 0;
+    char* bytes = (char*)buffer;
+    for (int i = 0; i < len; i++) {
+        checksum ^= (uint8_t)bytes[i];
+    }
+    return checksum;
+}
+
 // parse inputs
 void udp_io_process_recv(void *arg, long period) {
     module_data_t *d = arg;
     static socklen_t addrlen = sizeof(d->remote_addr);
     uint8_t calcChecksum = 0;
-    int32_t enc_count=0;
     if (d->watchdog_expired) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
     //int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     if (len == rx_size) {
+        calcChecksum = checksum(rx_buffer, rx_size - 1);
         // Check if the received data is valid
-        for (uint8_t i = 0; i < rx_size - 1; i++) {
-            d->checksum_index_in += d->rx_buffer[i];
+        *d->connected = 1;
+        d->last_received_time = d->current_time;
+        // user code start (process received data) rx_buffer[*]
+        for (int i = 0; i < encoders; i++) {
+            *d->raw_count[i] = rx_buffer->encoder_counter[i];
+            *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+            *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
         }
-        calcChecksum = jump_table[d->checksum_index_in];
-        if (calcChecksum == d->rx_buffer[rx_size - 1]) {
-            *d->connected = 1;
-            d->last_received_time = d->current_time;
-            // user code start (process received data) rx_buffer[*]
-            for (int i = 0; i < encoders; i++) {
-                enc_count = 0;
-                enc_count |= d->rx_buffer[4 * i + 3] << 24;
-                enc_count |= d->rx_buffer[4 * i + 2] << 16;
-                enc_count |= d->rx_buffer[4 * i + 1] << 8;
-                enc_count |= d->rx_buffer[4 * i];
-                *d->raw_count[i] = enc_count;
-                *d->enc_value[i] = (float)(enc_count * *d->enc_scale[i]);
-                *d->scaled_count[i] = (int32_t)(enc_count * *d->enc_scale[i]);
-            }
-            // user code end
-        }
-        else {
-            d->checksum_error = 1;
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: checksum error: %02X != %02X\n", d->index, calcChecksum, d->rx_buffer[rx_size - 1]);
-            d->checksum_index_in = 1; // Reset checksum index
-            *d->io_ready_out = 0;
-            *d->connected = 0;
-        }
+        // user code end
     }
     // no data received len = -1
 }
 
 // parse outputs
-void udp_io_process_send(void *arg, long period) {
+static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
     uint8_t enc_index = 0;
     int16_t steps;
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
     bool reset_active = false;
-    // if it is the first send, we need to generate the timing table
-    if (d->first_send){
+
+    memset(tx_buffer, 0, tx_size);
+
+    if (old_pulse_width != *d->pulse_width) {
         uint32_t step_counter;
         uint32_t pio_cmd;
         total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
-        rtapi_set_msg_level(RTAPI_MSG_INFO);
-        rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: total_cycles = %d\n", d->index, total_cycles);
-        // pregenerate timing
+        if (*d->pulse_width > 3000) {
+            *d->pulse_width = 3000; // max pulse width
+        }
+        if (*d->pulse_width < 1000) {
+            *d->pulse_width = 1000; // min pulse width
+        }
+        uint8_t pio_index = nearest(*d->pulse_width);
+        rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
+        rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
+        rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
         for (int i=1; i < 256; i++){
-            step_counter = (((total_cycles ) / i) - high_cycles) - dormant_cycles;
+            step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
             pio_cmd = (uint32_t)(step_counter << 8 | (uint8_t) i - 1);
             timing[i] = pio_cmd;
         }
+
+        old_pulse_width = *d->pulse_width;
     }
+
     // if watchdog expired, turn off io-ready-out
     if (d->watchdog_expired) {
         *d->io_ready_out = 0;  // turn off io-ready-out (breaking estop-loop)
         return;
     }
+        // handle io-ready-in
+    if (*d->io_ready_in == 1) {
+        *d->io_ready_out = *d->io_ready_in;  // Seems to be all ok so pass the io-ready-in to io-ready-out
+    } else {
+        *d->io_ready_out = 0;  // no io-ready-in, no io-ready-out
+    }
+
     if (d->watchdog_running == 1) {
         // fill tx_buffer with zeros
-        memset(d->tx_buffer, 0, tx_size);
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
             if (*d->enable[i] == 0) {
@@ -267,7 +322,7 @@ void udp_io_process_send(void *arg, long period) {
             }
             if (*d->mode[i] == 0) {
                 // position mode
-                if (d->first_send) {
+                if (d->first_data) {
                     d->prev_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
                 }
                 d->curr_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
@@ -290,15 +345,15 @@ void udp_io_process_send(void *arg, long period) {
             else{
                 // velocity mode
                 // Sebesség mód
-                float velocity = *d->command[i]; // Sebesség RPM-ben
-                float steps_per_sec = velocity * (*d->scale[i] / 60.0); // Lépés/másodperc
+                float velocity = *d->command[i]; // Sebesség RPS-ben
+                float steps_per_sec = velocity * *d->scale[i]; // Lépések/másodperc
                 uint8_t sign = (velocity >= 0) ? 1 : 0; // Irány meghatározása
                 steps_per_sec = fabs(steps_per_sec); // Abszolút érték a frekvenciához
 
                 // Biztonsági korlát: maximum 255 kHz
                 if (steps_per_sec > 255000) {
                     steps_per_sec = 255000;
-                    rtapi_print_msg(RTAPI_MSG_WARN, module_name ".%d: Velocity capped at 255 kHz\n", d->index);
+                    // rtapi_print_msg(RTAPI_MSG_WARN, module_name ".%d: Velocity capped at 255 kHz\n", d->index);
                 }
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
@@ -310,33 +365,22 @@ void udp_io_process_send(void *arg, long period) {
 
                 // PIO parancs: a timing táblázatból vesszük a megfelelő értéket
                 if (steps_per_cycle > 0) {
-                    cmd[i] = timing[steps_per_cycle] | (sign << 31);
+                    cmd[i] = timing[steps_per_cycle] | (sign << 31) ;
                 } else {
                     cmd[i] = 0; // Ha a sebesség 0, nincs lépés
                 }
             }
             *d->feedback[i] = *d->command[i];
         }
-        
-        for (uint8_t i = 0; i < stepgens; i++) {
-            d->tx_buffer[i * 4] = (uint8_t)(cmd[i] & 0xFF);
-            d->tx_buffer[i * 4 + 1] = (uint8_t)(cmd[i] >> 8 & 0xFF);
-            d->tx_buffer[i * 4 + 2] = (uint8_t)(cmd[i] >> 16 & 0xFF);
-            d->tx_buffer[i * 4 + 3] = (uint8_t)(cmd[i] >> 24 & 0xFF);
-        }
-        // generate checksum
-        for (uint8_t i = 0; i < tx_size - 1; i++) {
-            d->checksum_index += d->tx_buffer[i];
-        }
-        d->tx_buffer[tx_size - 1] = jump_table[d->checksum_index];
 
-        // handle io-ready-in
-        if (*d->io_ready_in == 1) {
-            *d->io_ready_out = *d->io_ready_in;  // Seems to be all ok so pass the io-ready-in to io-ready-out
-        } else {
-            *d->io_ready_out = 0;  // no io-ready-in, no io-ready-out
+        d->first_data = false;
+
+        for (uint8_t i = 0; i < stepgens; i++) {
+            // Copy the command to the tx_buffer
+            tx_buffer->stepgen_command[i] = cmd[i];
         }
-        d->first_send = false;
+
+        tx_buffer->pio_timing = nearest(*d->pulse_width);
     }
     else{
         //if the watchdog is not running, we should not send data (io-samurai side is going to timeout error and turn off outputs)
@@ -347,9 +391,9 @@ void udp_io_process_send(void *arg, long period) {
             return;  // No data to send (generate io-samurai side timeout error)
         }
     }
-    sendto(d->sockfd, &d->tx_buffer, sizeof(d->tx_buffer), MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
-    d->first_send = false;
-    memset(d->tx_buffer, 0, sizeof(d->tx_buffer));
+    tx_buffer->checksum = checksum(tx_buffer, tx_size - 1); // Calculate checksum
+    sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
+    //rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: sent data to %s:%d\n", d->index, d->ip_address->ip, d->ip_address->port);
 }
 
 /*
@@ -421,6 +465,8 @@ int rtapi_app_main(void) {
 
     rtapi_set_msg_level(RTAPI_MSG_INFO);
 
+    module_init();
+
     IpPort results[MAX_CHAN];
     // parse the IP address and port from the modparam
     instances = parse_ip_port((char *)ip_address[0], results, 8);
@@ -464,6 +510,7 @@ int rtapi_app_main(void) {
         hal_data[j].watchdog_expired = 0;
         hal_data[j].watchdog_running = 0;
         hal_data[j].ip_address = &results[j];
+        hal_data[j].first_data = true;
         hal_data[j].error_triggered = false;
 
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: init_socket\n", j);
@@ -480,9 +527,17 @@ int rtapi_app_main(void) {
             return r;
         }
 
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.stepgen.pulse-width", j);
+        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pulse_width, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+
         for (int i = 0; i<stepgens; i++)
         {
-            hal_data[j].first_send = true;
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.command", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].command[i], comp_id, name, j);
@@ -564,8 +619,6 @@ int rtapi_app_main(void) {
                 return r;
             }
         }
-
-
 
         memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.period", j);

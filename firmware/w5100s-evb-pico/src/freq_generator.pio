@@ -19,9 +19,9 @@ again:
     out x, 8         ; 8 bit number of steps 2.
 loop0:
     set pins, 1      ; step pin high 1.
-    set y, 28        ; set y to 32 cycles 2.
+    set y, 24        ; 28
 loop1:
-    nop [11]          ; (31 + 1) * nop + [4] + jmp = 192
+    nop [8]          ; (31 + 1) * nop + [4] + jmp = 192
     jmp y--, loop1   ; decrement high 163.
     set pins, 0      ; set step pin to low 164.
     mov y, osr       ; restore y from osr 165.

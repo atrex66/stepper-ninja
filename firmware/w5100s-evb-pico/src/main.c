@@ -17,10 +17,13 @@
 #include "wizchip_conf.h"
 #include "socket.h"
 #include "jump_table.h"
+#include "transmission.h"
 #include "main.h"
 #include "config.h"
+#include "pio_settings.h"
 #include "freq_generator.pio.h"
 #include "quadrature_encoder.pio.h"
+
 
 // Author:Viola Zsolt (atrex66@gmail.com)
 // Date: 2025
@@ -46,9 +49,9 @@ extern uint16_t port;
 extern configuration_t *flash_config;
 wiz_NetInfo net_info;
 
-uint8_t rx_buffer[rx_size] = {0,};
-uint8_t temp_tx_buffer[tx_size] = {0,};
-uint8_t tx_buffer[tx_size] = {0,};
+transmission_pc_pico_t *rx_buffer;
+transmission_pico_pc_t *tx_buffer;
+
 uint8_t counter = 0;
 uint8_t first_send = 1;
 uint32_t time_constant = 40000;
@@ -70,6 +73,15 @@ int32_t encoder_final[encoders] = {0,};
 int32_t *command;
 uint8_t *src_ip;
 uint16_t src_port;
+uint32_t rx_counter=0;
+
+uint8_t rx_size = sizeof(transmission_pc_pico_t);
+uint8_t tx_size = sizeof(transmission_pico_pc_t);
+
+uint8_t sety = 0;
+uint8_t nop = 0;
+uint8_t old_sety = 0;
+uint8_t old_nop = 0;
 
 uint8_t checksum_error = 0;
 uint8_t timeout_error = 1;
@@ -77,11 +89,14 @@ uint32_t last_time = 0;
 static absolute_time_t last_packet_time;
 uint32_t TIMEOUT_US = 100000;
 uint32_t time_diff;
+uint8_t checksum_index = 1;
+uint8_t checksum_index_in = 1;
 
 bool __time_critical_func(stepgen_update_handler)() {
     uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
     static PIO pio;
+    int zeros = 0;
     int j=0;
 
     if (checksum_error){
@@ -91,7 +106,7 @@ bool __time_critical_func(stepgen_update_handler)() {
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
         j = i < 4 ? i : i - 4;
-        command[i] = rx_buffer[i * 4] | (rx_buffer[i * 4 + 1] << 8) | (rx_buffer[i * 4 + 2] << 16) | (rx_buffer[i * 4 + 3] << 24);
+        command[i] = rx_buffer->stepgen_command[i];
         // ha van sebesseg parancs
         if (command[i] != 0){
             if ((command[i] >> 31) & 1) {
@@ -101,9 +116,31 @@ bool __time_critical_func(stepgen_update_handler)() {
                 gpio_put(step_pin[i] + 1, 0);
             }
         }
+        else {
+            zeros++;
+        }
+
     }
 
-    //pio0->ctrl = 0;
+    sety = pio_settings[rx_buffer->pio_timing].sety & 31;
+    nop = pio_settings[rx_buffer->pio_timing].nop & 31;
+
+    if (old_sety != sety || old_nop != nop) {
+        for (int i=0; i<stepgens; i++){
+        pio_sm_set_enabled(pio0, i, false);
+        pio_sm_exec(pio0, i, pio_encode_jmp(1));
+        }
+        pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
+        pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
+        for (int i=0; i<stepgens; i++){
+        pio_sm_set_enabled(pio0, i, true);
+        }
+        printf("sety:%d nop:%d\n", pio_settings[rx_buffer->pio_timing].sety & 31, pio_settings[rx_buffer->pio_timing].nop & 31);
+        old_sety = sety;
+        old_nop = nop;
+    }
+
+    // pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
@@ -112,7 +149,7 @@ bool __time_critical_func(stepgen_update_handler)() {
             pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
             }
     }
-    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
+    // pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 
     restore_interrupts(irq);
     return true;
@@ -132,13 +169,10 @@ void core1_entry() {
 
     while(1){
 
-        // printf("PC:%d\n", pio_sm_get_pc(pio0, 1));
         gpio_put(LED_PIN, !timeout_error);
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
-                memset(rx_buffer, 0, rx_size);
-                memset(tx_buffer, 0, tx_size);
                 // reset encoder PIO-s when timeout
                 for (int i = 0; i < encoders; i++) {
                     pio_sm_set_enabled(pio1, i, false);
@@ -171,6 +205,16 @@ int main() {
 
     src_ip = (uint8_t *)malloc(4);
     command = malloc(sizeof(int32_t) * stepgens);
+    rx_buffer = (transmission_pc_pico_t *)malloc(rx_size);
+    if (rx_buffer == NULL) {
+        printf("rx_buffer allocation failed\n");
+        return -1;
+    }
+    tx_buffer = (transmission_pico_pc_t *)malloc(tx_size);
+    if (tx_buffer == NULL) {
+        printf("tx_buffer allocation failed\n");
+        return -1;
+    }
 
     stdio_init_all();
     stdio_usb_init();
@@ -186,6 +230,10 @@ int main() {
     printf("Viola Zsolt 2025\n");
     printf("E-mail:atrex66@gmail.com\n");
     printf("\n");
+
+    printf("rx_buffer size: %d\n", rx_size);
+    printf("tx_buffer size: %d\n", tx_size);
+
     // igy jon ki pontosra a 1mS PIO
     set_sys_clock_khz(125000, true);
     
@@ -311,6 +359,18 @@ int32_t __time_critical_func(_sendto)(uint8_t sn, uint8_t *buf, uint16_t len, ui
     return (int32_t)len;
 }
 
+void __not_in_flash_func(core0_wait)(void) {
+    while (!multicore_fifo_wready()) {
+        tight_loop_contents();
+    }
+    multicore_fifo_push_blocking(0xFEEDFACE);
+    printf("Core0 is ready to write...\n");
+    uint32_t signal = multicore_fifo_pop_blocking();
+    if (signal == 0xDEADBEEF) {
+        watchdog_reboot(0, 0, 0);
+    }
+}
+
 int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port) {
     uint8_t head[8];
     uint16_t pack_len = 0;
@@ -341,38 +401,6 @@ int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, 
     while (getSn_CR(sn));
 
     return (int32_t)pack_len;
-}
-
-void __time_critical_func(jump_table_checksum)() {
-    if (checksum_error == 0) {
-        for (uint8_t i = 0; i < rx_size - 1; i++) {
-            checksum_index += rx_buffer[i];
-        }
-        uint8_t checksum = jump_table[checksum_index];
-        if (checksum != rx_buffer[rx_size - 1]) {
-            checksum_error = 1;
-            printf("Checksum error: %02X != %02X\n", checksum, rx_buffer[rx_size - 1]);
-        }
-    }
-}
-
-void __time_critical_func(jump_table_checksum_in)() {
-    for (uint8_t i = 0; i < tx_size - 1; i++) {
-        checksum_index_in += tx_buffer[i];
-    }
-    tx_buffer[tx_size - 1] = jump_table[checksum_index_in];
-}
-
-void __not_in_flash_func(core0_wait)(void) {
-    while (!multicore_fifo_wready()) {
-        tight_loop_contents();
-    }
-    multicore_fifo_push_blocking(0xFEEDFACE);
-    printf("Core0 is ready to write...\n");
-    uint32_t signal = multicore_fifo_pop_blocking();
-    if (signal == 0xDEADBEEF) {
-        watchdog_reboot(0, 0, 0);
-    }
 }
 
 // -------------------------------------------
@@ -407,19 +435,21 @@ void __not_in_flash_func(handle_udp)() {
 #endif
         setSn_IR(0, Sn_IR_RECV);  // clear interrupt
         if(getSn_RX_RSR(0) != 0) {
-            int len = _recvfrom(0, rx_buffer, rx_size, src_ip, &src_port);
+            int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
             if (len == rx_size) {
+                rx_counter ++;
+                //printf("%d Received bytes: %d\n", rx_counter, len);
                 last_packet_time = get_absolute_time();
-                jump_table_checksum();
+                //jump_table_checksum();
                 // update stepgens
                 stepgen_update_handler();
                 // update encoders
                 for (int i = 0; i < encoders; i++) {
                     encoder[i] = quadrature_encoder_get_count(pio1, i);
+                    tx_buffer->encoder_counter[i] = encoder[i];
                 }
-                memcpy(tx_buffer, &encoder, sizeof(int32_t) * encoders);
-                jump_table_checksum_in();
-                _sendto(0, tx_buffer, tx_size, src_ip, src_port);
+                //jump_table_checksum_in();
+                _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
             }
         }
         if (multicore_fifo_rvalid()) {
