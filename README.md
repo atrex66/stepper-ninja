@@ -8,13 +8,18 @@ An open-source, free, high performance step/generator and quadrature encoder int
 
 - **communication**:
 
-  - W5100S-evb-pico UDP (data integrity check) Ethernet. <https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico>
+  - W5100S-evb-pico UDP Ethernet. <https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico>
+  - pico + W5500 module (need same wiring as W5100S-evb-pico)
   - planned support communication over spi with raspberry-pi4
-- **step-generator**: multiple channels maximum 255KHz per channel (15m/min with 0.001mm) uses PIO state machines (pulse width under development)
+
+- **step-generator**: multiple channels maximum 255KHz per channel (15m/min with 0.001mm) uses PIO state machines. pulse width set from hal pin.
+
 - **quadrature-encoder**: multiple channels 12.5MHz count rate per channel (theoretical) uses PIO state machines.
+
 - **Software**:
   - 1-8 PIO step generators and or quadrature encoders (current config 4 stepgen + 4 encoder)
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
+  
 - **Open-Source**: code and docs under MIT License, quadrature-encoder PIO program uses BSD-3 license.
 
 ## Contact
