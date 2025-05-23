@@ -45,7 +45,7 @@ uint8_t rx_size = 25; // receive buffer size
 uint32_t total_cycles;
 
 #if debug == 0
-#define dormant_cycles 6
+#define dormant_cycles 5
 #endif
 
 typedef struct {
@@ -65,6 +65,19 @@ typedef struct {
     hal_s32_t *scaled_count[encoders];
     hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
+    // pwm output
+    hal_bit_t *pwm_enable;
+    hal_float_t *pwm_duty;
+    hal_float_t *pwm_frequency;
+    // inputs
+    #if encoders < 3
+    hal_bit_t *input[6];
+    hal_bit_t *output[2];
+    #else
+    hal_bit_t *input[4];
+    hal_bit_t *output[2];
+    #endif
+
 #if debug == 1
     hal_float_t *debug_freq;
     hal_u32_t *debug_dormant_cycles;
