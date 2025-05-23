@@ -52,9 +52,7 @@ wiz_NetInfo net_info;
 transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
 
-uint8_t counter = 0;
 uint8_t first_send = 1;
-uint32_t time_constant = 40000;
 volatile bool first_data = true;
 
 #ifdef USE_SPI_DMA
@@ -68,7 +66,6 @@ uint32_t step_pin[stepgens] = {0, 2, 4, 6};
 uint8_t encoder_base[encoders] = {8, 10, 12, 14};
 
 int32_t encoder[encoders] = {0,};
-int32_t encoder_final[encoders] = {0,};
 
 int32_t *command;
 uint8_t *src_ip;
@@ -119,7 +116,6 @@ bool __time_critical_func(stepgen_update_handler)() {
         else {
             zeros++;
         }
-
     }
 
     sety = pio_settings[rx_buffer->pio_timing].sety & 31;
@@ -127,15 +123,12 @@ bool __time_critical_func(stepgen_update_handler)() {
 
     if (old_sety != sety || old_nop != nop) {
         for (int i=0; i<stepgens; i++){
-        //pio_sm_set_enabled(pio0, i, false);
-        pio_sm_exec(pio0, i, pio_encode_jmp(1));
+            // jump to the pull block
+            pio_sm_exec(pio0, i, pio_encode_jmp(1));
         }
         pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
         pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
-        //for (int i=0; i<stepgens; i++){
-        //pio_sm_set_enabled(pio0, i, true);
-        //}
-        printf("sety:%d nop:%d\n", pio_settings[rx_buffer->pio_timing].sety & 31, pio_settings[rx_buffer->pio_timing].nop & 31);
+        printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
         old_sety = sety;
         old_nop = nop;
     }
@@ -143,10 +136,8 @@ bool __time_critical_func(stepgen_update_handler)() {
     // pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
-        pio = i < 4 ? pio0 : pio1;
-        j = i < 4 ? i : i - 4;
         if (command[i] != 0){
-            pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
+            pio_sm_put_blocking(pio0, i, command[i] & 0x7fffffff);
             }
     }
     // pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
