@@ -1,65 +1,95 @@
 # HAL Pins for stepgen-ninja Module
 
-## Global Pins
+This document describes the Hardware Abstraction Layer (HAL) pins created by the `stepgen-ninja` module. The module is designed to interface with a real-time control system, handling step generation and encoder feedback over a UDP socket. It supports up to 4 instances, each with multiple step generators and encoders.
 
-### For each instance (indexed by `j`)
+## Overview
 
-``` .hal
-module_name.j.connected - (BIT, IN) - Connection status with the hardware
-module_name.j.period - (U32, IN) - Period in nanoseconds
-module_name.j.io-ready-in - (BIT, IN) - Input ready signal
-module_name.j.io-ready-out - (BIT, OUT) - Output ready signal
-module_name.j.stepgen.pulse-width - (U32, IN) - Pulse width in nanoseconds
-```
+The `stepgen-ninja` module creates HAL pins for each instance (up to `MAX_CHAN = 4`). Each instance corresponds to a specific IP address and port configuration for UDP communication. The pins are organized into categories for step generators, encoders, and general I/O control.
 
-## Stepgen Pins (per channel, indexed by `i`)
+## Pin Naming Convention
 
-``` .hal
-module_name.j.stepgen.i.command - (FLOAT, IN) - Command input (position or velocity)
-module_name.j.stepgen.i.step-scale - (FLOAT, IN) - Scaling factor for steps
-module_name.j.stepgen.i.feedback - (FLOAT, OUT) - Feedback output
-module_name.j.stepgen.i.mode - (BIT, IN) - Mode selector (0=position, 1=velocity)
-module_name.j.stepgen.i.enable - (BIT, IN) - Enable signal
-```
+All pins follow the naming format: `stepgen-ninja.<instance>.<category>.<index>.<name>`, where:
 
-## Encoder Pins (per channel, indexed by `i`)
+- `<instance>` is the instance number (0 to 3).
+- `<category>` is either `stepgen`, `encoder`, or a general category.
+- `<index>` is the index of the step generator or encoder (0 to 3).
+- `<name>` is the specific pin name (e.g., `command`, `feedback`, etc.).
 
-``` .hal
-module_name.j.encoder.i.raw-count - (S32, IN) - Raw encoder count
-module_name.j.encoder.i.scaled-count - (S32, OUT) - Scaled encoder count
-module_name.j.encoder.i.scale - (FLOAT, IN) - Encoder scaling factor
-module_name.j.encoder.i.scaled-value - (FLOAT, OUT) - Scaled encoder value
-```
+## HAL Pins
 
-## Debug Pins (only available when debug=1)
+### General Pins (Per Instance)
 
-``` .hal
-module_name.j.stepgen.max-freq-khz - (FLOAT, OUT) - Debug: maximum frequency in kHz
-module_name.j.stepgen.dormant-cycles - (U32, IN) - Debug: dormant cycles setting
-```
+These pins are created for each instance of the module.
 
-## Functions
+| Pin Name | Type | Direction | Description |
+|----------|------|-----------|-------------|
+| `stepgen-ninja.<instance>.connected` | bit | IN | Indicates if the UDP socket connection is active (1 = connected, 0 = disconnected). |
+| `stepgen-ninja.<instance>.period` | u32 | IN | The period of the control cycle in nanoseconds, used for timing calculations. |
+| `stepgen-ninja.<instance>.io-ready-in` | bit | IN | Input pin for I/O readiness signal, typically used in an estop loop. |
+| `stepgen-ninja.<instance>.io-ready-out` | bit | OUT | Output pin for I/O readiness signal, reflecting the state of `io-ready-in` unless a watchdog timeout occurs. |
+| `stepgen-ninja.<instance>.stepgen.pulse-width` | u32 | IN | Pulse width for step generation in nanoseconds, used to configure the step pulse timing. |
 
-For each instance (indexed by `j`):
+### Debug Pins (Per Instance, Only if `debug == 1`)
 
-``` .hal
-module_name.j.watchdog-process - Watchdog timer function
-module_name.j.process-send - UDP send processing function
-module_name.j.process-recv - UDP receive processing function
-```
+These pins are available only when the module is compiled with `debug` set to 1.
 
-## Configuration Parameters
+| Pin Name | Type | Direction | Description |
+|----------|------|-----------|-------------|
+| `stepgen-ninja.<instance>.stepgen.max-freq-khz` | float | OUT | Maximum frequency in kHz, calculated based on the pulse width. |
+| `stepgen-ninja.<instance>.stepgen.dormant-cycles` | u32 | IN | Number of dormant cycles for debugging, used to adjust timing calculations (default: 10). |
 
-The module accepts these parameters when loaded:
+### Step Generator Pins (Per Instance, Per Step Generator)
 
-``` .hal
-ip_address - Array of IP:port strings for UDP communication (e.g., "192.168.0.177:8888;192.168.0.178:8889")
-```
+Each instance supports up to 4 step generators (`stepgens = 4`). The following pins are created for each step generator (indexed 0 to 3).
+
+| Pin Name | Type | Direction | Description |
+|----------|------|-----------|-------------|
+| `stepgen-ninja.<instance>.stepgen.<index>.command` | float | IN | Command input for the step generator, representing position (in position mode) or velocity (in velocity mode). |
+| `stepgen-ninja.<instance>.stepgen.<index>.step-scale` | float | IN | Scaling factor for the step generator command (default: 1.0). Converts command to steps. |
+| `stepgen-ninja.<instance>.stepgen.<index>.feedback` | float | OUT | Feedback output, mirroring the command input for the step generator. |
+| `stepgen-ninja.<instance>.stepgen.<index>.mode` | bit | IN | Mode of operation (0 = position mode, 1 = velocity mode, default: 0). |
+| `stepgen-ninja.<instance>.stepgen.<index>.enable` | bit | IN | Enables or disables the step generator (1 = enabled, 0 = disabled, default: 0). |
+
+### Encoder Pins (Per Instance, Per Encoder)
+
+Each instance supports up to 4 encoders (`encoders = 4`). The following pins are created for each encoder (indexed 0 to 3).
+
+| Pin Name | Type | Direction | Description |
+|----------|------|-----------|-------------|
+| `stepgen-ninja.<instance>.encoder.<index>.raw-count` | s32 | IN | Raw encoder count received from the remote device. |
+| `stepgen-ninja.<instance>.encoder.<index>.scaled-count` | s32 | IN | Scaled encoder count, calculated as `raw-count * scale`. |
+| `stepgen-ninja.<instance>.encoder.<index>.scale` | float | IN | Scaling factor for the encoder (default: 1.0). Converts raw counts to meaningful units. |
+| `stepgen-ninja.<instance>.encoder.<index>.scaled-value` | float | OUT | Scaled encoder value, calculated as `raw-count * scale`. |
 
 ## Notes
 
-1. The module supports up to 4 stepgen channels and 4 encoder channels per instance.
-2. Multiple instances can be created by providing multiple IP:port pairs separated by semicolons.
-3. The watchdog timeout is set to approximately 10ms.
-4. The module implements both position and velocity modes for step generation.
-5. All time-related parameters are in nanoseconds.
+- **Instances**: The number of instances is determined by parsing the `ip_address` module parameter, which contains IP:port pairs separated by semicolons. Up to 4 instances are supported (`MAX_CHAN = 4`).
+- **Default Values**:
+  - Step generator `mode` defaults to 0 (position mode).
+  - Step generator `enable` defaults to 0 (disabled).
+  - Step generator and encoder `scale` default to 1.0.
+  - Debug `dormant-cycles` defaults to 10 (when `debug == 1`).
+- **Debug Mode**: Debug pins are only created if the module is compiled with `debug` set to 1. These pins provide additional diagnostic information.
+- **Watchdog**: Each instance includes a watchdog process that monitors UDP communication. If no data is received within the watchdog timeout (default: ~10 ms), the `io-ready-out` pin is set to 0, and an error is logged.
+- **Commented Input Pins**: The code includes a commented section for input pins (e.g., `stepgen-ninja.<instance>.input.gp<index>`). These are not currently active but may be intended for future use with GPIO inputs.
+
+## Example Pin Names
+
+For instance 0, step generator 1, and encoder 2:
+
+- `stepgen-ninja.0.stepgen.1.command`
+- `stepgen-ninja.0.stepgen.1.feedback`
+- `stepgen-ninja.0.encoder.2.raw-count`
+- `stepgen-ninja.0.encoder.2.scaled-value`
+- `stepgen-ninja.0.io-ready-out`
+
+## Usage
+
+These pins are intended to be connected to other HAL components in a LinuxCNC setup. For example:
+
+- Connect `command` to a motion controller’s output for position or velocity control.
+- Connect `feedback` to a motion controller’s input for closed-loop control.
+- Use `io-ready-in` and `io-ready-out` in an estop chain to ensure safe operation.
+- Monitor `connected` to detect communication issues with the remote device.
+
+For more details on configuring the module, refer to the module parameters (`ip_address`) and the `parse_ip_port` function in the source code.
