@@ -2,7 +2,7 @@
 
 ## Global Pins
 
-### For each instance (indexed by `j`):
+### For each instance (indexed by `j`)
 
 ``` .hal
 module_name.j.connected - (BIT, IN) - Connection status with the hardware
@@ -26,7 +26,7 @@ module_name.j.stepgen.i.enable - (BIT, IN) - Enable signal
 
 ``` .hal
 module_name.j.encoder.i.raw-count - (S32, IN) - Raw encoder count
-module_name.j.encoder.i.scaled-count - (S32, IN) - Scaled encoder count
+module_name.j.encoder.i.scaled-count - (S32, OUT) - Scaled encoder count
 module_name.j.encoder.i.scale - (FLOAT, IN) - Encoder scaling factor
 module_name.j.encoder.i.scaled-value - (FLOAT, OUT) - Scaled encoder value
 ```
@@ -53,7 +53,7 @@ module_name.j.process-recv - UDP receive processing function
 The module accepts these parameters when loaded:
 
 ``` .hal
-ip_address - Array of IP:port strings for UDP communication (e.g., "192.168.1.100:5000")
+ip_address - Array of IP:port strings for UDP communication (e.g., "192.168.0.177:8888;192.168.0.178:8889")
 ```
 
 ## Notes
