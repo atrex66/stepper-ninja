@@ -288,6 +288,22 @@ void udp_io_process_recv(void *arg, long period) {
     // no data received len = -1
 }
 
+void print_binary_to_array(uint32_t num) {
+    char binary[40]; // 32 bit + 4 szóköz + 1 lezáró null
+    int index = 0;
+
+    for (int i = 31; i >= 0; i--) {
+        binary[index++] = ((num >> i) & 1) ? '1' : '0'; // Bit kiolvasása és tárolása
+        if (i % 8 == 0 && i != 0) {
+            binary[index++] = ' '; // 8 bitenként szóköz
+        }
+    }
+    binary[index] = '\0'; // Tömb lezárása
+
+    // Végső kiírás
+    rtapi_print_msg(RTAPI_MSG_INFO,"%s\n", binary);
+} 
+  
 // parse outputs
 static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
@@ -301,7 +317,6 @@ static void udp_io_process_send(void *arg, long period) {
     *d->debug_freq = (float)max_f / 1000.0;
     #endif
     memset(tx_buffer, 0, tx_size);
-
     if (old_pulse_width != *d->pulse_width) {
         uint32_t step_counter;
         uint32_t pio_cmd;
@@ -313,13 +328,13 @@ static void udp_io_process_send(void *arg, long period) {
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
         memset(timing, 0, sizeof(timing));
-        for (int i=1; i < 256; i++){
+        for (uint16_t i=1; i < 512; i++){
             #if debug == 0
             step_counter = (uint32_t)((float)(total_cycles  / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
             #else
             step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - (*d->debug_dormant_cycles);
             #endif
-            pio_cmd = (uint32_t)(step_counter << 8 | (uint8_t) i - 1);
+            pio_cmd = (uint32_t)(step_counter << 9 | (i - 1));
             timing[i] = pio_cmd;
         }
 
@@ -383,8 +398,8 @@ static void udp_io_process_send(void *arg, long period) {
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
-                if (steps_per_cycle > 255) {
-                    steps_per_cycle = 255; // Korlátozás 255 lépés/ms-re
+                if (steps_per_cycle > 512) {
+                    steps_per_cycle = 512; // Korlátozás 255 lépés/servo-cycle
                 }
 
                 // PIO parancs: a timing táblázatból vesszük a megfelelő értéket

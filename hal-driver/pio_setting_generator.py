@@ -6,8 +6,8 @@ def generate_lookup_header():
     output_file = "pio_settings.h"
 
     # Tartományok és eltolások
-    x_min, x_max = 4, 24
-    y_min, y_max = 16, 32
+    x_min, x_max = 2, 24
+    y_min, y_max = 12, 32
 
     # Lookup tábla adatainak kiszámítása
     settings = []
