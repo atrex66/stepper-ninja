@@ -6,6 +6,7 @@
 #define encoders 4
 
 #pragma pack(push, 1)
+// transmission structure from PC to Pico
 typedef struct{
     uint32_t stepgen_command[stepgens];
     uint8_t pio_timing;
@@ -14,6 +15,7 @@ typedef struct{
 #pragma pack(pop)
 
 #pragma pack(push, 1)
+// transmission structure from Pico to PC
 typedef struct{
     uint32_t encoder_counter[encoders];
     uint8_t checksum;

@@ -10,11 +10,13 @@
 #include <netinet/in.h>
 #include "jump_table.h"
 #include <arpa/inet.h>
+#include "transmission.h"
 
 #define NUM_CYCLES 100000
-#define SEND_PACKET_SIZE 25
-#define RECV_PACKET_SIZE 25
 #define TIMEOUT_SEC 2  // Increased timeout
+
+static transmission_pc_pico_t *tx_buffer;
+static transmission_pico_pc_t *rx_buffer;
 
 static int sockfd;
 static struct sockaddr_in local_addr, remote_addr;
@@ -22,7 +24,6 @@ static uint8_t jump_table_index = 1;
 char *ip_addr = "192.168.0.177";
 uint16_t port = 8888;
 uint8_t counter = 0;
-char send_buffer[SEND_PACKET_SIZE] = {0x00,};
 
 long long get_time_ms() {
     struct timeval tv;
@@ -45,19 +46,24 @@ static void init_socket(void) {
     inet_pton(AF_INET, ip_addr, &remote_addr.sin_addr);
 }
 
-void jump_table_checksum() {
-    // Check if the received data is valid
-    for (uint8_t i = 0; i < SEND_PACKET_SIZE - 1; i++) {
-        jump_table_index += send_buffer[i];
-    }
-    send_buffer[SEND_PACKET_SIZE - 1] = jump_table[jump_table_index];
-}
-
 int main() {
-    char recv_buffer[RECV_PACKET_SIZE];
     long long start_time, end_time, elapsed_time;
     int cycles_completed = 0;
     long long total_latency = 0;
+
+    uint8_t tx_size = sizeof(transmission_pc_pico_t);
+    uint8_t rx_size = sizeof(transmission_pico_pc_t);
+
+    rx_buffer = (transmission_pico_pc_t *)malloc(rx_size);
+    if (rx_buffer == NULL) {
+        printf("rx_buffer allocation failed\n");
+        return -1;
+    }
+    tx_buffer = (transmission_pc_pico_t *)malloc(tx_size);
+    if (tx_buffer == NULL) {
+        printf("tx_buffer allocation failed\n");
+        return -1;
+    }
 
     // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -77,12 +83,12 @@ int main() {
         long long cycle_start = get_time_ms();
         // DO NOT MODIFY THE DATA IF THE CARD IS CONNECTED TO YOUR MACHINE
         // DO NOT MODIFY THE DATA IF THE CARD IS CONNECTED TO YOUR MACHINE
-        memset(send_buffer, 0, SEND_PACKET_SIZE);
+        memset(tx_buffer, 0, tx_size);
         // DO NOT MODIFY THE DATA IF THE CARD IS CONNECTED TO YOUR MACHINE
         // DO NOT MODIFY THE DATA IF THE CARD IS CONNECTED TO YOUR MACHINE
-        jump_table_checksum();
+        // jump_table_checksum();
         // Send packet
-        if (sendto(sockfd, send_buffer, SEND_PACKET_SIZE, 0, (struct sockaddr*)&remote_addr, sizeof(remote_addr)) < 0) {
+        if (sendto(sockfd, tx_buffer, tx_size, 0, (struct sockaddr*)&remote_addr, sizeof(remote_addr)) < 0) {
             perror("Send failed");
             break;
         }
@@ -90,7 +96,7 @@ int main() {
         // Receive response
         socklen_t addr_len = sizeof(ip_addr);
         int recv_len = -1;
-        while (recv_len < 0) {recv_len = recvfrom(sockfd, recv_buffer, RECV_PACKET_SIZE, 0, NULL, NULL);}
+        while (recv_len < 0) {recv_len = recvfrom(sockfd, rx_buffer, rx_size, 0, NULL, NULL);}
         long long cycle_end = get_time_ms();
         total_latency += (cycle_end - cycle_start);
         cycles_completed++;
@@ -104,8 +110,8 @@ int main() {
     printf("Cycles attempted: %d\n", NUM_CYCLES);
     printf("Cycles completed: %d\n", cycles_completed);
     printf("Total time: %lld ms\n", elapsed_time);
-    printf("Average cycle time (write + read): %.2f ms\n", (double)total_latency / cycles_completed);
-    printf("Throughput: %.2f cycles/s\n", (cycles_completed / (elapsed_time / 1000.0)));
+    printf("Average cycle time (write + read): %.4f ms\n", (double)total_latency / cycles_completed);
+    printf("Throughput: %d cycles/s\n", (uint32_t)(cycles_completed / (elapsed_time / 1000.0)));
 
     close(sockfd);
     printf("Socket closed. Exiting...\n");

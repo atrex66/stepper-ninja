@@ -127,14 +127,14 @@ bool __time_critical_func(stepgen_update_handler)() {
 
     if (old_sety != sety || old_nop != nop) {
         for (int i=0; i<stepgens; i++){
-        pio_sm_set_enabled(pio0, i, false);
+        //pio_sm_set_enabled(pio0, i, false);
         pio_sm_exec(pio0, i, pio_encode_jmp(1));
         }
         pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
         pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
-        for (int i=0; i<stepgens; i++){
-        pio_sm_set_enabled(pio0, i, true);
-        }
+        //for (int i=0; i<stepgens; i++){
+        //pio_sm_set_enabled(pio0, i, true);
+        //}
         printf("sety:%d nop:%d\n", pio_settings[rx_buffer->pio_timing].sety & 31, pio_settings[rx_buffer->pio_timing].nop & 31);
         old_sety = sety;
         old_nop = nop;
@@ -410,29 +410,26 @@ void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
 
     setIMR(0x01);
-#if _WIZCHIP_ == W5100S
-    setIMR2(0x00);
-#endif
+    #if _WIZCHIP_ == W5100S
+        setIMR2(0x00);
+    #endif
 
     last_packet_time = get_absolute_time();
     time_diff = 0xFFFFFFFF;
     while (1){
     // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
-#if _WIZCHIP_ == W1500S
-#warning " **************************************************** Using W5100S in interrupt mode ************************************"
-
-        while(gpio_get(IRQ_PIN) == 1)
-        {
-            time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-            if (multicore_fifo_rvalid()) {
-                break;
-            }
-        }
-#endif
-#if _WIZCHIP_ == W5500
-#warning " **************************************************** Using W5500 in polling mode ************************************"
+        #if _WIZCHIP_ == W5100S
+            while(gpio_get(IRQ_PIN) == 1)
+            {
                 time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-#endif
+                if (multicore_fifo_rvalid()) {
+                    break;
+                }
+            }
+        #else
+        #warning "W5500 interrupt setup is not implemented, polling mode"
+                        time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+        #endif
         setSn_IR(0, Sn_IR_RECV);  // clear interrupt
         if(getSn_RX_RSR(0) != 0) {
             int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);

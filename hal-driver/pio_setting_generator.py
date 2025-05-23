@@ -6,7 +6,7 @@ def generate_lookup_header():
     output_file = "pio_settings.h"
 
     # Tartományok és eltolások
-    x_min, x_max = 4, 12
+    x_min, x_max = 4, 24
     y_min, y_max = 16, 32
 
     # Lookup tábla adatainak kiszámítása
@@ -41,11 +41,12 @@ def generate_lookup_header():
 
 #ifndef PIO_SETTINGS_H
 #define PIO_SETTINGS_H
+#include <stdint.h>
 
 typedef struct {{
-    int sety;
-    int nop;
-    double high_cycles;
+    uint8_t sety;
+    uint8_t nop;
+    uint16_t high_cycles;
 }} pio_setting_t;
 
 static const pio_setting_t pio_settings[{max_settings}] = {{
