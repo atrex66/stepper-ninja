@@ -89,6 +89,8 @@ target_link_libraries(stepper-ninja
     hardware_pll
 )
 
+# Set output filename based on WIZCHIP_TYPE
+set(TARGET_NAME_WITH_CHIP "stepper-ninja-${WIZCHIP_TYPE}")
+set_target_properties(stepper-ninja PROPERTIES OUTPUT_NAME ${TARGET_NAME_WITH_CHIP})
 
-target_compile_options(stepper-ninja PRIVATE)
 pico_add_extra_outputs(stepper-ninja)
