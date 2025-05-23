@@ -17,6 +17,7 @@
 
 // name of the module
 #define module_name "stepgen-ninja"
+#define debug 0
 
 /* module information */
 MODULE_AUTHOR("Viola Zsolt");
@@ -43,15 +44,14 @@ uint8_t rx_size = 25; // receive buffer size
 
 uint32_t total_cycles;
 
+#if debug == 0
 #define dormant_cycles 6
-#define width 1500 // 3000 ns pulse width
-// #define high_cycles 250
+#endif
 
 typedef struct {
     char ip[16]; // Holds IPv4 address
     int port;
 } IpPort;
-
 
 typedef struct {
     hal_float_t *command[stepgens];
@@ -59,11 +59,17 @@ typedef struct {
     hal_float_t *scale[stepgens];
     hal_bit_t *mode[stepgens];
     hal_bit_t *enable[stepgens];
+    hal_u32_t *pulse_width;
+    // encoder pins
     hal_s32_t *raw_count[encoders];
     hal_s32_t *scaled_count[encoders];
     hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
-    hal_u32_t *pulse_width;
+#if debug == 1
+    hal_float_t *debug_freq;
+    hal_u32_t *debug_dormant_cycles;
+#endif
+    // hal driver inside working
     hal_u32_t *period;
     hal_bit_t *connected;  
     hal_bit_t *io_ready_in;  
@@ -85,6 +91,9 @@ typedef struct {
     bool error_triggered;
     bool first_data;
 } module_data_t;
+
+const uint8_t input_pins[8] = {14, 15, 22, 26, 27, 28};
+const uint8_t output_pins[8] = {12, 13};
 
 static int instances = 0; // Példányok száma
 static int comp_id = -1; // HAL komponens azonosító
@@ -217,10 +226,10 @@ uint8_t nearest(uint16_t period){
     if (value < pio_settings[0].high_cycles){
         return 0;
     }
-    if (value > pio_settings[100].high_cycles){
-        return 100;
+    if (value > pio_settings[224].high_cycles){
+        return 224;
     }
-    for (int i = 0; i < 101; i++){
+    for (int i = 0; i < 225; i++){
         calc = abs(pio_settings[i].high_cycles - value);
         if (calc < min_diff){
             min_diff = calc;
@@ -274,25 +283,29 @@ static void udp_io_process_send(void *arg, long period) {
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
     bool reset_active = false;
-
+    uint32_t max_f = (uint32_t)(1.0 / ((*d->pulse_width * 2) * 1e-9));
+    #if debug == 1
+    *d->debug_freq = (float)max_f / 1000.0;
+    #endif
     memset(tx_buffer, 0, tx_size);
 
     if (old_pulse_width != *d->pulse_width) {
         uint32_t step_counter;
         uint32_t pio_cmd;
         total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
-        if (*d->pulse_width > 3000) {
-            *d->pulse_width = 3000; // max pulse width
-        }
-        if (*d->pulse_width < 1000) {
-            *d->pulse_width = 1000; // min pulse width
-        }
         uint8_t pio_index = nearest(*d->pulse_width);
+        rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
+        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[224].high_cycles*8);
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
+        memset(timing, 0, sizeof(timing));
         for (int i=1; i < 256; i++){
-            step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
+            #if debug == 0
+            step_counter = (uint32_t)((float)(total_cycles  / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
+            #else
+            step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - (*d->debug_dormant_cycles);
+            #endif
             pio_cmd = (uint32_t)(step_counter << 8 | (uint8_t) i - 1);
             timing[i] = pio_cmd;
         }
@@ -350,14 +363,12 @@ static void udp_io_process_send(void *arg, long period) {
                 uint8_t sign = (velocity >= 0) ? 1 : 0; // Irány meghatározása
                 steps_per_sec = fabs(steps_per_sec); // Abszolút érték a frekvenciához
 
-                // Biztonsági korlát: maximum 255 kHz
-                if (steps_per_sec > 255000) {
-                    steps_per_sec = 255000;
+                if (steps_per_sec > max_f) {
+                    steps_per_sec = max_f; // Korlátozás a periodusidobol származó maximális frekvenciára
                     // rtapi_print_msg(RTAPI_MSG_WARN, module_name ".%d: Velocity capped at 255 kHz\n", d->index);
                 }
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
-                // uint32_t steps_per_ms = (uint32_t)(steps_per_sec * 0.001); // Lépések 1 ms alatt
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
                 if (steps_per_cycle > 255) {
                     steps_per_cycle = 255; // Korlátozás 255 lépés/ms-re
@@ -536,6 +547,39 @@ int rtapi_app_main(void) {
             return r;
         }
 
+        #if debug == 1
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.stepgen.max-freq-khz", j);
+        r = hal_pin_float_newf(HAL_OUT, &hal_data[j].debug_freq, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.stepgen.dormant-cycles", j);
+        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].debug_dormant_cycles, comp_id, name, j);
+        *hal_data[j].debug_dormant_cycles = 10;
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+
+        #endif
+
+        /*for (int i = 0; i<sizeof(input_pins); i++){
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.input.gp%d", j, input_pins[i]);
+            r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+        }*/
+
         for (int i = 0; i<stepgens; i++)
         {
             memset(name, 0, sizeof(name));
@@ -595,7 +639,7 @@ int rtapi_app_main(void) {
             }
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scaled-count", j, i);
-            r = hal_pin_s32_newf(HAL_IN, &hal_data[j].scaled_count[i], comp_id, name, j);
+            r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].scaled_count[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
@@ -652,7 +696,7 @@ int rtapi_app_main(void) {
         
         char watchdog_name[48] = {0};
         snprintf(watchdog_name, sizeof(watchdog_name),module_name ".%d.watchdog-process", j);
-        r = hal_export_funct(watchdog_name, watchdog_process, &hal_data[j], 1, 0, comp_id);
+        r = hal_export_funct(watchdog_name, watchdog_process, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed for watchdog-process: %d\n", r);
             hal_exit(comp_id);
@@ -662,7 +706,7 @@ int rtapi_app_main(void) {
 
         char process_send[48] = {0};
         snprintf(process_send, sizeof(process_send), module_name ".%d.process-send", j);
-        r = hal_export_funct(process_send, udp_io_process_send, &hal_data[j], 1, 0, comp_id);
+        r = hal_export_funct(process_send, udp_io_process_send, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
             hal_exit(comp_id);
@@ -672,7 +716,7 @@ int rtapi_app_main(void) {
 
         char process_recv[48] = {0};
         snprintf(process_recv, sizeof(process_recv), module_name ".%d.process-recv", j);
-        r = hal_export_funct(process_recv, udp_io_process_recv, &hal_data[j], 1, 0, comp_id);
+        r = hal_export_funct(process_recv, udp_io_process_recv, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
             hal_exit(comp_id);
