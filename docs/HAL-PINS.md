@@ -35,8 +35,8 @@ These pins are available only when the module is compiled with `debug` set to 1.
 
 | Pin Name | Type | Direction | Description |
 |----------|------|-----------|-------------|
-| `stepgen-ninja.<instance>.stepgen.max-freq-khz` | float | OUT | Maximum frequency in kHz, calculated based on the pulse width. |
-| `stepgen-ninja.<instance>.stepgen.dormant-cycles` | u32 | IN | Number of dormant cycles for debugging, used to adjust timing calculations (default: 10). |
+| `stepgen-ninja.<instance>.stepgen.max-freq-khz` | float | OUT | Maximum frequency in kHz, calculated based on the pulse width. (50% duty) |
+| `stepgen-ninja.<instance>.stepgen.<index>.debug-steps` | u32 | OUT | Total number of steps generated|
 
 ### Step Generator Pins (Per Instance, Per Step Generator)
 
