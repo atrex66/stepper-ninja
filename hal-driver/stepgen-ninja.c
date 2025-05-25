@@ -640,7 +640,7 @@ int rtapi_app_main(void) {
         for (int i = 0; i<sizeof(output_pins); i++){
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
-            r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].output[i], comp_id, name, j);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);

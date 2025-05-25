@@ -505,12 +505,8 @@ void __not_in_flash_func(handle_udp)() {
                 }
                 //set output pins
                 for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-                    if (rx_buffer->outputs & (1 << output_pins[i])) {
-                        gpio_put(output_pins[i], 1);
-                    } else {
-                        gpio_put(output_pins[i], 0);
+                    gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
                     }
-                }
                 tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
                 tx_buffer->packet_id = rx_counter;
                 tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
