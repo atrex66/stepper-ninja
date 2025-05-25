@@ -17,7 +17,7 @@ An open-source, free, high performance step/generator and quadrature encoder int
 - **quadrature-encoder**: multiple channels 12.5MHz count rate per channel (theoretical).
 
 - **Software**:
-  - 1-8 PIO step generators and or quadrature encoders (current config 4 stepgen + 4 encoder)
+  - 1-8 PIO step generators and or quadrature encoders (current config 4 stepgen + 4 encoder + 4 input)
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
 
 - **Open-Source**: code and docs under MIT License, quadrature-encoder PIO program uses BSD-3 license.

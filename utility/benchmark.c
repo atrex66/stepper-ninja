@@ -11,6 +11,7 @@
 #include "jump_table.h"
 #include <arpa/inet.h>
 #include "transmission.h"
+#include "transmission.c"
 
 #define NUM_CYCLES 100000
 #define TIMEOUT_SEC 2  // Increased timeout
@@ -88,6 +89,8 @@ int main() {
         // DO NOT MODIFY THE DATA IF THE CARD IS CONNECTED TO YOUR MACHINE
         // jump_table_checksum();
         // Send packet
+        tx_buffer->packet_id = counter++;
+        tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1); // Exclude checksum byte itself
         if (sendto(sockfd, tx_buffer, tx_size, 0, (struct sockaddr*)&remote_addr, sizeof(remote_addr)) < 0) {
             perror("Send failed");
             break;

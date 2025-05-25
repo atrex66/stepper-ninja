@@ -4,6 +4,7 @@
 #include "wizchip_conf.h"
 #include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
+#include "hardware/pwm.h"
 #include "config.h"
 #include "transmission.h"
 
@@ -21,6 +22,7 @@ extern uint8_t timeout_error;
 extern uint32_t time_constant;
 extern int32_t *position;
 extern uint32_t total_steps[stepgens];
+extern uint8_t pwm_pin;
 
 bool enable_serial = true;
 
@@ -129,6 +131,15 @@ void process_command(char* command) {
         }
         else {
             printf("Invalid timeout format\n");
+        }
+    }
+    else if (strncmp(command, "pwm ", 4) == 0) {
+        uint16_t pwm;
+        if (sscanf(command, "pwm %d", &pwm) == 1) {
+            pwm_set_gpio_level(pwm_pin, pwm);
+        }
+        else {
+            printf("Invalid pwm format\n");
         }
     }
     else if (strncmp(command, "port ", 5) == 0) {

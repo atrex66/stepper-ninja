@@ -87,6 +87,7 @@ target_link_libraries(stepper-ninja
     hardware_i2c
     hardware_pio
     hardware_pll
+    hardware_pwm
 )
 
 # Set output filename based on WIZCHIP_TYPE

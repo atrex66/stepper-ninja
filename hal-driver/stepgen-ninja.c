@@ -29,9 +29,6 @@ MODULE_LICENSE("MIT");
 char *ip_address[128] = {0,};
 RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 
-#define stepgens 4
-#define encoders 4
-
 // receive buffer size 
 // #define tx_size 25
 uint8_t tx_size = 25; // transmit buffer size
@@ -66,9 +63,15 @@ typedef struct {
     hal_float_t *enc_scale[encoders];
     // pwm output
     hal_bit_t *pwm_enable;
-    hal_float_t *pwm_duty;
-    hal_float_t *pwm_frequency;
+    hal_u32_t *pwm_output;
+    hal_u32_t *pwm_frequency;
+    hal_float_t *pwm_maxscale;
+    // inputs
     hal_bit_t *input[32];
+    #if use_outputs == 1
+    // outputs
+    hal_bit_t *output[32];
+    #endif
 
 #if debug == 1
     hal_float_t *debug_freq;
@@ -251,7 +254,7 @@ void udp_io_process_recv(void *arg, long period) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = recvfrom(d->sockfd, rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
+    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_WAITALL, &d->remote_addr, &addrlen);
     //int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     if (len == rx_size) {
         if (!tx_checksum_ok(rx_buffer)) {
@@ -270,7 +273,7 @@ void udp_io_process_recv(void *arg, long period) {
             *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
             *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
         }
-        // get the inputs
+        // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < sizeof(input_pins); i++) {
             *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1; 
         }
@@ -417,6 +420,36 @@ static void udp_io_process_send(void *arg, long period) {
         }
 
         tx_buffer->pio_timing = nearest(*d->pulse_width);
+
+    #if use_outputs == 1
+    uint32_t outs=0;
+    for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+        // Copy the encoder values to the tx_buffer
+        outs |= 1 << *d->output[i];
+    }
+    tx_buffer->outputs = outs; // Clear outputs
+    #endif
+
+    #if use_pwm == 1
+    // Set the PWM output
+    if (*d->pwm_enable) {
+        if (*d->pwm_frequency > 0) {
+            if (*d->pwm_frequency > 1000000) {
+                *d->pwm_frequency = 1000000; // Cap the frequency to 1MHz
+            }
+            if (*d->pwm_frequency < 1907) {
+                *d->pwm_frequency = 1907;
+            }
+            uint16_t wrap = pwm_calculate_wrap(*d->pwm_frequency);
+            // scale the duty cycle to the wrap value
+            u_int16_t duty_cycle = (uint16_t)((*d->pwm_output / *d->pwm_maxscale) * wrap);
+            tx_buffer->pwm_frequency = *d->pwm_frequency; // Set the PWM frequency
+            tx_buffer->pwm_duty = duty_cycle;
+        } else {
+            tx_buffer->pwm_duty = 0; // Disable PWM output
+        }
+    }
+    #endif
 
     tx_buffer->packet_id = tx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1); // Calculate checksum excluding the checksum byte itself
@@ -598,6 +631,56 @@ int rtapi_app_main(void) {
                 return r;
             }
         }
+
+        #if use_outputs == 1
+        for (int i = 0; i<sizeof(output_pins); i++){
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
+            r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].output[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+        }
+        #endif
+
+        #if use_pwm == 1
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.pwm.enable", j);
+        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+        *hal_data[j].pwm_enable = 0;
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.pwm.duty", j);
+        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.pwm.frequency", j);
+        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.pwm.max-scale", j);
+        r = hal_pin_float_newf(HAL_IN, &hal_data[j].pwm_maxscale, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+        *hal_data[j].pwm_maxscale = 1.0; // default max scale
+        #endif
 
         for (int i = 0; i<stepgens; i++)
         {

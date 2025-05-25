@@ -4,6 +4,7 @@
 #include "pico/stdlib.h"
 #include "pico/stdio_usb.h"
 #include "pico/multicore.h"
+#include "pico/divider.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
@@ -13,6 +14,7 @@
 #include "hardware/regs/pll.h"
 #include "hardware/structs/pll.h"
 #include "hardware/pio.h"
+#include "hardware/pwm.h"
 #include "serial_terminal.h"
 #include "wizchip_conf.h"
 #include "socket.h"
@@ -48,6 +50,8 @@ extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
 extern const uint8_t input_pins[4];
+extern const uint8_t output_pins[2];
+extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
 
 transmission_pc_pico_t *rx_buffer;
@@ -64,7 +68,7 @@ static dma_channel_config dma_channel_config_rx;
 #endif
 
 uint32_t step_pin[stepgens] = {0, 2, 4, 6};
-uint8_t encoder_base[encoders] = {8, 10, 12, 14};
+uint8_t encoder_base[4] = {8, 10, 12, 14};
 
 int32_t encoder[encoders] = {0,};
 
@@ -90,9 +94,10 @@ uint32_t TIMEOUT_US = 100000;
 uint32_t time_diff;
 uint8_t checksum_index = 1;
 uint8_t checksum_index_in = 1;
+uint32_t old_pwm_frequency = 0;
 
 void __time_critical_func(stepgen_update_handler)() {
-    uint32_t irq = save_and_disable_interrupts();
+    // uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
     static PIO pio;
     int zeros = 0;
@@ -135,7 +140,7 @@ void __time_critical_func(stepgen_update_handler)() {
         old_nop = nop;
     }
 
-    // pio0->ctrl = 0;
+    //pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
@@ -143,9 +148,9 @@ void __time_critical_func(stepgen_update_handler)() {
             total_steps[i] += (command[i] & 0x1ff) + 1;
             }
     }
-    // pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
+    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 
-    restore_interrupts(irq);
+    // restore_interrupts(irq);
 }
 
 // -------------------------------------------
@@ -173,11 +178,7 @@ void core1_entry() {
                     pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
                     pio_sm_set_enabled(pio1, i, true);
                     printf("Encoder %d reset\n", i);
-                    
                 }
-                //for (int i = 0; i < stepgens; i++) {
-                //    total_steps[i] = 0;
-                //}
                 rx_counter = 0;
                 timeout_error = 1;
                 checksum_index = 1;
@@ -185,10 +186,25 @@ void core1_entry() {
                 checksum_error = 0;
                 first_data = true;
                 first_send = 1;
+                for (int i = 0; i < sizeof(output_pins); i++) {
+                    gpio_put(output_pins[i], 0); // reset outputs
+                }
             }
         }
         else {
             timeout_error = 0;
+        }
+
+        if (old_pwm_frequency != rx_buffer->pwm_frequency) {
+            old_pwm_frequency = rx_buffer->pwm_frequency;
+            uint16_t wrap = pwm_calculate_wrap(rx_buffer->pwm_frequency);
+            if (wrap > 0) {
+                uint slice = pwm_gpio_to_slice_num(pwm_pin);
+                pwm_set_enabled(pwm_gpio_to_slice_num(pwm_pin), false); // Disable PWM output before changing wrap
+                pwm_set_wrap(slice, wrap); // Set the PWM wrap value
+                pwm_set_enabled(slice, true); // Enable PWM output
+                printf("PWM frequency: %d Hz wrap:%d\n", rx_buffer->pwm_frequency, wrap);
+            }
         }
 
         handle_serial_input();
@@ -262,6 +278,31 @@ int main() {
         gpio_set_dir(input_pins[i], GPIO_IN);
         gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
     }
+
+    #if use_pwm == 1
+    gpio_set_function(pwm_pin, GPIO_FUNC_PWM); // Set PWM pin function
+    gpio_set_function(pwm_pin + 1, GPIO_FUNC_PWM); // Set PWM pin function
+    // Figure out which slice we just connected to the LED pin
+    uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
+
+    // Get some sensible defaults for the slice configuration. By default, the
+    // counter is allowed to wrap over its maximum range (0 to 2**16-1)
+    pwm_config config = pwm_get_default_config();
+    // Set divider, reduces counter clock to sysclock/this value
+    pwm_config_set_clkdiv(&config, 1.0f);
+    // Set the PWM frequency to 1kHz
+    pwm_config_set_wrap(&config, 2048);
+    pwm_init(slice_num, &config, false); // Initialize the PWM slice with the config
+    //pwm_set_gpio_level(pwm_pin, 5000); // Set initial level to low
+    #endif
+
+    #if use_outputs == 1
+    for (int i = 0; i < sizeof(output_pins); i++) {
+        gpio_init(output_pins[i]);
+        gpio_set_dir(output_pins[i], GPIO_OUT);
+        gpio_put(output_pins[i], 0); // Set output pins to low
+    }
+    #endif
 
     uint32_t offset[2] = {0, };
 
@@ -442,26 +483,42 @@ void __not_in_flash_func(handle_udp)() {
                 if (rx_buffer->packet_id != rx_counter) {
                     printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
                     checksum_error = 1;
-                    return;
                 }
                 if (!rx_checksum_ok(rx_buffer)) {
                     printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
                     checksum_error = 1;
-                    return;
                 }
+                if (!checksum_error) {
                 // update stepgens
                 stepgen_update_handler();
+                // update pwm
+                pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
+                }
+                else
+                {
+                    pwm_set_gpio_level(pwm_pin, 0); // Disable PWM output on checksum error
+                }
+
                 // update encoders
                 for (int i = 0; i < encoders; i++) {
                     encoder[i] = quadrature_encoder_get_count(pio1, i);
                     tx_buffer->encoder_counter[i] = encoder[i];
                 }
-                //jump_table_checksum_in();
+                //set output pins
+                for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+                    if (rx_buffer->outputs & (1 << output_pins[i])) {
+                        gpio_put(output_pins[i], 1);
+                    } else {
+                        gpio_put(output_pins[i], 0);
+                    }
+                }
                 tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
                 tx_buffer->packet_id = rx_counter;
                 tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+                if (!checksum_error){
                 _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
                 rx_counter += 1;
+                }
             }
         }
         if (multicore_fifo_rvalid()) {
