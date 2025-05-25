@@ -13,7 +13,11 @@
  - GP9 = encoder 0 B (pin 12)
  - GP10 = encoder 1 A (pin 14)
  - GP11 = encoder 1 B (pin 15)
- - GP12 = encoder 2 A (pin 16)
- - GP13 = encoder 2 B (pin 17)
- - GP14 = encoder 3 A (pin 19)
- - GP15 = encoder 3 B (pin 20)
+ - GP12 = output
+ - GP13 = output
+ - GP14 = pwm
+ - GP15 = output
+ - GP22 = input
+ - GP26 = input
+ - GP27 = input
+ - GP28 = input
