@@ -13,6 +13,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "transmission.h" // Include the header file for transmission structure
+#include "transmission.c"
 #include "pio_settings.h" // Include the header file for PIO settings
 
 // name of the module
@@ -113,9 +114,10 @@ static int checksum_error = 0;
 static int bufsize = 65536;
 static uint32_t timing[1024] = {0, };
 static bool first_send = true;
-static transmission_pc_pico_t *tx_buffer;
-static transmission_pico_pc_t *rx_buffer;
 static uint32_t old_pulse_width = 0;
+static uint8_t tx_counter = 0;
+transmission_pc_pico_t *tx_buffer;
+transmission_pico_pc_t *rx_buffer;
 
 uint64_t get_time_ns() {
     struct timespec ts;
@@ -250,15 +252,6 @@ uint8_t nearest(uint16_t period){
     return index;
 }
 
-uint8_t checksum(void* buffer, uint8_t len) {
-    uint8_t checksum = 0;
-    char* bytes = (char*)buffer;
-    for (int i = 0; i < len; i++) {
-        checksum ^= (uint8_t)bytes[i];
-    }
-    return checksum;
-}
-
 // parse inputs
 void udp_io_process_recv(void *arg, long period) {
     module_data_t *d = arg;
@@ -268,11 +261,17 @@ void udp_io_process_recv(void *arg, long period) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+    int len = recvfrom(d->sockfd, rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     //int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     if (len == rx_size) {
-        calcChecksum = checksum(rx_buffer, rx_size - 1);
-        // Check if the received data is valid
+        if (!tx_checksum_ok(rx_buffer)) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: checksum error: %d != %d\n", 
+                           d->index, rx_buffer->checksum, calculate_checksum(&rx_buffer, rx_size - 1));
+            d->checksum_error = 1;
+            d->connected = 0;
+            *d->io_ready_out = 0; // set io-ready-out to 0 to break the estop-loop
+            return;
+        }
         *d->connected = 1;
         d->last_received_time = d->current_time;
         // user code start (process received data) rx_buffer[*]
@@ -321,7 +320,7 @@ static void udp_io_process_send(void *arg, long period) {
         total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
         uint8_t pio_index = nearest(*d->pulse_width);
         rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[224].high_cycles*8);
+        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[264].high_cycles*8);
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
@@ -424,6 +423,13 @@ static void udp_io_process_send(void *arg, long period) {
         }
 
         tx_buffer->pio_timing = nearest(*d->pulse_width);
+
+    tx_buffer->packet_id = tx_counter;
+    tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1); // Calculate checksum excluding the checksum byte itself
+    sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
+    tx_counter++;
+    //rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: sent data to %s:%d\n", d->index, d->ip_address->ip, d->ip_address->port);
+
     }
     else{
         //if the watchdog is not running, we should not send data (io-samurai side is going to timeout error and turn off outputs)
@@ -434,9 +440,6 @@ static void udp_io_process_send(void *arg, long period) {
             return;  // No data to send (generate io-samurai side timeout error)
         }
     }
-    tx_buffer->checksum = checksum(tx_buffer, tx_size - 1); // Calculate checksum
-    sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
-    //rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: sent data to %s:%d\n", d->index, d->ip_address->ip, d->ip_address->port);
 }
 
 /*

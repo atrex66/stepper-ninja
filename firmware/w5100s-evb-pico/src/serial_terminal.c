@@ -5,6 +5,7 @@
 #include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
 #include "config.h"
+#include "transmission.h"
 
 char buffer[64];
 int buffer_pos = 0;
@@ -19,6 +20,7 @@ extern uint16_t adc_max;
 extern uint8_t timeout_error;
 extern uint32_t time_constant;
 extern int32_t *position;
+extern uint32_t total_steps[stepgens];
 
 bool enable_serial = true;
 
@@ -84,15 +86,19 @@ void process_command(char* command) {
         printf("DNS: %d.%d.%d.%d\n", net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]);
         printf("DHCP: %d   (1-Static, 2-Dinamic)\n", net_info.dhcp);
         printf("PORT: %d\n", port);
-    #if _WIZCHIP_ == WIZCHIP_5100
+    #if _WIZCHIP_ == W5100S
         printf("*******************PHY status**************\n");
         uint8_t phyconf = getPHYSR();
         uint8_t speed = phyconf >> 1 & 0x01;
         uint8_t duplex = phyconf >> 2 & 0x01;
         printf("PHY Duplex: %s\n", speed ? "Full" : "Half");
         printf("PHY Speed: %s\n", duplex ? "100Mbps" : "10Mbps");
-        printf("*******************************************\n");
     #endif
+        printf("*******************************************\n");
+        for (int i = 0; i < stepgens; i++) {
+            printf("Stepgen %d: %d steps\n", i, total_steps[i]);
+        }
+        printf("*******************************************\n");
         printf("Timeout: %d\n", TIMEOUT_US);
         printf("Ready.\n");
     }

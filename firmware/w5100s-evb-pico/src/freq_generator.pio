@@ -13,20 +13,20 @@
 
 .program freq_generator
 
-    set pindirs, 1   ; Set pin to output 0
+    set pindirs, 1   ;
 again:
-    pull block       ; wait for new data (blocking)
-    out x, 9         ; 8 bit number of steps 2.
+    pull block       ;
+    out x, 9         ; 9 bit number of steps 2.
 loop0:
-    set pins, 1      ; step pin high 1.
-    set y, 24        ; 28
+    set pins, 1      ; 
+    set y, 24        ;
 loop1:
-    nop [8]          ; (31 + 1) * nop + [4] + jmp = 192
-    jmp y--, loop1   ; decrement high 163.
-    set pins, 0      ; set step pin to low 164.
-    mov y, osr       ; restore y from osr 165.
+    nop [8]          ; 
+    jmp y--, loop1   ; 
+    set pins, 0      ; 
+    mov y, osr       ; 
 loop2:
-    jmp y--, loop2   ; 168.
-    jmp x--, loop0   ; decrement step number 169
+    jmp y--, loop2   ;
+    jmp x--, loop0   ;
     nop
-    jmp again        ; unconditional jump to start (pull new value) 6.
+    jmp again        ;

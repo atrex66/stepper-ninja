@@ -38,7 +38,7 @@ configuration_t *flash_config = NULL;
 #define FLASH_TARGET_OFFSET (1024 * 1024) // 1mb offset
 #define FLASH_DATA_SIZE (sizeof(configuration_t))
 
-uint8_t calculate_checksum(configuration_t *config) {
+uint8_t calculate_checksum_flash(configuration_t *config) {
     uint8_t checksum = 0;
     for (int i = 0; i < sizeof(configuration_t) - 1; i++) {
         checksum += ((uint8_t *)config)[i];
@@ -78,7 +78,7 @@ void __time_critical_func(save_config_to_flash)() {
         printf("Core0 is ready, proceeding with flash write...\n");
     }
 
-    flash_config->checksum = calculate_checksum(flash_config);
+    flash_config->checksum = calculate_checksum_flash(flash_config);
 
     memset(data, 0xFF, FLASH_SECTOR_SIZE);
     memcpy(data, flash_config, sizeof(configuration_t));
@@ -101,7 +101,7 @@ void load_config_from_flash() {
         flash_config = (configuration_t *)malloc(sizeof(configuration_t));
     }
     memcpy(flash_config, (configuration_t *)(XIP_BASE + FLASH_TARGET_OFFSET), sizeof(configuration_t));
-    uint8_t checksum = calculate_checksum(flash_config);
+    uint8_t checksum = calculate_checksum_flash(flash_config);
     if (checksum != flash_config->checksum){
         printf("Invalid checksum restoring default configuration.\n");
         printf("Checksum: %02X, Flash Checksum: %02X\n", checksum, flash_config->checksum);
@@ -120,6 +120,6 @@ void restore_default_config() {
     }
     memcpy(flash_config, &default_config, sizeof(configuration_t));
     // calculate checksum
-    flash_config->checksum = calculate_checksum(flash_config);
+    flash_config->checksum = calculate_checksum_flash(flash_config);
     save_config_to_flash();
 }

@@ -70,7 +70,8 @@ int32_t encoder[encoders] = {0,};
 int32_t *command;
 uint8_t *src_ip;
 uint16_t src_port;
-uint32_t rx_counter=0;
+uint8_t rx_counter=0;
+uint32_t total_steps[stepgens] = {0,};
 
 uint8_t rx_size = sizeof(transmission_pc_pico_t);
 uint8_t tx_size = sizeof(transmission_pico_pc_t);
@@ -89,7 +90,7 @@ uint32_t time_diff;
 uint8_t checksum_index = 1;
 uint8_t checksum_index_in = 1;
 
-bool __time_critical_func(stepgen_update_handler)() {
+void __time_critical_func(stepgen_update_handler)() {
     uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
     static PIO pio;
@@ -97,7 +98,7 @@ bool __time_critical_func(stepgen_update_handler)() {
     int j=0;
 
     if (checksum_error){
-        return false;
+        return;
     }
     // get command from rx_buffer and set direction signals
     for (int i = 0; i < stepgens; i++) {
@@ -138,12 +139,12 @@ bool __time_critical_func(stepgen_update_handler)() {
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
             pio_sm_put_blocking(pio0, i, command[i] & 0x7fffffff);
+            total_steps[i] += (command[i] & 0x1ff) + 1;
             }
     }
     // pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 
     restore_interrupts(irq);
-    return true;
 }
 
 // -------------------------------------------
@@ -171,15 +172,19 @@ void core1_entry() {
                     pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
                     pio_sm_set_enabled(pio1, i, true);
                     printf("Encoder %d reset\n", i);
+                    
                 }
+                //for (int i = 0; i < stepgens; i++) {
+                //    total_steps[i] = 0;
+                //}
+                rx_counter = 0;
+                timeout_error = 1;
+                checksum_index = 1;
+                checksum_index_in = 1;
+                checksum_error = 0;
+                first_data = true;
+                first_send = 1;
             }
-            timeout_error = 1;
-            checksum_index = 1;
-            checksum_index_in = 1;
-            checksum_error = 0;
-            first_data = true;
-            first_send = 1;
-            //reset_with_watchdog();
         }
         else {
             timeout_error = 0;
@@ -406,7 +411,7 @@ void __not_in_flash_func(handle_udp)() {
     #endif
 
     last_packet_time = get_absolute_time();
-    time_diff = 0xFFFFFFFF;
+    //time_diff = 0xFFFFFFFF;
     while (1){
     // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
         #if _WIZCHIP_ == W5100S
@@ -415,7 +420,7 @@ void __not_in_flash_func(handle_udp)() {
                 time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
                 if (multicore_fifo_rvalid()) {
                     break;
-                }
+               }
             }
         #else
         #warning "W5500 interrupt setup is not implemented, polling mode"
@@ -425,10 +430,18 @@ void __not_in_flash_func(handle_udp)() {
         if(getSn_RX_RSR(0) != 0) {
             int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
             if (len == rx_size) {
-                rx_counter ++;
                 //printf("%d Received bytes: %d\n", rx_counter, len);
                 last_packet_time = get_absolute_time();
-                //jump_table_checksum();
+                if (rx_buffer->packet_id != rx_counter) {
+                    printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
+                    checksum_error = 1;
+                    return;
+                }
+                if (!rx_checksum_ok(rx_buffer)) {
+                    printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
+                    checksum_error = 1;
+                    return;
+                }
                 // update stepgens
                 stepgen_update_handler();
                 // update encoders
@@ -437,7 +450,10 @@ void __not_in_flash_func(handle_udp)() {
                     tx_buffer->encoder_counter[i] = encoder[i];
                 }
                 //jump_table_checksum_in();
+                tx_buffer->packet_id = rx_counter;
+                tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
                 _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+                rx_counter += 1;
             }
         }
         if (multicore_fifo_rvalid()) {
