@@ -47,9 +47,10 @@ module_name.j.output.gpX - (BIT, IN) - Digital output control (X = pin number)
 
 ``` .hal
 module_name.j.pwm.enable - (BIT, IN) - PWM enable
-module_name.j.pwm.duty - (U32, IN) - PWM duty cycle (0-maxscale)
+module_name.j.pwm.duty - (U32, IN) - PWM duty cycle (minlimit-maxscale)
 module_name.j.pwm.frequency - (U32, IN) - PWM frequency (1907-1000000 Hz)
-module_name.j.pwm.max-scale - (FLOAT, IN) - Maximum duty cycle scale
+module_name.j.pwm.max-scale - (U32, IN) - Maximum duty cycle scale
+module_name.j.pwm.min-limit - (U32, IN) - Minimum duty cycle output
 ```
 
 ## Debug Pins (when debug=1)
