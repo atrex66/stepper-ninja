@@ -10,6 +10,7 @@
 // transmission structure from PC to Pico
 typedef struct{
     uint32_t stepgen_command[stepgens];
+    uint32_t outputs;
     uint8_t pio_timing;
     uint8_t packet_id;
     uint8_t checksum;
@@ -20,6 +21,7 @@ typedef struct{
 // transmission structure from Pico to PC
 typedef struct{
     uint32_t encoder_counter[encoders];
+    uint32_t inputs[2]; // Two 32-bit inputs
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;

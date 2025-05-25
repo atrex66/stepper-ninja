@@ -68,14 +68,7 @@ typedef struct {
     hal_bit_t *pwm_enable;
     hal_float_t *pwm_duty;
     hal_float_t *pwm_frequency;
-    // inputs
-    #if encoders < 3
-    hal_bit_t *input[6];
-    hal_bit_t *output[2];
-    #else
-    hal_bit_t *input[4];
-    hal_bit_t *output[2];
-    #endif
+    hal_bit_t *input[32];
 
 #if debug == 1
     hal_float_t *debug_freq;
@@ -103,9 +96,6 @@ typedef struct {
     bool error_triggered;
     bool first_data;
 } module_data_t;
-
-const uint8_t input_pins[8] = {14, 15, 22, 26, 27, 28};
-const uint8_t output_pins[8] = {12, 13};
 
 static int instances = 0; // Példányok száma
 static int comp_id = -1; // HAL komponens azonosító
@@ -275,10 +265,14 @@ void udp_io_process_recv(void *arg, long period) {
         *d->connected = 1;
         d->last_received_time = d->current_time;
         // user code start (process received data) rx_buffer[*]
-        for (int i = 0; i < encoders; i++) {
+        for (uint8_t i = 0; i < encoders; i++) {
             *d->raw_count[i] = rx_buffer->encoder_counter[i];
             *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
             *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+        }
+        // get the inputs
+        for (uint8_t i = 0; i < sizeof(input_pins); i++) {
+            *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1; 
         }
         // user code end
     }
@@ -594,7 +588,7 @@ int rtapi_app_main(void) {
 
         #endif
 
-        /*for (int i = 0; i<sizeof(input_pins); i++){
+        for (int i = 0; i<sizeof(input_pins); i++){
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.input.gp%d", j, input_pins[i]);
             r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input[i], comp_id, name, j);
@@ -603,7 +597,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-        }*/
+        }
 
         for (int i = 0; i<stepgens; i++)
         {

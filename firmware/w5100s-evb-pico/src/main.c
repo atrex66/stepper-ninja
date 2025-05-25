@@ -47,6 +47,7 @@
 extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
+extern const uint8_t input_pins[4];
 wiz_NetInfo net_info;
 
 transmission_pc_pico_t *rx_buffer;
@@ -256,6 +257,12 @@ int main() {
     gpio_init(15);
     gpio_set_dir(15, GPIO_OUT);
 
+    for (int i = 0; i < sizeof(input_pins); i++) {
+        gpio_init(input_pins[i]);
+        gpio_set_dir(input_pins[i], GPIO_IN);
+        gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+    }
+
     uint32_t offset[2] = {0, };
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
@@ -450,6 +457,7 @@ void __not_in_flash_func(handle_udp)() {
                     tx_buffer->encoder_counter[i] = encoder[i];
                 }
                 //jump_table_checksum_in();
+                tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
                 tx_buffer->packet_id = rx_counter;
                 tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
                 _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
