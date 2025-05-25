@@ -426,7 +426,7 @@ static void udp_io_process_send(void *arg, long period) {
     uint32_t outs=0;
     for (uint8_t i = 0; i < sizeof(output_pins); i++) {
         // Copy the encoder values to the tx_buffer
-        outs |= 1 << *d->output[i];
+        outs |= *d->output[i] == 1 ? 1 << i : 0; // Set the bit if output is high
     }
     tx_buffer->outputs = outs; // Clear outputs
     #endif
@@ -646,6 +646,7 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
+            *hal_data[j].output[i] = 0; // Initialize output pins to 0
         }
         #endif
 
