@@ -50,7 +50,7 @@ extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
 extern const uint8_t input_pins[4];
-extern const uint8_t output_pins[2];
+extern const uint8_t output_pins[3];
 extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
 
@@ -71,6 +71,8 @@ uint32_t step_pin[stepgens] = {0, 2, 4, 6};
 uint8_t encoder_base[4] = {8, 10, 12, 14};
 
 int32_t encoder[encoders] = {0,};
+
+uint8_t buffer_index = 0;
 
 int32_t *command;
 uint8_t *src_ip;
@@ -140,7 +142,6 @@ void __time_critical_func(stepgen_update_handler)() {
         old_nop = nop;
     }
 
-    //pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
@@ -148,9 +149,8 @@ void __time_critical_func(stepgen_update_handler)() {
             total_steps[i] += (command[i] & 0x1ff) + 1;
             }
     }
-    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
-
     // restore_interrupts(irq);
+
 }
 
 // -------------------------------------------
