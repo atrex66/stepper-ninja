@@ -8,7 +8,7 @@ const uint8_t input_pins[4] = {22, 26, 27, 28};
 #if use_outputs == 1 && use_pwm == 0
 const uint8_t output_pins[4] = {12, 13, 14, 15}; // Example output pins
 #elif use_outputs == 1 && use_pwm == 1
-const uint8_t output_pins[2] = {12, 13}; // Example output pins
+const uint8_t output_pins[3] = {12, 13, 15}; // Example output pins
 #endif
 
 #if use_pwm == 1

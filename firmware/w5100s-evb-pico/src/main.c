@@ -281,7 +281,6 @@ int main() {
 
     #if use_pwm == 1
     gpio_set_function(pwm_pin, GPIO_FUNC_PWM); // Set PWM pin function
-    gpio_set_function(pwm_pin + 1, GPIO_FUNC_PWM); // Set PWM pin function
     // Figure out which slice we just connected to the LED pin
     uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
 
