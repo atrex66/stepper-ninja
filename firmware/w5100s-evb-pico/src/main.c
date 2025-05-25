@@ -481,7 +481,7 @@ void __not_in_flash_func(handle_udp)() {
                 last_packet_time = get_absolute_time();
                 if (rx_buffer->packet_id != rx_counter) {
                     printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
-                    checksum_error = 1;
+                    rx_counter = rx_buffer->packet_id;
                 }
                 if (!rx_checksum_ok(rx_buffer)) {
                     printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
@@ -497,7 +497,6 @@ void __not_in_flash_func(handle_udp)() {
                 {
                     pwm_set_gpio_level(pwm_pin, 0); // Disable PWM output on checksum error
                 }
-
                 // update encoders
                 for (int i = 0; i < encoders; i++) {
                     encoder[i] = quadrature_encoder_get_count(pio1, i);
