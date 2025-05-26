@@ -338,6 +338,9 @@ int main() {
 
     #if use_pwm == 1
     gpio_set_function(pwm_pin, GPIO_FUNC_PWM); // Set PWM pin function
+    #if pwm_invert == 1
+        gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
+    #endif
     // Figure out which slice we just connected to the LED pin
     uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
 

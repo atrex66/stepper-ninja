@@ -43,10 +43,19 @@
         #elif use_pwm == 1 && use_outputs == 1
             #define encoders 2
         #endif
-        #define in_pins {22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+
+        #if encoders == 1
+            #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pins_no 6
+        #elif encoders == 2
+            #define in_pins {22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pins_no 4
+        #endif // encoders < 2
+
     #endif // brakeout_board > 0
 
     #define pwm_GP 14 // PWM pin for the module (GPIO 8)
+    #define pwm_invert 1 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #if use_outputs == 1
         #define out_pins_3 {12, 13, 15} // output pins with pwm

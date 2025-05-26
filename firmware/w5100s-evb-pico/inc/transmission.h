@@ -20,7 +20,11 @@ typedef struct{
 #pragma pack(push, 1)
 // transmission structure from Pico to PC
 typedef struct{
-    uint32_t encoder_counter[encoders];
+    #if encoders < 2
+        uint32_t encoder_counter[2];
+    #else
+        uint32_t encoder_counter[encoders];
+    #endif
     uint32_t inputs[2]; // Two 32-bit inputs
     uint8_t packet_id;
     uint8_t checksum;

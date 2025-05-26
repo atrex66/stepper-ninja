@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-const uint8_t input_pins[4] = in_pins;
+const uint8_t input_pins[in_pins_no] = in_pins;
 
 #if use_outputs == 1 && use_pwm == 0
 const uint8_t output_pins[4] = out_pins_4; // Example output pins

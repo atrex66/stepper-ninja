@@ -811,7 +811,6 @@ int rtapi_app_main(void) {
 
         for (int i = 0; i<encoders; i++)
         {
-
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.encoder.%d.raw-count", j, i);
             r = hal_pin_s32_newf(HAL_IN, &hal_data[j].raw_count[i], comp_id, name, j);
