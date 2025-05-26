@@ -20,11 +20,16 @@
 #include "socket.h"
 #include "jump_table.h"
 #include "transmission.h"
-#include "main.h"
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "freq_generator.pio.h"
 #include "quadrature_encoder.pio.h"
+
+#if brakeout_board > 0
+#include "hardware/i2c.h"
+#endif 
+
+#include "main.h"
 
 
 // Author:Viola Zsolt (atrex66@gmail.com)
@@ -50,12 +55,21 @@ extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
 extern const uint8_t input_pins[4];
+#if use_outputs == 1
 extern const uint8_t output_pins[3];
+#endif
 extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
 
 transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
+
+#if breakout_board > 0
+    uint32_t input_buffer;
+    uint32_t output_buffer;
+#endif
+
+uint32_t pwm_freq_buffer;
 
 uint8_t first_send = 1;
 volatile bool first_data = true;
@@ -102,7 +116,6 @@ void __time_critical_func(stepgen_update_handler)() {
     // uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
     static PIO pio;
-    int zeros = 0;
     int j=0;
 
     if (checksum_error){
@@ -121,9 +134,6 @@ void __time_critical_func(stepgen_update_handler)() {
             else {
                 gpio_put(step_pin[i] + 1, 0);
             }
-        }
-        else {
-            zeros++;
         }
     }
 
@@ -165,6 +175,33 @@ void core1_entry() {
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
+    #if brakeout_board > 0
+
+        i2c_setup(); // Set I2C frequency to 100kHz
+        #ifdef MCP23008_ADDR
+        printf("Detecting MCP23008 (Outputs) on %#x address\n", MCP23008_ADDR);
+        if (i2c_check_address(i2c1, MCP23008_ADDR)) {
+            printf("MCP23008 (Outputs) Init\n");
+            mcp_write_register(MCP23008_ADDR, 0x00, 0x00);
+        }
+        else {
+            printf("No MCP23008 (Outputs) found on %#x address.\n", MCP23008_ADDR);
+        }
+        #endif
+
+        #ifdef MCP23017_ADDR
+            printf("Detecting MCP23017 (Inputs) on %#x address\n", MCP23017_ADDR);
+            if (i2c_check_address(i2c1, MCP23017_ADDR)) {
+                printf("MCP23017 (Inputs) Init\n");
+                mcp_write_register(MCP23017_ADDR, 0x00, 0xff);
+                mcp_write_register(MCP23017_ADDR, 0x01, 0xff);
+            }
+            else {
+                printf("No MCP23017 (Inputs) found on %#x address.\n", MCP23017_ADDR);
+            }
+        #endif
+    #endif
+
     while(1){
 
         gpio_put(LED_PIN, !timeout_error);
@@ -186,18 +223,36 @@ void core1_entry() {
                 checksum_error = 0;
                 first_data = true;
                 first_send = 1;
+                #if use_outputs == 1
                 for (int i = 0; i < sizeof(output_pins); i++) {
                     gpio_put(output_pins[i], 0); // reset outputs
                 }
+                #endif
             }
         }
         else {
             timeout_error = 0;
         }
 
+        #if brakeout_board > 0
+            #ifdef MCP23008_ADDR
+                if (checksum_error == 0 && timeout_error == 0) {
+                    mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+                }
+                else
+                {
+                    mcp_write_register(MCP23008_ADDR, 0x09, 0x00);
+                }
+            #endif
+            #ifdef MCP23017_ADDR
+                input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
+                input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
+            #endif
+        #endif
+
         #if use_pwm == 1
-        if (old_pwm_frequency != rx_buffer->pwm_frequency) {
-            old_pwm_frequency = rx_buffer->pwm_frequency;
+        if (old_pwm_frequency != pwm_freq_buffer){
+            old_pwm_frequency = pwm_freq_buffer;
             uint16_t wrap = pwm_calculate_wrap(rx_buffer->pwm_frequency);
             if (wrap > 0) {
                 uint slice = pwm_gpio_to_slice_num(pwm_pin);
@@ -404,6 +459,46 @@ int32_t __time_critical_func(_sendto)(uint8_t sn, uint8_t *buf, uint16_t len, ui
     return (int32_t)len;
 }
 
+#if brakeout_board > 0
+void i2c_setup(void) {
+    i2c_init(i2c1, 400 * 1000); // 400 kHz
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCK, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCK);
+}
+
+uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg) {
+    uint8_t data;
+    int ret;
+    ret = i2c_write_blocking(i2c1, i2c_addr, &reg, 1, true);
+    if (ret < 0) return 0xFF;
+    ret = i2c_read_blocking(i2c1, i2c_addr, &data, 1, false);
+    if (ret < 0) return 0xFF;
+    return data;
+}
+
+void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value) {
+    uint8_t data[2] = {reg, value};
+    int ret = i2c_write_blocking(i2c1, i2c_addr, data, 2, false);
+    if (ret < 0) {
+        printf("I2C write failed %02X\n", i2c_addr);
+        asm("nop");
+    }
+}
+
+bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr) {
+    uint8_t buffer[1] = {0x00};
+    int ret = i2c_write_blocking_until(i2c, addr, buffer, 1, false, make_timeout_time_us(1000));
+    if (ret != PICO_ERROR_GENERIC) {
+        return true;
+    } else {
+        return false;
+    }
+}
+#endif // brakeout_board > 0
+
+
 void __not_in_flash_func(core0_wait)(void) {
     while (!multicore_fifo_wready()) {
         tight_loop_contents();
@@ -490,31 +585,41 @@ void __not_in_flash_func(handle_udp)() {
                     checksum_error = 1;
                 }
                 if (!checksum_error) {
+                
                 // update stepgens
                 stepgen_update_handler();
-                #if use_pwm == 1
-                // update pwm
-                pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
-                }
-                else
-                {
-                    pwm_set_gpio_level(pwm_pin, 0); // Disable PWM output on checksum error
-                }
-                #else
-                }
+
+                #if breakout_board > 0
+                    // update output buffer
+                    output_buffer = rx_buffer->outputs;
                 #endif
+
+                #if use_pwm == 1
+                    // update pwm
+                    pwm_freq_buffer = rx_buffer->pwm_frequency;
+                    pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
+                    }
+                #else
+                    }
+                #endif
+                
                 // update encoders
                 for (int i = 0; i < encoders; i++) {
                     encoder[i] = quadrature_encoder_get_count(pio1, i);
                     tx_buffer->encoder_counter[i] = encoder[i];
                 }
+                
                 #if use_outputs == 1
                 //set output pins
                 for (uint8_t i = 0; i < sizeof(output_pins); i++) {
                     gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
                     }
                 #endif
+                
                 tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
+                #if brakeout_board > 0
+                    tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
+                #endif
                 tx_buffer->packet_id = rx_counter;
                 tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
                 if (!checksum_error){
