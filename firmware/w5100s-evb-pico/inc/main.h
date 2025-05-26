@@ -1,33 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-// -------------------------------------------
-// Hardware Defines (Módosítsd a pinjeidnek megfelelően!)
-// -------------------------------------------
-#define SPI_PORT        spi0
-#define PIN_MISO        16
-#define PIN_CS          17
-#define PIN_SCK         18
-#define PIN_MOSI        19
-#define PIN_RESET       20
 
-#define IODIR           0x00
-#define GPIO            0x09
-
-#define USE_SPI_DMA     1
-
-#define IRQ_PIN         21
-#define LED_PIN         PICO_DEFAULT_LED_PIN
-
-#define IMR_RECV      0x04
-#define Sn_IMR_RECV   0x04
-#define Sn_IR_RECV    0x04
-#define SOCKET_DHCP   0
-
-#define TIMER_INTERVAL_US 1000  // 1ms
-
-// Interrupt konfiguráció
-#define INT_PIN 21
 #define core1_running 1
 // Low-pass filter parameters
 #define ALPHA 0.25f // Smoothing factor (0.0 to 1.0, lower = more smoothing)

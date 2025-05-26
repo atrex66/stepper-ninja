@@ -3,16 +3,16 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-const uint8_t input_pins[4] = {22, 26, 27, 28};
+const uint8_t input_pins[4] = in_pins;
 
 #if use_outputs == 1 && use_pwm == 0
-const uint8_t output_pins[4] = {12, 13, 14, 15}; // Example output pins
+const uint8_t output_pins[4] = out_pins_4; // Example output pins
 #elif use_outputs == 1 && use_pwm == 1
-const uint8_t output_pins[3] = {12, 13, 15}; // Example output pins
+const uint8_t output_pins[3] = out_pins_3; // Example output pins
 #endif
 
 #if use_pwm == 1
-const uint8_t pwm_pin = 14; // Example PWM pins + 1 for direction
+const uint8_t pwm_pin = pwm_GP; // Example PWM pins + 1 for direction
 #endif
 
 uint16_t pwm_calculate_wrap(uint32_t freq) {

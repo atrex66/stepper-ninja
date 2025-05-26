@@ -47,7 +47,7 @@ include_directories(
 
 add_executable(stepper-ninja
     src/main.c
-    src/config.c
+    src/flash_config.c
     src/serial_terminal.c
     src/transmission.c
     ${WIZNET_SOURCES}

@@ -5,8 +5,9 @@
 #include "pico/stdio_usb.h"
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
-#include "config.h"
+#include "flash_config.h"
 #include "transmission.h"
+#include "config.h"
 
 char buffer[64];
 int buffer_pos = 0;
@@ -133,7 +134,7 @@ void process_command(char* command) {
             printf("Invalid timeout format\n");
         }
     }
-    else if (strncmp(command, "pwm ", 4) == 0) {
+    /*else if (strncmp(command, "pwm ", 4) == 0) {
         uint16_t pwm;
         if (sscanf(command, "pwm %d", &pwm) == 1) {
             pwm_set_gpio_level(pwm_pin, pwm);
@@ -141,7 +142,7 @@ void process_command(char* command) {
         else {
             printf("Invalid pwm format\n");
         }
-    }
+    }*/
     else if (strncmp(command, "port ", 5) == 0) {
         int new_port;
         if (sscanf(command, "port %d", &new_port) == 1) {

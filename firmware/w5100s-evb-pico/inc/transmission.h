@@ -2,24 +2,7 @@
 #define TRANSMISSION_H
 #include <stdint.h>
 #include <stdbool.h>
-
-#define stepgens 4
-
-// if you want to use the module with pwm output, set this to 1
-#define use_pwm 1 // use pwm output removes 1 encoder
-
-// if you want to use the module with outputs, set this to 1
-#define use_outputs 1 // use outputs removes 1 encoder
-
-#if use_pwm == 0 && use_outputs == 0
-#define encoders 4
-#elif use_pwm == 1 && use_outputs == 0
-#define encoders 3
-#elif use_pwm == 0 && use_outputs == 1
-#define encoders 2
-#elif use_pwm == 1 && use_outputs == 1
-#define encoders 2
-#endif
+#include "config.h"
 
 #pragma pack(push, 1)
 // transmission structure from PC to Pico

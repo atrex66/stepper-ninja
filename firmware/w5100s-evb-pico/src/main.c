@@ -21,7 +21,7 @@
 #include "jump_table.h"
 #include "transmission.h"
 #include "main.h"
-#include "config.h"
+#include "flash_config.h"
 #include "pio_settings.h"
 #include "freq_generator.pio.h"
 #include "quadrature_encoder.pio.h"
@@ -195,6 +195,7 @@ void core1_entry() {
             timeout_error = 0;
         }
 
+        #if use_pwm == 1
         if (old_pwm_frequency != rx_buffer->pwm_frequency) {
             old_pwm_frequency = rx_buffer->pwm_frequency;
             uint16_t wrap = pwm_calculate_wrap(rx_buffer->pwm_frequency);
@@ -206,6 +207,7 @@ void core1_entry() {
                 printf("PWM frequency: %d Hz wrap:%d\n", rx_buffer->pwm_frequency, wrap);
             }
         }
+        #endif
 
         handle_serial_input();
     }
@@ -490,6 +492,7 @@ void __not_in_flash_func(handle_udp)() {
                 if (!checksum_error) {
                 // update stepgens
                 stepgen_update_handler();
+                #if use_pwm == 1
                 // update pwm
                 pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
                 }
@@ -497,15 +500,20 @@ void __not_in_flash_func(handle_udp)() {
                 {
                     pwm_set_gpio_level(pwm_pin, 0); // Disable PWM output on checksum error
                 }
+                #else
+                }
+                #endif
                 // update encoders
                 for (int i = 0; i < encoders; i++) {
                     encoder[i] = quadrature_encoder_get_count(pio1, i);
                     tx_buffer->encoder_counter[i] = encoder[i];
                 }
+                #if use_outputs == 1
                 //set output pins
                 for (uint8_t i = 0; i < sizeof(output_pins); i++) {
                     gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
                     }
+                #endif
                 tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
                 tx_buffer->packet_id = rx_counter;
                 tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);

@@ -13,7 +13,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "main.h"
-#include "config.h"
+#include "flash_config.h"
 
 extern void reset_with_watchdog();
 
