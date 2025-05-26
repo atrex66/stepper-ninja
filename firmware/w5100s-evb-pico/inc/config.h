@@ -55,7 +55,7 @@
     #endif // brakeout_board > 0
 
     #define pwm_GP 14 // PWM pin for the module (GPIO 8)
-    #define pwm_invert 1 // Invert the PWM signal (1 = inverted, 0 = not inverted)
+    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #if use_outputs == 1
         #define out_pins_3 {12, 13, 15} // output pins with pwm
