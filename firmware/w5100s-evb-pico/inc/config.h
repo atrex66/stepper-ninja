@@ -29,6 +29,7 @@
         #define MCP_ALL_RESET   22
         #define encoders        2
         #define in_pins         {12, 13, 15, 28} // Free GPIO pins for inputs (GPIO 22-28)
+        #define in_pins_no      4 // Number of input pins
         #define I2C_SDA         26
         #define I2C_SCK         27
         #undef use_outputs
@@ -41,7 +42,7 @@
         #elif use_pwm == 0 && use_outputs == 1
             #define encoders 2
         #elif use_pwm == 1 && use_outputs == 1
-            #define encoders 2
+            #define encoders 1
         #endif
 
         #if encoders == 1
@@ -68,6 +69,7 @@
     #define PIN_SCK         18
     #define PIN_MOSI        19
     #define PIN_RESET       20
+    #define INT_PIN         21
  
     #define IODIR           0x00
     #define GPIO            0x09
@@ -81,7 +83,5 @@
     #define Sn_IMR_RECV   0x04
     #define Sn_IR_RECV    0x04
     #define SOCKET_DHCP   0
-
-    #define INT_PIN 21
 
 #endif

@@ -21,7 +21,7 @@ typedef struct{
 // transmission structure from Pico to PC
 typedef struct{
     #if encoders < 2
-        uint32_t encoder_counter[2];
+        uint32_t encoder_counter[2];        // i dont know yet why but this generates checksum error if encoder_counter size is < 2
     #else
         uint32_t encoder_counter[encoders];
     #endif
