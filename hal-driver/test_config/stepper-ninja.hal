@@ -24,14 +24,21 @@ setp stepgen-ninja.0.stepgen.0.step-scale [JOINT_0]INPUT_SCALE
 setp stepgen-ninja.0.stepgen.1.step-scale [JOINT_1]INPUT_SCALE
 setp stepgen-ninja.0.stepgen.2.step-scale [JOINT_2]INPUT_SCALE
 
+# ************ stepgen settings ******************************
 setp stepgen-ninja.0.stepgen.0.enable 1
 setp stepgen-ninja.0.stepgen.1.enable 1
 setp stepgen-ninja.0.stepgen.2.enable 1
 setp stepgen-ninja.0.stepgen.3.enable 1
 
-setp stepgen-ninja.0.encoder.0.scale 0.25
-setp stepgen-ninja.0.encoder.1.scale 0.25
-setp stepgen-ninja.0.encoder.2.scale 0.25
+setp stepgen-ninja.0.stepgen.pulse-width [STEPGEN-NINJA]PULSE_WIDTH   # nanosec
+
+# ************ PWM setting **************************
+setp stepgen-ninja.0.pwm.max-scale [STEPGEN-NINJA]PWM_MAXIMUM_SCALE
+setp stepgen-ninja.0.pwm.min-limit [STEPGEN-NINJA]PWM_MINIMUM_LIMIT
+setp stepgen-ninja.0.pwm.frequency [STEPGEN-NINJA]PWM_FREQUENCY
+
+# ************ encoder setting **********************
+setp stepgen-ninja.0.encoder.0.scale [STEPGEN-NINJA]ENCODER_0_SCALE
 
 setp axis.x.jog-scale 0.01
 setp axis.y.jog-scale 0.01
