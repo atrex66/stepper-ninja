@@ -226,7 +226,7 @@ void watchdog_process(void *arg, long period) {
     }
 }
 
-uint8_t nearest(uint16_t period){
+uint16_t nearest(uint16_t period){
     int min_diff = 655535;
     int value = (uint16_t)period / 8;
     int calc = 0;
@@ -234,10 +234,10 @@ uint8_t nearest(uint16_t period){
     if (value < pio_settings[0].high_cycles){
         return 0;
     }
-    if (value > pio_settings[224].high_cycles){
-        return 224;
+    if (value > pio_settings[298].high_cycles){
+        return 298;
     }
-    for (int i = 0; i < 225; i++){
+    for (int i = 0; i < 299; i++){
         calc = abs(pio_settings[i].high_cycles - value);
         if (calc < min_diff){
             min_diff = calc;
@@ -326,16 +326,16 @@ static void udp_io_process_send(void *arg, long period) {
         uint32_t step_counter;
         uint32_t pio_cmd;
         total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
-        uint8_t pio_index = nearest(*d->pulse_width);
+        uint16_t pio_index = nearest(*d->pulse_width);
         rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[264].high_cycles*8);
+        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[299].high_cycles*8);
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
         memset(timing, 0, sizeof(timing));
-        for (uint16_t i=1; i < 512; i++){
+        for (uint16_t i=1; i < 1024; i++){
             step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
-            pio_cmd = (uint32_t)(step_counter << 9 | (i - 1));
+            pio_cmd = (uint32_t)(step_counter << 10 | (i - 1));
             timing[i] = pio_cmd;
         }
         old_pulse_width = *d->pulse_width;
@@ -401,10 +401,6 @@ static void udp_io_process_send(void *arg, long period) {
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
-                if (steps_per_cycle > 511) {
-                    steps_per_cycle = 511;
-                }
-
                 #if debug == 1
                 *d->debug_steps[i] += (uint16_t)steps_per_cycle;
                 #endif

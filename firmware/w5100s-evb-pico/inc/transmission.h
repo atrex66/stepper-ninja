@@ -11,7 +11,7 @@ typedef struct{
     uint32_t outputs;
     uint32_t pwm_duty;
     uint32_t pwm_frequency;
-    uint8_t pio_timing;
+    uint16_t pio_timing;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pc_pico_t;

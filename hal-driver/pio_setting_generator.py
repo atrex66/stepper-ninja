@@ -7,7 +7,7 @@ def generate_lookup_header():
 
     # Tartományok és eltolások
     x_min, x_max = 2, 24
-    y_min, y_max = 12, 32
+    y_min, y_max = 2, 32
 
     # Lookup tábla adatainak kiszámítása
     settings = []

@@ -16,7 +16,7 @@
     set pindirs, 1   ;
 again:
     pull block       ;
-    out x, 9         ; 9 bit number of steps 2.
+    out x, 10        ; 10 bit number of steps 2.
 loop0:
     set pins, 1      ; 
     set y, 24        ;

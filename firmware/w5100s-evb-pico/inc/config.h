@@ -18,6 +18,8 @@
 
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
+    #define udp_buffering 0 // 1 = use buffering, 0 = no buffering experimental feature, it is not tested yet
+
     // **********************************************************************************
     // ** the following code cunfigures the rest of the module please do not change it **
     // ** if you not know exactly what you are doing, it can break the module          **
@@ -83,5 +85,9 @@
     #define Sn_IMR_RECV   0x04
     #define Sn_IR_RECV    0x04
     #define SOCKET_DHCP   0
+
+    #if udp_buffering == 1
+        #define ringbuffer_size 32 // Size of the ring buffer
+    #endif
 
 #endif
