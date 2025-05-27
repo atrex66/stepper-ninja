@@ -16,6 +16,8 @@
     uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg);
     void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value);
 #endif // brakeout_board > 0
+void stepgen_update_handler();
+static void alarm_irq(void);
 void jump_table_checksum();
 void jump_table_checksum_in();
 void i2c_setup(void);

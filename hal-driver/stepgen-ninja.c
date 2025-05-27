@@ -67,6 +67,7 @@ typedef struct {
     hal_u32_t *pwm_frequency;
     hal_u32_t *pwm_maxscale;
     hal_u32_t *pwm_min_limit;
+    hal_u32_t *jitter;
     // inputs
     hal_bit_t *input[32];
     hal_bit_t *input_not[32];
@@ -269,6 +270,7 @@ void udp_io_process_recv(void *arg, long period) {
         }
         *d->connected = 1;
         d->last_received_time = d->current_time;
+        *d->jitter = rx_buffer->jitter; // Set jitter value from received data
         // user code start (process received data) rx_buffer[*]
         for (uint8_t i = 0; i < encoders; i++) {
             *d->raw_count[i] = rx_buffer->encoder_counter[i];
@@ -380,7 +382,7 @@ static void udp_io_process_send(void *arg, long period) {
                 }
                 d->prev_pos[i] = d->curr_pos[i];
                 if (steps > 0){
-                    cmd[i] = timing[steps] | (sign << 31);
+                    cmd[i] = (timing[steps] | (sign << 31));
                 }
                 else{
                     cmd[i] = 0;
@@ -401,6 +403,7 @@ static void udp_io_process_send(void *arg, long period) {
 
                 // Számoljuk ki a lépések számát 1 ms alatt (1 kHz szervo ciklus)
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
+
                 #if debug == 1
                 *d->debug_steps[i] += (uint16_t)steps_per_cycle;
                 #endif
@@ -622,6 +625,7 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
+        *hal_data[j].pulse_width = default_pulse_width; // Default pulse width in nanoseconds
 
         #if debug == 1
         memset(name, 0, sizeof(name));
@@ -632,7 +636,14 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
-
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.jitter", j);
+        r = hal_pin_u32_newf(HAL_OUT, &hal_data[j].jitter, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
         #endif
 
         for (int i = 0; i<sizeof(input_pins); i++){
@@ -726,6 +737,8 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
+        *hal_data[j].pwm_frequency = default_pwm_frequency; // Default PWM frequency in Hz
+
         memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.pwm.min-limit", j);
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit, comp_id, name, j);
@@ -734,6 +747,8 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
+        *hal_data[j].pwm_min_limit = 0; // Default minimum limit for PWM output
+
         memset(name, 0, sizeof(name));
         snprintf(name, sizeof(name), module_name ".%d.pwm.max-scale", j);
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale, comp_id, name, j);
@@ -742,7 +757,7 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
-        *hal_data[j].pwm_maxscale = 4096.0; // default max scale
+        *hal_data[j].pwm_maxscale = default_pwm_maxscale; // default max scale
         #endif
 
         for (int i = 0; i<stepgens; i++)
@@ -776,6 +791,8 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
+            *hal_data[j].scale[i] = default_step_scale; // Default scale factor
+
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.feedback", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].feedback[i], comp_id, name, j);
@@ -792,7 +809,8 @@ int rtapi_app_main(void) {
                 hal_exit(comp_id);
                 return r;
             }
-            *hal_data[j].mode[i] = 0;
+            *hal_data[j].mode[i] = 0; //always start with position mode
+
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.enable", j, i);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enable[i], comp_id, name, j);
@@ -802,7 +820,6 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].enable[i] = 0;
-
         }
 
         for (int i = 0; i<encoders; i++)

@@ -20,12 +20,19 @@
 
     #define udp_buffering 0 // 1 = use buffering, 0 = no buffering experimental feature, it is not tested yet
 
+    #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
+    #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
+    #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
+    #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
+    #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
+
     // **********************************************************************************
     // ** the following code cunfigures the rest of the module please do not change it **
     // ** if you not know exactly what you are doing, it can break the module          **
     // **********************************************************************************
 
     #if brakeout_board > 0
+        // if you use the breakout board, you need to change the pin configuration (4 stepgen, 2 encoder, 4 fast input, 1 pwm output,8 output, 16 inputs)
         #define MCP23017_ADDR   0x21
         #define MCP23008_ADDR   0x20
         #define MCP_ALL_RESET   22
@@ -44,7 +51,7 @@
         #elif use_pwm == 0 && use_outputs == 1
             #define encoders 2
         #elif use_pwm == 1 && use_outputs == 1
-            #define encoders 1
+            #define encoders 1  // added 2 extra inputs (GPIO10-GPIO11)
         #endif
 
         #if encoders == 1

@@ -15,6 +15,7 @@
 #include "hardware/structs/pll.h"
 #include "hardware/pio.h"
 #include "hardware/pwm.h"
+#include "hardware/timer.h"
 #include "serial_terminal.h"
 #include "wizchip_conf.h"
 #include "socket.h"
@@ -69,6 +70,11 @@ transmission_pico_pc_t *tx_buffer;
     uint32_t output_buffer;
 #endif
 
+// Globális változó a kezdő időpont tárolására
+static uint64_t start_time = 0;
+// Számláló az interruptokhoz
+static uint32_t interrupt_count = 0;
+
 uint32_t pwm_freq_buffer;
 
 uint8_t first_send = 1;
@@ -112,6 +118,19 @@ uint8_t checksum_index = 1;
 uint8_t checksum_index_in = 1;
 uint32_t old_pwm_frequency = 0;
 
+#define ALARM_NUM 0
+#define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
+
+
+// Timer callback függvény, amely 1 ms-enként fut
+bool timer_callback(struct repeating_timer *t) {
+    if (timeout_error) {
+        return false; // Ha timeout hiba van, ne frissítsük az időt
+    }
+    stepgen_update_handler();   
+    return true;
+}
+
 void __time_critical_func(stepgen_update_handler)() {
     // uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
@@ -152,6 +171,7 @@ void __time_critical_func(stepgen_update_handler)() {
         old_nop = nop;
     }
 
+    //pio0->ctrl = 0;
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
@@ -159,6 +179,8 @@ void __time_critical_func(stepgen_update_handler)() {
             total_steps[i] += (command[i] & 0x1ff) + 1;
             }
     }
+    // enable PIO
+    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3; // Enable all SMs
     // restore_interrupts(irq);
 
 }
@@ -551,7 +573,7 @@ int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, 
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
-
+    struct repeating_timer timer;
     setIMR(0x01);
     #if _WIZCHIP_ == W5100S
         setIMR2(0x00);
@@ -569,7 +591,8 @@ void __not_in_flash_func(handle_udp)() {
                     break;
                }
             }
-        #else
+        #endif
+        #if _WIZCHIP_ == W5500
         #warning "W5500 interrupt setup is not implemented, polling mode"
                         time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
         #endif
@@ -578,6 +601,7 @@ void __not_in_flash_func(handle_udp)() {
             int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
             if (len == rx_size) {
                 //printf("%d Received bytes: %d\n", rx_counter, len);
+                tx_buffer->jitter = get_absolute_time() - last_packet_time;
                 last_packet_time = get_absolute_time();
                 if (rx_buffer->packet_id != rx_counter) {
                     printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
@@ -589,8 +613,13 @@ void __not_in_flash_func(handle_udp)() {
                 }
                 if (!checksum_error) {
                 
+                if (first_data){
+                    first_data = false;
+                    busy_wait_us(100);
+                    add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
+                }
                 // update stepgens
-                stepgen_update_handler();
+                // stepgen_update_handler();
 
                 #if breakout_board > 0
                     // update output buffer
