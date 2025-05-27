@@ -17,6 +17,7 @@ An open-source, free, high performance step/generator and quadrature encoder int
 - **quadrature-encoder**: multiple channels 12.5MHz count rate per channel (theoretical).
 
 - **Software**:
+  - The master branch is under development clone v1.0.1 under the tags to use stable version
   - !UPDATE! the current configuration 4 step generator 2 encoder 3 output 1 pwm 4 input
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
 
