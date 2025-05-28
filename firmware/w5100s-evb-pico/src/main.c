@@ -165,6 +165,7 @@ void __time_critical_func(stepgen_update_handler)() {
     }
 
     //pio0->ctrl = 0;
+    // restart all PIO state machines
     // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
