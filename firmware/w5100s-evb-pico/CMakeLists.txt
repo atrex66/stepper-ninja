@@ -57,6 +57,7 @@ add_executable(stepper-ninja
 # PIO fájlok generálása
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/quadrature_encoder.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/freq_generator.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/step_counter.pio)
 
 target_include_directories(stepper-ninja PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver

@@ -4,12 +4,7 @@
 #include <stdbool.h>
 
 const uint8_t input_pins[in_pins_no] = in_pins;
-
-#if use_outputs == 1 && use_pwm == 0
-const uint8_t output_pins[4] = out_pins_4; // Example output pins
-#elif use_outputs == 1 && use_pwm == 1
-const uint8_t output_pins[3] = out_pins_3; // Example output pins
-#endif
+const uint8_t output_pins[out_pins_no] = out_pins; // Example output pins
 
 #if use_pwm == 1
 const uint8_t pwm_pin = pwm_GP; // Example PWM pins + 1 for direction

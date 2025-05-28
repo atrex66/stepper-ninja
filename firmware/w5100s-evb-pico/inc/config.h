@@ -18,8 +18,6 @@
 
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
-    #define udp_buffering 0 // 1 = use buffering, 0 = no buffering experimental feature, it is not tested yet
-
     #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
     #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
@@ -68,8 +66,13 @@
     #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #if use_outputs == 1
-        #define out_pins_3 {12, 13, 15} // output pins with pwm
-        #define out_pins_4 {12, 13, 14, 15} // output pins without pwm
+        #if use_pwm == 1
+            #define out_pins {12, 13, 15} // output pins with pwm
+            #define out_pins_no 3
+        #else
+            #define out_pins {12, 13, 14, 15} // output pins without pwm
+            #define out_pins_no 4
+        #endif // use_pwm == 1
     #endif // use_outputs == 1
 
     #define SPI_PORT        spi0
@@ -93,8 +96,7 @@
     #define Sn_IR_RECV    0x04
     #define SOCKET_DHCP   0
 
-    #if udp_buffering == 1
-        #define ringbuffer_size 32 // Size of the ring buffer
-    #endif
+    #define use_stepcounter 1 // Use step counter for the stepgen
+    #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
 
 #endif

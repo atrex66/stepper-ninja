@@ -61,6 +61,7 @@ typedef struct {
     hal_s32_t *scaled_count[encoders];
     hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
+    hal_bit_t *enc_reset[encoders];
     // pwm output
     hal_bit_t *pwm_enable;
     hal_u32_t *pwm_output;
@@ -96,6 +97,7 @@ typedef struct {
     uint8_t checksum_index;
     uint8_t checksum_index_in;
     uint8_t checksum_error;
+    int32_t enc_offset[encoders];
     int32_t prev_pos[6];
     int32_t curr_pos[6];
     bool watchdog_running;
@@ -273,9 +275,22 @@ void udp_io_process_recv(void *arg, long period) {
         *d->jitter = rx_buffer->jitter; // Set jitter value from received data
         // user code start (process received data) rx_buffer[*]
         for (uint8_t i = 0; i < encoders; i++) {
-            *d->raw_count[i] = rx_buffer->encoder_counter[i];
+            #if debug == 1
+            if (*d->enc_reset[i] == 1)
+            {
+                d->enc_offset[i] = rx_buffer->encoder_counter[i];
+                *d->enc_reset[i] = 0; // reset the encoder
+            }
+            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
+            *d->enc_value[i] = (float)(*d->raw_count[i] * *d->enc_scale[i]);
+            *d->scaled_count[i] = (int32_t)(*d->raw_count[i] * *d->enc_scale[i]);
+
+            #else
+            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
             *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
             *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+            #endif
+
         }
         // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < sizeof(input_pins); i++) {
@@ -330,13 +345,14 @@ static void udp_io_process_send(void *arg, long period) {
         total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
         uint16_t pio_index = nearest(*d->pulse_width);
         rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[299].high_cycles*8);
+        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*8);
+        rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles*8);
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
         memset(timing, 0, sizeof(timing));
         for (uint16_t i=1; i < 1024; i++){
-            step_counter = (((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
+            step_counter = (uint32_t)((float)((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
             pio_cmd = (uint32_t)(step_counter << 10 | (i - 1));
             timing[i] = pio_cmd;
         }
@@ -446,7 +462,7 @@ static void udp_io_process_send(void *arg, long period) {
 
     #if use_pwm == 1
     // Set the PWM output
-   if (*d->pwm_enable) {
+    if (*d->pwm_enable) {
         if (*d->pwm_frequency > 0) {
             if (*d->pwm_frequency > 1000000) {
                 *d->pwm_frequency = 1000000; // Cap the frequency to 1MHz
@@ -460,12 +476,12 @@ static void udp_io_process_send(void *arg, long period) {
             uint16_t wrap = pwm_calculate_wrap(*d->pwm_frequency);
             // scale the duty cycle to the wrap value
             uint16_t duty_cycle = (uint16_t)(round(((float)*d->pwm_output / *d->pwm_maxscale) * wrap));
-            tx_buffer->pwm_frequency = *d->pwm_frequency; // Set the PWM frequency
             tx_buffer->pwm_duty = duty_cycle;
         } else {
             tx_buffer->pwm_duty = 0; // Disable PWM output
         }
     }
+    tx_buffer->pwm_frequency = *d->pwm_frequency; // Set the PWM frequency
     #endif
 
     tx_buffer->packet_id = tx_counter;
@@ -586,7 +602,7 @@ int rtapi_app_main(void) {
         return comp_id;
     }
 
-    char name[48] = {0};
+    char name[64] = {0};
 
     // creating HAL pins for each instance
     for (int j = 0; j < instances; j++) {
@@ -646,7 +662,7 @@ int rtapi_app_main(void) {
         }
         #endif
 
-        for (int i = 0; i<sizeof(input_pins); i++){
+        for (int i = 0; i< in_pins_no; i++){
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.input.gp%d", j, input_pins[i]);
             r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input[i], comp_id, name, j);
@@ -666,7 +682,7 @@ int rtapi_app_main(void) {
         }
 
         #if use_outputs == 1
-        for (int i = 0; i<sizeof(output_pins); i++){
+        for (int i = 0; i< out_pins_no; i++){
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
@@ -824,8 +840,14 @@ int rtapi_app_main(void) {
 
         for (int i = 0; i<encoders; i++)
         {
+            #if use_stepcounter == 1
+                #define e_name module_name ".%d.stepcounter"
+            #else
+                #define e_name module_name ".%d.encoder"
+            #endif
+            hal_data[j].enc_offset[i] = 0; // Initialize encoder offset to 0
             memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.encoder.%d.raw-count", j, i);
+            snprintf(name, sizeof(name), e_name ".%d.raw-count", j, i);
             r = hal_pin_s32_newf(HAL_IN, &hal_data[j].raw_count[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -833,7 +855,7 @@ int rtapi_app_main(void) {
                 return r;
             }
             memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scaled-count", j, i);
+            snprintf(name, sizeof(name), e_name ".%d.scaled-count", j, i);
             r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].scaled_count[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -841,7 +863,7 @@ int rtapi_app_main(void) {
                 return r;
             }
             memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scale", j, i);
+            snprintf(name, sizeof(name), e_name ".%d.scale", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].enc_scale[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -850,13 +872,24 @@ int rtapi_app_main(void) {
             }
             *hal_data[j].scale[i] = 1;
             memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.encoder.%d.scaled-value", j, i);
+            snprintf(name, sizeof(name), e_name ".%d.scaled-value", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_value[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
+            #if debug == 1
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), e_name ".%d.debug-reset", j, i);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enc_reset[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].enc_reset[i] = 0; // Initialize reset pin to 0
+            #endif
         }
 
         memset(name, 0, sizeof(name));

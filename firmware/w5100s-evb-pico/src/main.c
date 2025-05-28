@@ -24,7 +24,11 @@
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "freq_generator.pio.h"
+#if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
+#else
+#include "step_counter.pio.h"
+#endif
 
 #if brakeout_board > 0
 #include "hardware/i2c.h"
@@ -55,10 +59,9 @@
 extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
-extern const uint8_t input_pins[4];
-#if use_outputs == 1
-extern const uint8_t output_pins[3];
-#endif
+extern const uint8_t input_pins[in_pins_no];
+extern const uint8_t output_pins[out_pins_no];
+
 extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
 
@@ -120,16 +123,6 @@ uint32_t old_pwm_frequency = 0;
 
 #define ALARM_NUM 0
 #define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
-
-
-// Timer callback függvény, amely 1 ms-enként fut
-bool timer_callback(struct repeating_timer *t) {
-    if (timeout_error) {
-        return false; // Ha timeout hiba van, ne frissítsük az időt
-    }
-    stepgen_update_handler();   
-    return true;
-}
 
 void __time_critical_func(stepgen_update_handler)() {
     // uint32_t irq = save_and_disable_interrupts();
@@ -230,13 +223,18 @@ void core1_entry() {
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
+
                 // reset encoder PIO-s when timeout
                 for (int i = 0; i < encoders; i++) {
                     pio_sm_set_enabled(pio1, i, false);
                     pio_sm_restart(pio1, i);
                     pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
                     pio_sm_set_enabled(pio1, i, true);
+                    #if use_stepcounter == 0
                     printf("Encoder %d reset\n", i);
+                    #else
+                    printf("Step counter %d reset\n", i);
+                    #endif
                 }
                 rx_counter = 0;
                 timeout_error = 1;
@@ -349,14 +347,23 @@ int main() {
     PIO pio = pio0;
     int p = 0;
 
-    gpio_init(15);
-    gpio_set_dir(15, GPIO_OUT);
+    printf("Output pins: ");
+    for (int i = 0; i < out_pins_no; i++) {
+        gpio_init(output_pins[i]);
+        gpio_set_dir(output_pins[i], GPIO_OUT);
+        gpio_put(output_pins[i], 0); // Set output pins to low
+        printf("%d ", output_pins[i]);
+    }
+    printf("\n");
 
-    for (int i = 0; i < sizeof(input_pins); i++) {
+    printf("Input pins: ");
+    for (int i = 0; i < in_pins_no; i++) {
         gpio_init(input_pins[i]);
         gpio_set_dir(input_pins[i], GPIO_IN);
         gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+        printf("%d ", input_pins[i]);
     }
+    printf("\n");
 
     #if use_pwm == 1
     gpio_set_function(pwm_pin, GPIO_FUNC_PWM); // Set PWM pin function
@@ -413,20 +420,36 @@ int main() {
     }
 
     // encoder init
-    for (int i = 0; i < encoders; i++) {
-        gpio_init(encoder_base[i]);
-        gpio_init(encoder_base[i]+1);
-        gpio_set_dir(encoder_base[i], GPIO_IN);
-        gpio_set_dir(encoder_base[i]+1, GPIO_IN);
-        gpio_pull_up(encoder_base[i]); // Pull-up ellenállás, ha szükséges
-        gpio_pull_up(encoder_base[i]+1); // Pull-up ellenállás, ha szükséges
-    }
+    #if use_stepcounter == 0
+        for (int i = 0; i < encoders; i++) {
+            gpio_init(encoder_base[i]);
+            gpio_init(encoder_base[i]+1);
+            gpio_set_dir(encoder_base[i], GPIO_IN);
+            gpio_set_dir(encoder_base[i]+1, GPIO_IN);
+            gpio_pull_up(encoder_base[i]); // Pull-up ellenállás, ha szükséges
+            gpio_pull_up(encoder_base[i]+1); // Pull-up ellenállás, ha szükséges
+        }
+        pio_add_program(pio1, &quadrature_encoder_program);
+        for (int i = 0; i < encoders; i++) {
+            quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
+            printf("encoder %d init done...\n", i);
+        }
+    #else
+        for (int i = 0; i < encoders; i++) {
+            gpio_init(encoder_base[i]);
+            gpio_init(encoder_base[i]+1);
+            gpio_set_dir(encoder_base[i], GPIO_IN);
+            gpio_set_dir(encoder_base[i]+1, GPIO_IN);
+            gpio_pull_up(encoder_base[i]); // Pull-up ellenállás, ha szükséges
+            gpio_pull_up(encoder_base[i]+1); // Pull-up ellenállás, ha szükséges
+        }
 
-    pio_add_program(pio1, &quadrature_encoder_program);
-    for (int i = 0; i < encoders; i++) {
-        quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
-        printf("encoder %d init done...\n", i);
-    }
+        pio_add_program(pio1, &step_counter_program);
+        for (int i = 0; i < encoders; i++) {
+            step_counter_program_init(pio1, i, encoder_base[i], 0);
+            printf("step counter %d init done...\n", i);
+        }
+    #endif
 
     printf("Pio init done....\n");
 
@@ -574,6 +597,7 @@ int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, 
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
     struct repeating_timer timer;
+
     setIMR(0x01);
     #if _WIZCHIP_ == W5100S
         setIMR2(0x00);
@@ -600,8 +624,8 @@ void __not_in_flash_func(handle_udp)() {
         if(getSn_RX_RSR(0) != 0) {
             int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
             if (len == rx_size) {
-                //printf("%d Received bytes: %d\n", rx_counter, len);
                 tx_buffer->jitter = get_absolute_time() - last_packet_time;
+                //printf("%d Received bytes: %d\n", rx_counter, len);
                 last_packet_time = get_absolute_time();
                 if (rx_buffer->packet_id != rx_counter) {
                     printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
@@ -613,13 +637,8 @@ void __not_in_flash_func(handle_udp)() {
                 }
                 if (!checksum_error) {
                 
-                if (first_data){
-                    first_data = false;
-                    busy_wait_us(100);
-                    add_repeating_timer_us(-1000, timer_callback, NULL, &timer);
-                }
                 // update stepgens
-                // stepgen_update_handler();
+                stepgen_update_handler();
 
                 #if breakout_board > 0
                     // update output buffer
@@ -635,12 +654,19 @@ void __not_in_flash_func(handle_udp)() {
                     }
                 #endif
                 
-                // update encoders
-                for (int i = 0; i < encoders; i++) {
-                    encoder[i] = quadrature_encoder_get_count(pio1, i);
-                    tx_buffer->encoder_counter[i] = encoder[i];
-                }
-                
+                #if use_stepcounter == 0
+                    // update encoders
+                    for (int i = 0; i < encoders; i++) {
+                        encoder[i] = quadrature_encoder_get_count(pio1, i);
+                        tx_buffer->encoder_counter[i] = encoder[i];
+                    }
+                #else
+                    // update step counters
+                    for (int i = 0; i < encoders; i++) {
+                        encoder[i] = step_counter_get_count(pio1, i);
+                        tx_buffer->encoder_counter[i] = encoder[i];
+                    }
+                #endif
                 #if use_outputs == 1
                 //set output pins
                 for (uint8_t i = 0; i < sizeof(output_pins); i++) {
@@ -649,6 +675,7 @@ void __not_in_flash_func(handle_udp)() {
                 #endif
                 
                 tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
+
                 #if brakeout_board > 0
                     tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
                 #endif
