@@ -50,7 +50,6 @@ add_executable(stepper-ninja
     src/flash_config.c
     src/serial_terminal.c
     src/transmission.c
-    src/ringbuffer.c
     ${WIZNET_SOURCES}
 )
 
