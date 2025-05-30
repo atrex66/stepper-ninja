@@ -259,7 +259,7 @@ void udp_io_process_recv(void *arg, long period) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_WAITALL, &d->remote_addr, &addrlen);
+    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
     //int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     if (len == rx_size) {
         if (!tx_checksum_ok(rx_buffer)) {

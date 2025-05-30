@@ -1,0 +1,85 @@
+
+.pio_version 0 
+.program step_counter
+.origin 0
+
+; 00 state
+    JMP update    ; read 00
+    JMP increment ; read 01
+    JMP update    ; read 10
+    JMP update    ; read 11
+    JMP update    ; read 00
+    JMP update    ; read 01
+    JMP update    ; read 10
+    JMP decrement ; read 11
+    JMP update    ; read 00
+    JMP update    ; read 01
+    JMP update    ; read 10
+    JMP update    ; read 11
+    JMP update    ; read 00
+    JMP update    ; read 01
+decrement:
+    JMP Y--, update ; read 10
+.wrap_target
+update:
+    MOV ISR, Y      ; read 11
+    PUSH noblock
+sample_pins:
+    OUT ISR, 2
+    IN PINS, 2
+    MOV OSR, ISR
+    MOV PC, ISR
+increment:
+    MOV Y, ~Y
+    JMP Y--, increment_cont
+increment_cont:
+    MOV Y, ~Y
+.wrap 
+
+% c-sdk {
+
+#include "hardware/clocks.h"
+#include "hardware/gpio.h"
+
+static inline void step_counter_program_init(PIO pio, uint sm, uint pin, int max_step_rate)
+{
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 2, false);
+    pio_gpio_init(pio, pin);
+    pio_gpio_init(pio, pin + 1);
+
+    gpio_pull_up(pin);
+    gpio_pull_up(pin + 1);
+
+    pio_sm_config c = step_counter_program_get_default_config(0);
+
+    sm_config_set_in_pins(&c, pin); // for WAIT, IN
+    sm_config_set_jmp_pin(&c, pin); // for JMP
+    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_NONE);
+
+    if (max_step_rate == 0) {
+        sm_config_set_clkdiv(&c, 1.0);
+    } else {
+        // one state machine loop takes at most 10 cycles
+        float div = (float)clock_get_hz(clk_sys) / (10 * max_step_rate);
+        sm_config_set_clkdiv(&c, div);
+    }
+
+    pio_sm_init(pio, sm, 0, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+
+static inline int32_t step_counter_get_count(PIO pio, uint sm)
+{
+    uint ret;
+    int n;
+
+    n = pio_sm_get_rx_fifo_level(pio, sm) + 1;
+    while (n > 0) {
+        ret = pio_sm_get_blocking(pio, sm);
+        n--;
+    }
+    return ret;
+}
+
+%}
