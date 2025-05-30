@@ -11,8 +11,8 @@
  - GP7 = dir3 (pin 10)
  - GP8 = encoder 0 A (pin 11)
  - GP9 = encoder 0 B (pin 12)
- - GP10 = encoder 1 A (pin 14)
- - GP11 = encoder 1 B (pin 15)
+ - GP10 = input
+ - GP11 = input
  - GP12 = output
  - GP13 = output
  - GP14 = pwm

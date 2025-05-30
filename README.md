@@ -1,6 +1,7 @@
 # stepper-ninja
 
 An open-source, free, high performance step/generator and quadrature encoder interface for LinuxCNC using W5100S-evb-pico or pico + W5500 module.
+!UPDATE! new tool in the utility/counter directory a step/dir or quadrature encoder counter for pico-w with web interface (more later).
 
 ![w5100s-evb-pico](docs/images/20250516_004009.jpg)
 
