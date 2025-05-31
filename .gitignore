@@ -10,3 +10,4 @@ hardware/
 .obsidian/
 firmware.zip
 hal-driver.zip
+buildall.sh
