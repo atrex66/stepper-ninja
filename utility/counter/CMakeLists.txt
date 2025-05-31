@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.15)
 
 # Set Pico-W board before project()
 set(PICO_BOARD pico_w)
@@ -7,6 +7,12 @@ set(PICO_BOARD pico_w)
 include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
 project(step_dir_webserver C CXX ASM)
+
+set(PICO_PLATFORM rp2040)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-m0plus -mthumb")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-m0plus -mthumb")
+set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mcpu=cortex-m0plus -mthumb")
+
 
 # Initialize the SDK after project()
 pico_sdk_init()
@@ -27,8 +33,11 @@ add_executable(step_dir_webserver
     webpage.c
 )
 
-pico_generate_pio_header(step_dir_webserver ${CMAKE_CURRENT_SOURCE_DIR}/step_counter.pio)
-pico_generate_pio_header(step_dir_webserver ${CMAKE_CURRENT_SOURCE_DIR}/encoder_counter.pio)
+if (${ENCODER_COUNTER} EQUAL 1)
+    pico_generate_pio_header(step_dir_webserver ${CMAKE_CURRENT_SOURCE_DIR}/encoder_counter.pio)    
+else()
+    pico_generate_pio_header(step_dir_webserver ${CMAKE_CURRENT_SOURCE_DIR}/step_counter.pio)
+endif()
 
 # Compile definitions
 target_compile_definitions(step_dir_webserver PRIVATE

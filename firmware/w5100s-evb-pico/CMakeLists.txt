@@ -4,7 +4,7 @@ set(CMAKE_BUILD_TYPE Release) # Release mód
 
 include(pico_sdk_import.cmake)
 
-project(encoder-hussar C CXX ASM)
+project(stepper-ninja C CXX ASM)
 
 # Ellenőrizzük, hogy létezik-e a könyvtár
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/ioLibrary_Driver")
