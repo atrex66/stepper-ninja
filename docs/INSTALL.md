@@ -17,10 +17,10 @@ Before building, install the following dependencies:
    ```
 
 2. **GNU ARM Embedded Toolchain**:
-   Download from <https://developer.arm.com/downloads/-/gnu-rm> and add to PATH.
-   Example (Linux):
-
+  
    ```bash
+   sudo apt update
+   sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
    export PATH=$PATH:/path/to/arm-none-eabi/bin
    ```
 
