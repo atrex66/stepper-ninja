@@ -26,10 +26,10 @@ Before building, install the following dependencies:
 
 3. **Pico SDK** (version 1.5.1 recommended):
 
-```bash
-git clone -b 1.5.1 https://github.com/raspberrypi/pico-sdk
-export PICO_SDK_PATH=/path/to/pico-sdk
-```
+   ```bash
+   git clone -b 1.5.1 https://github.com/raspberrypi/pico-sdk
+   export PICO_SDK_PATH=/path/to/pico-sdk
+   ```
 
    Add `PICO_SDK_PATH` to your shell profile (e.g., `~/.bashrc`).
 
