@@ -30,7 +30,6 @@ endif()
 # Add executable
 add_executable(step_dir_webserver
     counter_webserver.c
-    webpage.c
 )
 
 if (${ENCODER_COUNTER} EQUAL 1)

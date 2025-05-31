@@ -1,2 +1,79 @@
+#ifndef WEBPAGE_H
+#define WEBPAGE_H
 
-const char *html_response;
+const char *html_response = 
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html\r\n"
+    "Connection: close\r\n\r\n"
+    #if ENCODER_COUNTER == 0
+    "<!DOCTYPE html><html lang='en'><head><title>Pico-W Step Counter</title>"
+    #else
+    "<!DOCTYPE html><html lang='en'><head><title>Pico-W Encoder Counter</title>"
+    #endif
+    "<meta name='viewport' content='width=device-width, initial-scale=1'>"
+    "<script src='https://cdn.tailwindcss.com'></script>"
+    "<style>"
+    "body { background-color: #1f2937; }" // Dark gray background
+    ".counter-card { transition: all 0.3s ease; background-color: #374151; }" // Darker card background
+    ".counter-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.3); }"
+    "</style></head><body class='min-h-screen bg-gray-800 flex flex-col items-center py-8'>"
+    #if ENCODER_COUNTER == 0
+    "<h1 class='text-3xl font-bold text-gray-200 mb-6'>Step/Dir Counter Dashboard</h1>"
+    #else
+    "<h1 class='text-3xl font-bold text-gray-200 mb-6'>Encoder Counter Dashboard</h1>"
+    #endif
+    "<div class='grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl w-full px-4'>"
+    "<div class='counter-card p-6 rounded-lg shadow-md'>"
+    "<h2 class='text-lg font-semibold text-gray-300'>Counter 1</h2>"
+    "<p class='text-2xl font-mono text-cyan-400' id='counterValue0'>Loading...</p>"
+    "<button onclick='resetCounter(0)' class='mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition'>Reset</button>"
+    "</div>"
+    "<div class='counter-card p-6 rounded-lg shadow-md'>"
+    "<h2 class='text-lg font-semibold text-gray-300'>Counter 2</h2>"
+    "<p class='text-2xl font-mono text-cyan-400' id='counterValue1'>Loading...</p>"
+    "<button onclick='resetCounter(1)' class='mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition'>Reset</button>"
+    "</div>"
+    "<div class='counter-card p-6 rounded-lg shadow-md'>"
+    "<h2 class='text-lg font-semibold text-gray-300'>Counter 3</h2>"
+    "<p class='text-2xl font-mono text-cyan-400' id='counterValue2'>Loading...</p>"
+    "<button onclick='resetCounter(2)' class='mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition'>Reset</button>"
+    "</div>"
+    "<div class='counter-card p-6 rounded-lg shadow-md'>"
+    "<h2 class='text-lg font-semibold text-gray-300'>Counter 4</h2>"
+    "<p class='text-2xl font-mono text-cyan-400' id='counterValue3'>Loading...</p>"
+    "<button onclick='resetCounter(3)' class='mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition'>Reset</button>"
+    "</div>"
+    "<button onclick='resetAllCounters()' class='mt-6 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition'>Reset All Counters</button>"
+    "<script>"
+    "function updateCounters() {"
+    "  fetch('/counter.json')"
+    "    .then(response => response.json())"
+    "    .then(data => {"
+    "      for (let i = 0; i < 4; i++) {"
+    "        document.getElementById('counterValue' + i).textContent = data.counters[i];"
+    "      }"
+    "      setTimeout(updateCounters, 100);"
+    "    })"
+    "    .catch(error => {"
+    "      console.error('Error:', error);"
+    "      setTimeout(updateCounters, 1000);"
+    "    });"
+    "}"
+    "function resetCounter(index) {"
+    "  fetch('/reset', {"
+    "    method: 'POST',"
+    "    headers: { 'Content-Type': 'application/json' },"
+    "    body: JSON.stringify({ counter: index })"
+    "  }).then(() => updateCounters());"
+    "}"
+    "function resetAllCounters() {"
+    "  fetch('/reset_all', {"
+    "    method: 'POST',"
+    "    headers: { 'Content-Type': 'application/json' },"
+    "    body: JSON.stringify({})"
+    "  }).then(() => updateCounters());"
+    "}"
+    "updateCounters();"
+    "</script></body></html>";
+
+    #endif // WEBPAGE_H
