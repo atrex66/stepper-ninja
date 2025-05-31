@@ -96,7 +96,7 @@
     #define Sn_IR_RECV    0x04
     #define SOCKET_DHCP   0
 
-    #define use_stepcounter 1 // Use step counter for the stepgen
+    #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
 
 #endif
