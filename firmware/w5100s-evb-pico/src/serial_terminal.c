@@ -94,6 +94,8 @@ void process_command(char* command) {
         uint8_t phyconf = getPHYSR();
         uint8_t speed = phyconf >> 1 & 0x01;
         uint8_t duplex = phyconf >> 2 & 0x01;
+        uint8_t mode = phyconf >> 3 & 0x01;
+        printf("PHY Mode: %s\n", mode ? "Auto" : "Manual");
         printf("PHY Duplex: %s\n", speed ? "Full" : "Half");
         printf("PHY Speed: %s\n", duplex ? "100Mbps" : "10Mbps");
     #endif

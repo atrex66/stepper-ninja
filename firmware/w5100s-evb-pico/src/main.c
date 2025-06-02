@@ -64,6 +64,7 @@ extern const uint8_t output_pins[out_pins_no];
 
 extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
+wiz_PhyConf *phy_conf;
 
 transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
@@ -338,11 +339,28 @@ int main() {
     hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
     hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
     
-    w5100s_init();
-    w5100s_interrupt_init();
 
     load_configuration();
+
+    #if raspberry_pi_spi == 0
+    w5100s_init();
+    w5100s_interrupt_init();
     network_init();
+    #else
+   
+    // GPIO init
+    gpio_init(PIN_CS);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+   
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+
+    // Raspberry Pi SPI interface initialization
+    spi_set_slave(spi0, true); // Set SPI slave select to 0
+
+    #endif
+    
     multicore_launch_core1(core1_entry);
 
     PIO pio = pio0;
@@ -592,110 +610,123 @@ int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, 
     return (int32_t)pack_len;
 }
 
+void handle_data(){
+    tx_buffer->jitter = get_absolute_time() - last_packet_time;
+    //printf("%d Received bytes: %d\n", rx_counter, len);
+    last_packet_time = get_absolute_time();
+    if (rx_buffer->packet_id != rx_counter) {
+        printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
+        rx_counter = rx_buffer->packet_id;
+    }
+    if (!rx_checksum_ok(rx_buffer)) {
+        printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
+        checksum_error = 1;
+    }
+    if (!checksum_error) {
+    
+    // update stepgens
+    stepgen_update_handler();
+
+    #if breakout_board > 0
+        // update output buffer
+        output_buffer = rx_buffer->outputs;
+    #endif
+
+    #if use_pwm == 1
+        // update pwm
+        pwm_freq_buffer = rx_buffer->pwm_frequency;
+        pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
+        }
+    #else
+    }
+    #endif
+
+    #if use_stepcounter == 0
+        // update encoders
+        for (int i = 0; i < encoders; i++) {
+            encoder[i] = quadrature_encoder_get_count(pio1, i);
+            tx_buffer->encoder_counter[i] = encoder[i];
+        }
+    #else
+        // update step counters
+        for (int i = 0; i < encoders; i++) {
+            encoder[i] = step_counter_get_count(pio1, i);
+            tx_buffer->encoder_counter[i] = encoder[i];
+        }
+    #endif
+
+    #if use_outputs == 1
+    //set output pins
+    for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+        gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
+        }
+    #endif
+    
+    tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
+
+    #if brakeout_board > 0
+        tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
+    #endif
+    tx_buffer->packet_id = rx_counter;
+    tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+}
+
 // -------------------------------------------
 // UDP handler
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
-    struct repeating_timer timer;
 
-    setIMR(0x01);
-    #if _WIZCHIP_ == W5100S
-        setIMR2(0x00);
+    #if raspberry_pi_spi == 0
+        setIMR(0x01);
+        #if _WIZCHIP_ == W5100S
+            setIMR2(0x00);
+        #endif
+
+        last_packet_time = get_absolute_time();
+        //time_diff = 0xFFFFFFFF;
+        while (1){
+        // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
+            #if _WIZCHIP_ == W5100S
+                while(gpio_get(IRQ_PIN) == 1)
+                {
+                    time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+                    if (multicore_fifo_rvalid()) {
+                        break;
+                }
+                }
+            #endif
+            #if _WIZCHIP_ == W5500
+            #warning "W5500 interrupt setup is not implemented, polling mode"
+                            time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+            #endif
+            setSn_IR(0, Sn_IR_RECV);  // clear interrupt
+            if(getSn_RX_RSR(0) != 0) {
+                int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
+                if (len == rx_size) {
+                    handle_data();
+                    if (!checksum_error){
+                    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+                    rx_counter += 1;
+                    }
+                }
+            }
+    #else
+        while(1){
+            spi_read_blocking(spi0, 0x00, (uint8_t *)rx_buffer, sizeof(rx_buffer));
+            handle_data();
+            spi_write_blocking(spi0, (uint8_t *)tx_buffer, sizeof(tx_buffer));
+            rx_counter += 1;
     #endif
 
-    last_packet_time = get_absolute_time();
-    //time_diff = 0xFFFFFFFF;
-    while (1){
-    // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
-        #if _WIZCHIP_ == W5100S
-            while(gpio_get(IRQ_PIN) == 1)
-            {
-                time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-                if (multicore_fifo_rvalid()) {
-                    break;
-               }
-            }
-        #endif
-        #if _WIZCHIP_ == W5500
-        #warning "W5500 interrupt setup is not implemented, polling mode"
-                        time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-        #endif
-        setSn_IR(0, Sn_IR_RECV);  // clear interrupt
-        if(getSn_RX_RSR(0) != 0) {
-            int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
-            if (len == rx_size) {
-                tx_buffer->jitter = get_absolute_time() - last_packet_time;
-                //printf("%d Received bytes: %d\n", rx_counter, len);
-                last_packet_time = get_absolute_time();
-                if (rx_buffer->packet_id != rx_counter) {
-                    printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
-                    rx_counter = rx_buffer->packet_id;
-                }
-                if (!rx_checksum_ok(rx_buffer)) {
-                    printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
-                    checksum_error = 1;
-                }
-                if (!checksum_error) {
-                
-                // update stepgens
-                stepgen_update_handler();
-
-                #if breakout_board > 0
-                    // update output buffer
-                    output_buffer = rx_buffer->outputs;
-                #endif
-
-                #if use_pwm == 1
-                    // update pwm
-                    pwm_freq_buffer = rx_buffer->pwm_frequency;
-                    pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
-                    }
-                #else
-                    }
-                #endif
-                
-                #if use_stepcounter == 0
-                    // update encoders
-                    for (int i = 0; i < encoders; i++) {
-                        encoder[i] = quadrature_encoder_get_count(pio1, i);
-                        tx_buffer->encoder_counter[i] = encoder[i];
-                    }
-                #else
-                    // update step counters
-                    for (int i = 0; i < encoders; i++) {
-                        encoder[i] = step_counter_get_count(pio1, i);
-                        tx_buffer->encoder_counter[i] = encoder[i];
-                    }
-                #endif
-                #if use_outputs == 1
-                //set output pins
-                for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-                    gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
-                    }
-                #endif
-                
-                tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
-
-                #if brakeout_board > 0
-                    tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
-                #endif
-                tx_buffer->packet_id = rx_counter;
-                tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
-                if (!checksum_error){
-                _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-                rx_counter += 1;
+            if (multicore_fifo_rvalid()) {
+            uint32_t signal = multicore_fifo_pop_blocking();
+            printf("Core1 signal: %08X\n", signal);
+            if (signal == 0xCAFEBABE) {
+                core0_wait();
                 }
             }
         }
-        if (multicore_fifo_rvalid()) {
-        uint32_t signal = multicore_fifo_pop_blocking();
-        printf("Core1 signal: %08X\n", signal);
-        if (signal == 0xCAFEBABE) {
-            core0_wait();
-            }
-        }
-    }
 }
 
 void w5100s_interrupt_init() {
@@ -769,6 +800,14 @@ void network_init() {
     memset(rx, 2, _WIZCHIP_SOCK_NUM_);
     wizchip_init(tx, rx);
 
+    // Set default network configuration
+    phy_conf = malloc(sizeof(wiz_PhyConf));
+    wizphy_getphyconf(phy_conf);
+    phy_conf->mode = PHY_MODE_MANUAL; // Set PHY mode to auto
+    phy_conf->speed = PHY_SPEED_100; // Set PHY speed to 100Mbps
+    phy_conf->duplex = PHY_DUPLEX_FULL; // Set PHY duplex to full
+    wizphy_setphyconf(phy_conf);
+
     // wizchip_init(0, 0);
     wizchip_setnetinfo(&net_info);
 
@@ -776,6 +815,7 @@ void network_init() {
     setSn_CR(0, Sn_CR_OPEN);
     uint8_t sock_num = 0;
     socket(sock_num, Sn_MR_UDP, port, 0);
+
 
     printf("Network Init Done\n");
     wizchip_getnetinfo(&net_info);
@@ -789,6 +829,7 @@ void network_init() {
     printf("DHCP: %d   (1-Static, 2-Dinamic)\n", net_info.dhcp);
     printf("PORT: %d\n", port);
     printf("*******************PHY status**************\n");
+    printf("PHY Mode: %s\n", phyconf.mode == PHY_MODE_AUTONEGO ? "Auto" : "Manual");
     printf("PHY Duplex: %s\n", phyconf.duplex == PHY_DUPLEX_FULL ? "Full" : "Half");
     printf("PHY Speed: %s\n", phyconf.speed == PHY_SPEED_100 ? "100Mbps" : "10Mbps");
     printf("*******************************************\n");

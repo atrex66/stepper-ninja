@@ -2,9 +2,16 @@
 #include "rtapi_app.h"          /* RTAPI realtime module decls */
 #include "rtapi_errno.h"        /* EINVAL etc */
 #include "hal.h"                /* HAL public API decls */
+
+#if raspberry_pi_spi == 0
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#else
+#include <linux/spi/spidev.h>
+#include <sys/ioctl.h>
+#endif
+
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>

@@ -8,6 +8,8 @@
     // ** If you change this file, you may break the module functionality    **
     // ************************************************************************
 
+    #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+
     #define stepgens 4
 
     // if you want to use the module with pwm output, set this to 1
