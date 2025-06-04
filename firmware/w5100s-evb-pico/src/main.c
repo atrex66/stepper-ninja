@@ -428,7 +428,7 @@ int main() {
         pio_gpio_init(pio, step_pin[i]);
         // dir pin
         gpio_init(step_pin[i]+1);
-        if (step_inverts[i] = 1){
+        if (step_inverts[i] == 1){
            gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT); // Invert the PWM signal
         }
         gpio_set_dir(step_pin[i]+1, GPIO_OUT);
