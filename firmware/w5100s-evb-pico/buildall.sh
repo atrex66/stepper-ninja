@@ -21,6 +21,6 @@ git add binary/stepper-ninja-W5500.uf2
 
 datum=$(date +%Y-%m-%d %H:%M:%S)
 git commit -m "Update firmware binaries for W5100S and W5500 on $datum"
-git push origin master
+git push
 
 echo "Firmware build and push completed for W5100S and W5500 on $datum"

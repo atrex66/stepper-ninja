@@ -13,13 +13,12 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
   - pico + W5500 module (need same wiring as W5100S-evb-pico)
   - planned support communication over spi with raspberry-pi4
 
-- **step-generator**: multiple channels 512KHz per channel (30m/min with 0.001mm 1ms servo-thread). pulse width set from hal pin (430 - 6300 nS).
+- **step-generator**: multiple channels 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS).
 
 - **quadrature-encoder**: multiple channels 12.5MHz count rate per channel (theoretical).
 
 - **Software**:
-  - The master branch is under development clone v1.0.1 under the tags to use stable version
-  - !UPDATE! the current configuration 4 step generator 2 encoder 3 output 1 pwm 4 input
+  - !UPDATE! the current configuration 4 step generator 2 encoder 3 output 1 pwm 4 input. but you can easily modifi to your own machine.
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
 
 - **Open-Source**: code and docs under MIT License, quadrature-encoder PIO program uses BSD-3 license.

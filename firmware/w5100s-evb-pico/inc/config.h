@@ -26,6 +26,11 @@
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
     #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
 
+    #define pwm_GP 14 // PWM pin for the module (GPIO 8)
+    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
+
+    #define step_invert ((const uint8_t[]){0, 0, 0, 0}) // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+
     // **********************************************************************************
     // ** the following code cunfigures the rest of the module please do not change it **
     // ** if you not know exactly what you are doing, it can break the module          **
@@ -63,9 +68,6 @@
         #endif // encoders < 2
 
     #endif // brakeout_board > 0
-
-    #define pwm_GP 14 // PWM pin for the module (GPIO 8)
-    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #if use_outputs == 1
         #if use_pwm == 1

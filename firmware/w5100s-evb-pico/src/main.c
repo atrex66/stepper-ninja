@@ -389,6 +389,7 @@ int main() {
     #if pwm_invert == 1
         gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
     #endif
+    
     // Figure out which slice we just connected to the LED pin
     uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
 
@@ -412,6 +413,7 @@ int main() {
     #endif
 
     uint32_t offset[2] = {0, };
+    uint8_t *step_inverts = (uint8_t *)step_invert;
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
     //offset[1] = pio_add_program_at_offset(pio1, &freq_generator_program, 0);
@@ -426,6 +428,9 @@ int main() {
         pio_gpio_init(pio, step_pin[i]);
         // dir pin
         gpio_init(step_pin[i]+1);
+        if (step_inverts[i] = 1){
+           gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT); // Invert the PWM signal
+        }
         gpio_set_dir(step_pin[i]+1, GPIO_OUT);
         pio_sm_set_consecutive_pindirs(pio, sm, step_pin[i], 1, true);
         pio_sm_config c = freq_generator_program_get_default_config(offset[o]);
