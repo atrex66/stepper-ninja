@@ -429,7 +429,7 @@ int main() {
         // dir pin
         gpio_init(step_pin[i]+1);
         if (step_inverts[i] == 1){
-           gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT); // Invert the PWM signal
+           gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT); // Invert the stepgen signal
         }
         gpio_set_dir(step_pin[i]+1, GPIO_OUT);
         pio_sm_set_consecutive_pindirs(pio, sm, step_pin[i], 1, true);
