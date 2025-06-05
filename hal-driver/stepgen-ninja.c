@@ -51,7 +51,9 @@ uint32_t total_cycles;
 
 #define dormant_cycles 6
 
-#define offset 5000
+// Add 10,000 mm offset to *d->command[i] to avoid simulator zero-crossing issue
+// Not needed on real machine due to homing at axis limits, but not hurts real machines.
+#define offset 10000
 
 typedef struct {
     char ip[16]; // Holds IPv4 address
