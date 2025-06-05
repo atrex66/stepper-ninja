@@ -115,6 +115,38 @@ void resetCounter(int index) {
     }
 
     // Handle POST request to reset all counters
+    if (strstr((char*)p->payload, "POST /set_active_low") != NULL) {
+        tcp_recved(tpcb, p->tot_len);
+        printf("Setting all step counters to active low\n");
+        for (int i = 0; i < stepcounters; i++) {
+            gpio_set_inover(stepcounter_base[i], GPIO_OVERRIDE_INVERT);
+            gpio_pull_up(stepcounter_base[i]); // Set pull-down resistor
+
+        }
+        char response[] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}";
+        tcp_write(tpcb, response, strlen(response), TCP_WRITE_FLAG_COPY);
+        tcp_close(tpcb);
+        pbuf_free(p);
+        return ERR_OK;
+    }
+
+    // Handle POST request to reset all counters
+    if (strstr((char*)p->payload, "POST /set_active_high") != NULL) {
+        tcp_recved(tpcb, p->tot_len);
+        printf("Setting all step counters to active high\n");
+        for (int i = 0; i < stepcounters; i++) {
+            gpio_set_inover(stepcounter_base[i], GPIO_OVERRIDE_NORMAL);
+            gpio_pull_down(stepcounter_base[i]); // Set pull-up resistor
+        }
+
+        char response[] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}";
+        tcp_write(tpcb, response, strlen(response), TCP_WRITE_FLAG_COPY);
+        tcp_close(tpcb);
+        pbuf_free(p);
+        return ERR_OK;
+    }
+
+    // Handle POST request to reset all counters
     if (strstr((char*)p->payload, "POST /reset_all") != NULL) {
         tcp_recved(tpcb, p->tot_len);
         
