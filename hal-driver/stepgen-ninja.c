@@ -105,8 +105,8 @@ typedef struct {
     uint8_t checksum_index_in;
     uint8_t checksum_error;
     int32_t enc_offset[encoders];
-    int32_t prev_pos[6];
-    int32_t curr_pos[6];
+    double prev_pos[6];
+    double curr_pos[6];
     bool watchdog_running;
     bool error_triggered;
     bool first_data;
@@ -337,7 +337,7 @@ void print_binary_to_array(uint32_t num) {
 static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
     uint8_t enc_index = 0;
-    int16_t steps;
+    int32_t steps;
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
     bool reset_active = false;
@@ -357,6 +357,9 @@ static void udp_io_process_send(void *arg, long period) {
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
+        for (uint8_t i = 0; i < stepgens; i++) {
+            rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: scale[%d] is %.3f\n", d->index, i, *d->scale[i]);
+        }
         memset(timing, 0, sizeof(timing));
         for (uint16_t i=1; i < 1024; i++){
             step_counter = (uint32_t)((float)((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
@@ -382,17 +385,17 @@ static void udp_io_process_send(void *arg, long period) {
         // fill tx_buffer with zeros
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
+            d->curr_pos[i] = ceil(*d->command[i] * *d->scale[i]);
             // position mode
             if (d->first_data) {
-                d->prev_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
+                d->prev_pos[i] = d->curr_pos[i]; // Initialize previous position
             }
             if (*d->enable[i] == 0) {
                 cmd[i] = 0; // disable stepgen
                 continue;
             }
             if (*d->mode[i] == 0) {
-                d->curr_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
-                steps = (int16_t)(d->prev_pos[i] - d->curr_pos[i]);
+                steps = (int32_t)d->prev_pos[i] - d->curr_pos[i];
                 if (steps < 0){
                     steps = steps * -1;
                 }
@@ -403,13 +406,14 @@ static void udp_io_process_send(void *arg, long period) {
                 if (d->prev_pos[i] < d->curr_pos[i]){
                     sign = 1;
                 }
-                d->prev_pos[i] = d->curr_pos[i];
+
                 if (steps > 0){
                     cmd[i] = (timing[steps] | (sign << 31));
                 }
                 else{
                     cmd[i] = 0;
                 }
+            d->prev_pos[i] = d->curr_pos[i];
             }
             else{
                 // velocity mode
