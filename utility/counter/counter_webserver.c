@@ -114,6 +114,23 @@ void resetCounter(int index) {
         return ERR_OK;
     }
 
+    // Handle POST request to reset all counters
+    if (strstr((char*)p->payload, "POST /reset_all") != NULL) {
+        tcp_recved(tpcb, p->tot_len);
+        
+        // Reset all counters
+        for (int i = 0; i < stepcounters; i++) {
+            resetCounter(i);
+        }
+
+        char response[] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}";
+        tcp_write(tpcb, response, strlen(response), TCP_WRITE_FLAG_COPY);
+        tcp_close(tpcb);
+        pbuf_free(p);
+        return ERR_OK;
+    }
+
+
     // Handle POST request to reset a single counter
     if (strstr((char*)p->payload, "POST /reset") != NULL) {
         tcp_recved(tpcb, p->tot_len);
@@ -125,22 +142,6 @@ void resetCounter(int index) {
             if (sscanf(json_start, "{\"counter\":%d}", &index) == 1 && index >= 0 && index < stepcounters) {
                 resetCounter(index);
             }
-        }
-
-        char response[] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}";
-        tcp_write(tpcb, response, strlen(response), TCP_WRITE_FLAG_COPY);
-        tcp_close(tpcb);
-        pbuf_free(p);
-        return ERR_OK;
-    }
-
-    // Handle POST request to reset all counters
-    if (strstr((char*)p->payload, "POST /reset_all") != NULL) {
-        tcp_recved(tpcb, p->tot_len);
-        
-        // Reset all counters
-        for (int i = 0; i < stepcounters; i++) {
-            resetCounter(i);
         }
 
         char response[] = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}";
