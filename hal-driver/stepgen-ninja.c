@@ -51,6 +51,10 @@ uint32_t total_cycles;
 
 #define dormant_cycles 6
 
+// Add 10,000 mm offset to *d->command[i] to avoid simulator zero-crossing issue
+// Not needed on real machine due to homing at axis limits, but not hurts real machines.
+#define offset 10000
+
 typedef struct {
     char ip[16]; // Holds IPv4 address
     int port;
@@ -86,7 +90,8 @@ typedef struct {
 
 #if debug == 1
     hal_float_t *debug_freq;
-    hal_u32_t *debug_steps[stepgens];
+    hal_s32_t *debug_steps[stepgens];
+    hal_bit_t *debug_steps_reset;
 #endif
     // hal driver inside working
     hal_u32_t *period;
@@ -105,8 +110,8 @@ typedef struct {
     uint8_t checksum_index_in;
     uint8_t checksum_error;
     int32_t enc_offset[encoders];
-    int32_t prev_pos[6];
-    int32_t curr_pos[6];
+    int64_t prev_pos[6];
+    int64_t curr_pos[6];
     bool watchdog_running;
     bool error_triggered;
     bool first_data;
@@ -338,6 +343,7 @@ static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
     uint8_t enc_index = 0;
     int16_t steps;
+    double f_steps[stepgens] = {0,};
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
     bool reset_active = false;
@@ -382,23 +388,36 @@ static void udp_io_process_send(void *arg, long period) {
         // fill tx_buffer with zeros
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
+            float f_command = *d->command[i] + offset;
             // position mode
             if (d->first_data) {
-                d->prev_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
+                d->prev_pos[i] = f_command * *d->scale[i]; // Initialize previous position
             }
             if (*d->enable[i] == 0) {
                 cmd[i] = 0; // disable stepgen
                 continue;
             }
             if (*d->mode[i] == 0) {
-                d->curr_pos[i] = (int32_t)(*d->command[i] * *d->scale[i]);
-                steps = (int16_t)(d->prev_pos[i] - d->curr_pos[i]);
-                if (steps < 0){
-                    steps = steps * -1;
-                }
+                d->curr_pos[i] = f_command * *d->scale[i]; // Current position in steps
+                f_steps[i] = (d->prev_pos[i] - d->curr_pos[i]); // Calculate steps to move
+                steps = (int16_t)f_steps[i]; // Round to nearest integer
+
                 #if debug == 1
-                *d->debug_steps[i] += (uint16_t)steps ;
+                *d->debug_steps[i] -= steps ;
+                if (*d->debug_steps_reset == 1) {
+                    *d->debug_steps[i] = 0; // Reset debug steps
+                    if (i == stepgens - 1){
+                        *d->debug_steps_reset = 0; // Reset the reset flag
+                    }
+                }
                 #endif
+                steps = abs(steps);
+
+                // handle zero crossing
+                if (d->prev_pos[i] < 0 && d->curr_pos[i] > 0) {
+                    steps ++;
+                }
+
                 sign = 0;
                 if (d->prev_pos[i] < d->curr_pos[i]){
                     sign = 1;
@@ -429,6 +448,10 @@ static void udp_io_process_send(void *arg, long period) {
 
                 #if debug == 1
                 *d->debug_steps[i] += (uint16_t)steps_per_cycle;
+                if (*d->debug_steps_reset == 1) {
+                    *d->debug_steps[i] = 0; // Reset debug steps
+                    *d->debug_steps_reset = 0; // Reset the reset flag
+                }
                 #endif
 
                 // PIO parancs: a timing táblázatból vesszük a megfelelő értéket
@@ -667,6 +690,14 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.stepgen.debug-steps-reset", j);
+        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].debug_steps_reset, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
         #endif
 
         for (int i = 0; i< in_pins_no; i++){
@@ -789,7 +820,7 @@ int rtapi_app_main(void) {
             #if debug == 1
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.debug-steps", j, i);
-            r = hal_pin_u32_newf(HAL_OUT, &hal_data[j].debug_steps[i], comp_id, name, j);
+            r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].debug_steps[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);

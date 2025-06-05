@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stepper Ninja Configuration Editor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 800px; }
+        .section { margin-bottom: 20px; }
+        .pinout { font-family: monospace; white-space: pre; border: 1px solid #ccc; padding: 10px; }
+        label { display: inline-block; width: 200px; }
+        input, select { margin-bottom: 10px; }
+        .warning { color: red; }
+        #configOutput { width: 100%; height: 200px; font-family: monospace; }
+        button { margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Stepper Ninja Configuration Editor</h1>
+    <div class="section">
+        <h2>General Settings</h2>
+        <label>Raspberry Pi SPI:</label>
+        <input type="checkbox" id="raspberry_pi_spi"> Enable direct SPI (uncheck for Ethernet)<br>
+        <label>Step Generators:</label>
+        <select id="stepgens">
+            <option value="4">4 (GPIO 0-7)</option>
+            <option value="3">3 (GPIO 0-5)</option>
+            <option value="2">2 (GPIO 0-3)</option>
+            <option value="1">1 (GPIO 0-1)</option>
+        </select><br>
+        <label>Default Pulse Width (ns):</label>
+        <input type="number" id="default_pulse_width" value="2000" min="1"><br>
+        <label>Default Step Scale:</label>
+        <input type="number" id="default_step_scale" value="1000" min="1"><br>
+    </div>
+    <div class="section">
+        <h2>PWM Settings</h2>
+        <label>Enable PWM:</label>
+        <input type="checkbox" id="use_pwm" checked><br>
+        <label>PWM GPIO Pin:</label>
+        <select id="pwm_GP"></select><br>
+        <label>Invert PWM:</label>
+        <input type="checkbox" id="pwm_invert"><br>
+        <label>PWM Frequency (Hz):</label>
+        <input type="number" id="default_pwm_frequency" value="10000" min="1"><br>
+        <label>PWM Max Scale:</label>
+        <input type="number" id="default_pwm_maxscale" value="4096" min="1"><br>
+        <label>PWM Min Limit:</label>
+        <input type="number" id="default_pwm_min_limit" value="0" min="0"><br>
+    </div>
+    <div class="section">
+        <h2>Output Settings</h2>
+        <label>Enable Outputs:</label>
+        <input type="checkbox" id="use_outputs" checked><br>
+        <label>Step Invert:</label>
+        <div id="step_invert_container"></div>
+    </div>
+    <div class="section">
+        <h2>Pin Configuration</h2>
+        <label>Input Pins:</label>
+        <select id="in_pins" multiple size="5"></select> <span id="in_pins_no"></span><br>
+        <label>Output Pins:</label>
+        <select id="out_pins" multiple size="5"></select> <span id="out_pins_no"></span><br>
+    </div>
+    <div class="section">
+        <h2>Pinout Visualization</h2>
+        <pre class="pinout" id="pinout">Loading...</pre>
+    </div>
+    <div class="section">
+        <h2>Generated config.h</h2>
+        <textarea id="configOutput" readonly></textarea><br>
+        <button onclick="generateConfig()">Generate config.h</button>
+        <button onclick="downloadConfig()">Download config.h</button>
+    </div>
+    <p class="warning">Note: brakeout_board is not supported and must remain 0.</p>
+
+    <script>
+        // Configuration state
+        let config = {
+            raspberry_pi_spi: 0,
+            stepgens: 4,
+            default_pulse_width: 2000,
+            default_step_scale: 1000,
+            use_pwm: 1,
+            pwm_GP: 14,
+            pwm_invert: 0,
+            default_pwm_frequency: 10000,
+            default_pwm_maxscale: 4096,
+            default_pwm_min_limit: 0,
+            use_outputs: 1,
+            step_invert: [0, 0, 0, 0],
+            in_pins: [],
+            in_pins_no: 0,
+            out_pins: [],
+            out_pins_no: 0
+        };
+
+        // Reserved pins
+        const reservedPins = {
+            spi: [16, 17, 18, 19], // MISO, CS, SCK, MOSI
+            irq: 21,
+            led: 25
+        };
+
+        // Step generator pins (2 pins per stepgen, starting from GPIO 0)
+        const stepgenPins = [
+            [0, 1], // Stepgen 1
+            [2, 3], // Stepgen 2
+            [4, 5], // Stepgen 3
+            [6, 7]  // Stepgen 4
+        ];
+
+        // All possible GPIO pins
+        const allGPIOs = Array.from({length: 29}, (_, i) => i); // GPIO 0-28
+
+        // Initialize form
+        function initForm() {
+            document.getElementById('raspberry_pi_spi').checked = config.raspberry_pi_spi;
+            document.getElementById('stepgens').value = config.stepgens;
+            document.getElementById('default_pulse_width').value = config.default_pulse_width;
+            document.getElementById('default_step_scale').value = config.default_step_scale;
+            document.getElementById('use_pwm').checked = config.use_pwm;
+            document.getElementById('pwm_invert').checked = config.pwm_invert;
+            document.getElementById('default_pwm_frequency').value = config.default_pwm_frequency;
+            document.getElementById('default_pwm_maxscale').value = config.default_pwm_maxscale;
+            document.getElementById('default_pwm_min_limit').value = config.default_pwm_min_limit;
+            document.getElementById('use_outputs').checked = config.use_outputs;
+            updatePWMOptions();
+            updateStepInvert();
+            updatePinOptions();
+            updatePinout();
+            generateConfig();
+        }
+
+        // Update PWM GPIO options
+        function updatePWMOptions() {
+            const pwmSelect = document.getElementById('pwm_GP');
+            pwmSelect.innerHTML = '';
+            const usedPins = [...reservedPins.spi, reservedPins.irq, reservedPins.led, ...stepgenPins.flat().slice(0, config.stepgens * 2)];
+            const availablePWMPins = allGPIOs.filter(pin => !usedPins.includes(pin));
+            availablePWMPins.forEach(pin => {
+                const option = document.createElement('option');
+                option.value = pin;
+                option.text = `GPIO ${pin}`;
+                pwmSelect.appendChild(option);
+            });
+            pwmSelect.value = config.pwm_GP in availablePWMPins ? config.pwm_GP : availablePWMPins[0] || 14;
+            config.pwm_GP = parseInt(pwmSelect.value);
+        }
+
+        // Update step_invert checkboxes
+        function updateStepInvert() {
+            const container = document.getElementById('step_invert_container');
+            container.innerHTML = '';
+            config.step_invert = config.step_invert.slice(0, config.stepgens).concat(Array(Math.max(0, config.stepgens - config.step_invert.length)).fill(0));
+            for (let i = 0; i < config.stepgens; i++) {
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `step_invert_${i}`;
+                checkbox.checked = config.step_invert[i];
+                checkbox.onchange = () => {
+                    config.step_invert[i] = checkbox.checked ? 1 : 0;
+                    generateConfig();
+                };
+                const label = document.createElement('label');
+                label.textContent = `Step ${i + 1} Invert`;
+                label.style.width = 'auto';
+                label.style.marginRight = '20px';
+                container.appendChild(checkbox);
+                container.appendChild(label);
+            }
+        }
+
+        // Update available pins and encoder count
+        function updatePinOptions() {
+            const stepgens = parseInt(document.getElementById('stepgens').value);
+            const use_pwm = document.getElementById('use_pwm').checked ? 1 : 0;
+            const use_outputs = document.getElementById('use_outputs').checked ? 1 : 0;
+
+            // Update stepgens and stepgen pins
+            config.stepgens = stepgens;
+            const stepgenUsedPins = stepgenPins.slice(0, stepgens).flat();
+
+            // Calculate encoders
+            let encoders = 4;
+            if (use_pwm && !use_outputs) encoders = 3;
+            else if (!use_pwm && use_outputs) encoders = 2;
+            else if (use_pwm && use_outputs) encoders = 1;
+
+            // Calculate available pins
+            let usedPins = [...reservedPins.spi, reservedPins.irq, reservedPins.led, ...stepgenUsedPins];
+            if (use_pwm) usedPins.push(parseInt(document.getElementById('pwm_GP').value));
+            let availablePins = allGPIOs.filter(pin => !usedPins.includes(pin));
+
+            // Update input/output pins based on encoders
+            let in_pins = [];
+            let out_pins = [];
+            if (encoders === 4) {
+                in_pins = [];
+                out_pins = [];
+            } else if (encoders === 3) {
+                in_pins = availablePins.slice(0, 4); // e.g., [8, 9, 10, 11]
+                out_pins = [];
+            } else if (encoders === 2) {
+                in_pins = availablePins.slice(0, 4); // e.g., [8, 9, 10, 11]
+                out_pins = use_pwm ? availablePins.slice(4, 7) : availablePins.slice(4, 8); // e.g., [12, 13, 15] or [12, 13, 14, 15]
+            } else if (encoders === 1) {
+                in_pins = availablePins.slice(0, 6); // e.g., [8, 9, 10, 11, 12, 13]
+                out_pins = use_pwm ? availablePins.slice(6, 9) : availablePins.slice(6, 10); // e.g., [15, 22, 26] or [14, 15, 22, 26]
+            }
+
+            // Update pin dropdowns
+            const inPinsSelect = document.getElementById('in_pins');
+            const outPinsSelect = document.getElementById('out_pins');
+            inPinsSelect.innerHTML = '';
+            outPinsSelect.innerHTML = '';
+            availablePins.forEach(pin => {
+                const option = document.createElement('option');
+                option.value = pin;
+                option.text = `GPIO ${pin}`;
+                inPinsSelect.appendChild(option.cloneNode(true));
+                if (use_outputs) outPinsSelect.appendChild(option);
+            });
+
+            // Set default selections
+            in_pins.forEach(pin => inPinsSelect.querySelector(`option[value="${pin}"]`).selected = true);
+            out_pins.forEach(pin => outPinsSelect.querySelector(`option[value="${pin}"]`).selected = true);
+            document.getElementById('in_pins_no').textContent = `(${in_pins.length} pins, Encoders: ${encoders})`;
+            document.getElementById('out_pins_no').textContent = `(${out_pins.length} pins)`;
+
+            config.in_pins = in_pins;
+            config.out_pins = out_pins;
+            config.in_pins_no = in_pins.length;
+            config.out_pins_no = out_pins.length;
+
+            updatePinout();
+            generateConfig();
+        }
+
+        // Update pinout visualization (text-based, replace with Canvas/SVG for graphics)
+        function updatePinout() {
+            const pinout = document.getElementById('pinout');
+            let output = 'Pico Pinout (R=Reserved, P=PWM, I=Input, O=Output, S=Stepgen)\n';
+            const usedPins = {};
+            reservedPins.spi.forEach(pin => usedPins[pin] = `R (SPI ${['MISO', 'CS', 'SCK', 'MOSI'][reservedPins.spi.indexOf(pin)]})`);
+            usedPins[reservedPins.irq] = 'R (IRQ)';
+            usedPins[reservedPins.led] = 'R (LED)';
+            if (config.use_pwm) usedPins[config.pwm_GP] = 'P (PWM)';
+            config.in_pins.forEach(pin => usedPins[pin] = 'I (Input)');
+            config.out_pins.forEach(pin => usedPins[pin] = 'O (Output)');
+            stepgenPins.slice(0, config.stepgens).flat().forEach(pin => usedPins[pin] = 'S (Stepgen)');
+
+            for (let i = 0; i <= 28; i++) {
+                output += `GPIO ${i.toString().padStart(2, ' ')}: ${usedPins[i] || 'Free'}\n`;
+            }
+            pinout.textContent = output;
+        }
+
+        // Generate config.h content
+        function generateConfig() {
+            config.raspberry_pi_spi = document.getElementById('raspberry_pi_spi').checked ? 1 : 0;
+            config.stepgens = parseInt(document.getElementById('stepgens').value);
+            config.default_pulse_width = parseInt(document.getElementById('default_pulse_width').value);
+            config.default_step_scale = parseInt(document.getElementById('default_step_scale').value);
+            config.use_pwm = document.getElementById('use_pwm').checked ? 1 : 0;
+            config.pwm_GP = parseInt(document.getElementById('pwm_GP').value);
+            config.pwm_invert = document.getElementById('pwm_invert').checked ? 1 : 0;
+            config.default_pwm_frequency = parseInt(document.getElementById('default_pwm_frequency').value);
+            config.default_pwm_maxscale = parseInt(document.getElementById('default_pwm_maxscale').value);
+            config.default_pwm_min_limit = parseInt(document.getElementById('default_pwm_min_limit').value);
+            config.use_outputs = document.getElementById('use_outputs').checked ? 1 : 0;
+
+            // Generate config.h
+            let configText = `#ifndef CONFIG_H\n#define CONFIG_H\n\n`;
+            configText += `// User-configurable settings\n`;
+            configText += `#define raspberry_pi_spi ${config.raspberry_pi_spi}\n`;
+            configText += `#define stepgens ${config.stepgens}\n`;
+            configText += `#define default_pulse_width ${config.default_pulse_width}\n`;
+            configText += `#define default_step_scale ${config.default_step_scale}\n`;
+            configText += `#define use_pwm ${config.use_pwm}\n`;
+            configText += `#define pwm_GP ${config.pwm_GP}\n`;
+            configText += `#define pwm_invert ${config.pwm_invert}\n`;
+            configText += `#define default_pwm_frequency ${config.default_pwm_frequency}\n`;
+            configText += `#define default_pwm_maxscale ${config.default_pwm_maxscale}\n`;
+            configText += `#define default_pwm_min_limit ${config.default_pwm_min_limit}\n`;
+            configText += `#define use_outputs ${config.use_outputs}\n`;
+            configText += `#define step_invert ((const uint8_t[]){${config.step_invert.slice(0, config.stepgens).join(', ')}})\n`;
+            configText += `#define brakeout_board 0 // Not supported, do not change\n\n`;
+
+            // Add protected settings
+            configText += `// Protected settings (do not modify)\n`;
+            configText += `#define SPI_PORT spi0\n#define PIN_MISO 16\n#define PIN_CS 17\n#define PIN_SCK 18\n#define PIN_MOSI 19\n#define PIN_RESET 20\n#define IRQ_PIN 21\n`;
+            configText += `#define IODIR 0x00\n#define GPIO 0x09\n#define USE_SPI_DMA 1\n#define LED_PIN PICO_DEFAULT_LED_PIN\n`;
+            configText += `#define IMR_RECV 0x04\n#define Sn_IMR_RECV 0x04\n#define Sn_IR_RECV 0x04\n#define SOCKET_DHCP 0\n\n`;
+
+            // Add dynamic pin assignments
+            if (config.brakeout_board) {
+                configText += `#if brakeout_board > 0\n`;
+                configText += `    #define MCP23017_ADDR 0x21\n    #define MCP23008_ADDR 0x20\n    #define MCP_ALL_RESET 22\n`;
+                configText += `    #define encoders 2\n    #define in_pins {12, 13, 15, 28}\n    #define in_pins_no 4\n`;
+                configText += `    #define I2C_SDA 26\n    #define I2C_SCK 27\n    #undef use_outputs\n    #define use_outputs 0\n`;
+                configText += `#else\n`;
+            }
+
+            // Encoder and pin logic
+            let encoders = 4;
+            if (config.use_pwm && !config.use_outputs) encoders = 3;
+            else if (!config.use_pwm && config.use_outputs) encoders = 2;
+            else if (config.use_pwm && config.use_outputs) encoders = 1;
+            configText += `    #if use_pwm == 0 && use_outputs == 0\n        #define encoders 4\n`;
+            configText += `    #elif use_pwm == 1 && use_outputs == 0\n        #define encoders 3\n`;
+            configText += `    #elif use_pwm == 0 && use_outputs == 1\n        #define encoders 2\n`;
+            configText += `    #elif use_pwm == 1 && use_outputs == 1\n        #define encoders 1\n    #endif\n\n`;
+
+            // Input/output pins
+            configText += `    #if encoders == 1\n        #define in_pins {${config.in_pins.join(', ')}}\n        #define in_pins_no ${config.in_pins_no}\n`;
+            configText += `    #elif encoders == 2 || encoders == 3\n        #define in_pins {${config.in_pins.slice(0, 4).join(', ')}}\n        #define in_pins_no 4\n`;
+            configText += `    #else\n        #define in_pins {}\n        #define in_pins_no 0\n    #endif\n`;
+            if (config.use_outputs) {
+                configText += `    #if use_outputs == 1\n`;
+                configText += `        #if use_pwm == 1\n            #define out_pins {${config.out_pins.join(', ')}}\n            #define out_pins_no ${config.out_pins_no}\n`;
+                configText += `        #else\n            #define out_pins {${config.out_pins.join(', ')}}\n            #define out_pins_no ${config.out_pins_no}\n        #endif\n`;
+                configText += `    #endif\n`;
+            }
+
+            if (config.brakeout_board) configText += `#endif\n`;
+            configText += `#endif\n`;
+
+            document.getElementById('configOutput').value = configText;
+        }
+
+        // Download config.h
+        function downloadConfig() {
+            const blob = new Blob([document.getElementById('configOutput').value], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'config.h';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Event listeners
+        document.getElementById('raspberry_pi_spi').addEventListener('change', updatePinOptions);
+        document.getElementById('stepgens').addEventListener('change', () => {
+            config.stepgens = parseInt(document.getElementById('stepgens').value);
+            updateStepInvert();
+            updatePWMOptions();
+            updatePinOptions();
+        });
+        document.getElementById('use_pwm').addEventListener('change', () => {
+            updatePWMOptions();
+            updatePinOptions();
+        });
+        document.getElementById('use_outputs').addEventListener('change', updatePinOptions);
+        document.getElementById('pwm_GP').addEventListener('change', updatePinOptions);
+        document.getElementById('in_pins').addEventListener('change', () => {
+            config.in_pins = Array.from(document.getElementById('in_pins').selectedOptions).map(opt => parseInt(opt.value));
+            config.in_pins_no = config.in_pins.length;
+            updatePinout();
+            generateConfig();
+        });
+        document.getElementById('out_pins').addEventListener('change', () => {
+            config.out_pins = Array.from(document.getElementById('out_pins').selectedOptions).map(opt => parseInt(opt.value));
+            config.out_pins_no = config.out_pins.length;
+            updatePinout();
+            generateConfig();
+        });
+        ['default_pulse_width', 'default_step_scale', 'default_pwm_frequency', 'default_pwm_maxscale', 'default_pwm_min_limit', 'pwm_invert'].forEach(id => {
+            document.getElementById(id).addEventListener('change', generateConfig);
+        });
+
+        // Initialize
+        initForm();
+    </script>
+</body>
+</html>
