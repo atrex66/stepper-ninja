@@ -27,6 +27,7 @@ typedef struct{
     #endif
     uint32_t inputs[2]; // Two 32-bit inputs
     uint32_t jitter;
+    uint8_t interrupt_data;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;

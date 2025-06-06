@@ -67,6 +67,7 @@ typedef struct {
     hal_bit_t *mode[stepgens];
     hal_bit_t *enable[stepgens];
     hal_u32_t *pulse_width;
+    hal_bit_t *spindle_index;
     // encoder pins
     hal_s32_t *raw_count[encoders];
     hal_s32_t *scaled_count[encoders];
@@ -285,6 +286,7 @@ void udp_io_process_recv(void *arg, long period) {
         *d->connected = 1;
         d->last_received_time = d->current_time;
         *d->jitter = rx_buffer->jitter; // Set jitter value from received data
+        *d->spindle_index = rx_buffer->interrupt_data && 1;
         // user code start (process received data) rx_buffer[*]
         for (uint8_t i = 0; i < encoders; i++) {
             #if debug == 1
@@ -718,6 +720,17 @@ int rtapi_app_main(void) {
                 return r;
             }
         }
+
+        #if spindle_encoder_index_GPIO > 0
+        memset(name, 0, sizeof(name));
+        snprintf(name, sizeof(name), module_name ".%d.spindle.index-enable", j);
+        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].spindle_index, comp_id, name, j);
+        if (r < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+            hal_exit(comp_id);
+            return r;
+        }
+        #endif
 
         #if use_outputs == 1
         for (int i = 0; i< out_pins_no; i++){
