@@ -17,11 +17,16 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 
 - **quadrature-encoder**: multiple channels 12.5MHz count rate per channel (theoretical).
 
+- **digital IO**: you can configure the free pins of the pico to inputs and outputs
+
+- **Spindle encoder index**: you can configure 1 GPIO to handle Spindle encoder index signal in the config.h (dedicated hal pin, spindle.index-enable)
+
+- **pwm**: you can configure 1 GPIO for the pwm signal (1900Hz(16bit resolution) to 1Mhz(7bit resolution)) and can configure active low or active high
+
 - **Software**:
-  - !UPDATE! the current configuration 4 step generator 2 encoder 3 output 1 pwm 4 input. but you can easily modifi to your own machine.
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
 
-- **Open-Source**: code and docs under MIT License, quadrature-encoder PIO program uses BSD-3 license.
+- **Open-Source**: code and docs under MIT License.
 
 - **ready-to-ride**: w5100s-evb-pico and w5500 + pico version prebuilt uf2 in the binary directory. To install the hal driver you need to run the install.sh in the hal-driver directory
 
