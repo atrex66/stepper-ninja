@@ -31,13 +31,19 @@ module_name.j.encoder.i.scaled-value - (FLOAT, OUT) - Scaled position value
 
 ## Digital I/O Pins
 
-### Inputs:
+### Inputs
 
 ``` .hal
 module_name.j.input.gpX - (BIT, OUT) - Digital input state (X = pin number)
 ```
 
-### Outputs (when use_outputs=1):
+### Spindle index
+
+``` .hal
+module_name.j.spindle.index-enabled - (BIT, OUT) - Spindle index pulse input
+```
+
+### Outputs (when use_outputs=1)
 
 ``` .hal
 module_name.j.output.gpX - (BIT, IN) - Digital output control (X = pin number)
