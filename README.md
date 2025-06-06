@@ -39,5 +39,5 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 
 ## License
 
-The quadrature encoder PIO program uses BSD-3 license [LICENSE.TXT](LICENSE.TXT)
-The `ioLibrary_Driver` is licensed under the MIT License by Wiznet.
+- The quadrature encoder PIO program uses BSD-3 license by Raspberry Pi (Trading) Ltd.
+- The `ioLibrary_Driver` is licensed under the MIT License by Wiznet.
