@@ -81,6 +81,8 @@ static uint32_t interrupt_count = 0;
 
 uint32_t pwm_freq_buffer;
 
+volatile bool spindle_index_enabled = false;
+
 uint8_t first_send = 1;
 volatile bool first_data = true;
 
@@ -180,6 +182,16 @@ void __time_critical_func(stepgen_update_handler)() {
 
 }
 
+// Interrupt kezelő függvény
+void gpio_callback(uint gpio, uint32_t events) {
+    if (gpio == spindle_encoder_index_GPIO) {
+        // Csak akkor fut, ha a megadott GPIO-n történik esemény
+        if (events & GPIO_IRQ_EDGE_RISE) {
+            spindle_index_enabled = true; // Jelzi az index impulzust
+        }
+    }
+}
+
 // -------------------------------------------
 // Core 1 Entry Point
 // -------------------------------------------
@@ -191,6 +203,18 @@ void core1_entry() {
 
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    if (spindle_encoder_index_GPIO != -1){
+        gpio_init(spindle_encoder_index_GPIO);
+        gpio_set_dir(spindle_encoder_index_GPIO, false);
+        // Interrupt engedélyezése csak a GPIO_PIN-re, emelkedő élre
+        if (spindle_encoder_active_level == high){
+            gpio_set_irq_enabled_with_callback(spindle_encoder_index_GPIO, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+        }
+        else{
+            gpio_set_irq_enabled_with_callback(spindle_encoder_index_GPIO, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+        }
+    }
 
     #if brakeout_board > 0
 
@@ -672,6 +696,11 @@ void handle_data(){
     #if brakeout_board > 0
         tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
     #endif
+
+    tx_buffer->interrupt_data = 0;
+    tx_buffer->interrupt_data |= spindle_index_enabled;
+    spindle_index_enabled = 0;
+
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
 }

@@ -1,6 +1,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+    #define low 0
+    #define high 1
 
     // ************************************************************************
     // ** This file contains the configuration for the stepper ninja project **
@@ -30,6 +32,9 @@
     #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #define step_invert ((const uint8_t[]){0, 0, 0, 0}) // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+
+    #define spindle_encoder_index_GPIO 10
+    #define spindle_encoder_active_level high
 
     // **********************************************************************************
     // ** the following code cunfigures the rest of the module please do not change it **
