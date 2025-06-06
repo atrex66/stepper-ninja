@@ -9,6 +9,11 @@ Welcome to the Pico-W Counter Web Server! This project turns your Raspberry Pi P
 - Connects to your WiFi network to serve the page.
 - Blinks the Pico W's LED to show it's connected to the wifi network and working.
 
+## Features
+
+- counting stable down to 100nS pulses (tested)
+- supports active level change
+
 ## What You Need
 
 - **Raspberry Pi Pico W**: The tiny board that runs the show.
