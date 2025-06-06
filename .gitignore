@@ -11,3 +11,4 @@ hardware/
 firmware.zip
 hal-driver.zip
 buildall.sh
+__pycache__
