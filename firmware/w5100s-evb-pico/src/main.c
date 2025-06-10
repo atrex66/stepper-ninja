@@ -39,12 +39,11 @@
 
 // Author:Viola Zsolt (atrex66@gmail.com)
 // Date: 2025
-// Description: udp-warrior driver for W5100S-EVB-PICO
+// Description: stepper-ninja driver for W5100S-EVB-PICO
 // License: MIT
 // Description: This code is a driver for the W5100S-EVB-PICO board.
 // It also includes a serial terminal interface for configuration and debugging.
 // The code is designed to run on the Raspberry Pi Pico and uses the Pico SDK for hardware access.
-// The code is structured to run on two cores, with core 0 handling network communication and core 1 handling quadrature encoders (theoretical 12.5Mhz count).
 // The code is using DMA for SPI (burst) communication with the W5100S chip, which allows for high-speed data transfer.
 // The code uses the Wiznet W5100S library for network communication.
 // The code includes functions for initializing the hardware, handling network communication, and processing commands from the serial terminal.
@@ -319,6 +318,13 @@ void core1_entry() {
 // -------------------------------------------
 int main() {
 
+    stdio_init_all();
+    stdio_usb_init();
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    sleep_ms(2000);
+
     src_ip = (uint8_t *)malloc(4);
     command = malloc(sizeof(int32_t) * stepgens);
     rx_buffer = (transmission_pc_pico_t *)malloc(rx_size);
@@ -331,13 +337,6 @@ int main() {
         printf("tx_buffer allocation failed\n");
         return -1;
     }
-
-    stdio_init_all();
-    stdio_usb_init();
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-
-    sleep_ms(2000);
 
     printf("\033[2J");
     printf("\033[H");
@@ -363,7 +362,6 @@ int main() {
     hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
     hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
     
-
     load_configuration();
 
     #if raspberry_pi_spi == 0
@@ -414,7 +412,6 @@ int main() {
         gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
     #endif
     
-    // Figure out which slice we just connected to the LED pin
     uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
 
     // Get some sensible defaults for the slice configuration. By default, the
@@ -731,8 +728,8 @@ void __not_in_flash_func(handle_udp)() {
                 }
             #endif
             #if _WIZCHIP_ == W5500
-            #warning "W5500 interrupt setup is not implemented, polling mode"
-                            time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+            #pragma message("W5500 interrupt setup is not implemented, polling mode")
+                time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
             #endif
             setSn_IR(0, Sn_IR_RECV);  // clear interrupt
             if(getSn_RX_RSR(0) != 0) {
@@ -767,7 +764,8 @@ void w5100s_interrupt_init() {
     gpio_init(INT_PIN);
     gpio_set_dir(INT_PIN, GPIO_IN);
     gpio_pull_up(INT_PIN);
-    
+
+    //TODO:need to implement w5500 interrupt initialization also, in current state the w5500 using polling mode.
     uint8_t imr = IMR_RECV;        
     uint8_t sn_imr = Sn_IMR_RECV;  
     
@@ -849,7 +847,6 @@ void network_init() {
     setSn_CR(0, Sn_CR_OPEN);
     uint8_t sock_num = 0;
     socket(sock_num, Sn_MR_UDP, port, 0);
-
 
     printf("Network Init Done\n");
     wizchip_getnetinfo(&net_info);
