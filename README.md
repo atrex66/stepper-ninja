@@ -41,7 +41,7 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 
 - **Discord**:
 
-  - (stepper-ninja Discord)<https://discord.gg/bM2mQNCt>
+  - [stepper-ninja Discord](<https://discord.gg/bM2mQNCt>)
 
 ## License
 
