@@ -14,7 +14,6 @@
 #include "hardware/regs/pll.h"
 #include "hardware/structs/pll.h"
 #include "hardware/pio.h"
-#include "hardware/pwm.h"
 #include "hardware/timer.h"
 #include "serial_terminal.h"
 #include "wizchip_conf.h"
@@ -23,6 +22,7 @@
 #include "transmission.h"
 #include "flash_config.h"
 #include "pio_settings.h"
+#include "pwm.h"
 #include "freq_generator.pio.h"
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
@@ -61,7 +61,6 @@ extern configuration_t *flash_config;
 extern const uint8_t input_pins[in_pins_no];
 extern const uint8_t output_pins[out_pins_no];
 
-extern const uint8_t pwm_pin;
 wiz_NetInfo net_info;
 wiz_PhyConf *phy_conf;
 
@@ -181,7 +180,7 @@ void __time_critical_func(stepgen_update_handler)() {
 
 }
 
-// Interrupt kezelő függvény
+// spindle index interrupt
 void gpio_callback(uint gpio, uint32_t events) {
     if (gpio == spindle_encoder_index_GPIO) {
         // Csak akkor fut, ha a megadott GPIO-n történik esemény
@@ -298,14 +297,7 @@ void core1_entry() {
         #if use_pwm == 1
         if (old_pwm_frequency != pwm_freq_buffer){
             old_pwm_frequency = pwm_freq_buffer;
-            uint16_t wrap = pwm_calculate_wrap(rx_buffer->pwm_frequency);
-            if (wrap > 0) {
-                uint slice = pwm_gpio_to_slice_num(pwm_pin);
-                pwm_set_enabled(pwm_gpio_to_slice_num(pwm_pin), false); // Disable PWM output before changing wrap
-                pwm_set_wrap(slice, wrap); // Set the PWM wrap value
-                pwm_set_enabled(slice, true); // Enable PWM output
-                printf("PWM frequency: %d Hz wrap:%d\n", rx_buffer->pwm_frequency, wrap);
-            }
+            ninja_pwm_set_frequency(rx_buffer->pwm_frequency);
         }
         #endif
 
@@ -407,22 +399,10 @@ int main() {
     printf("\n");
 
     #if use_pwm == 1
-    gpio_set_function(pwm_pin, GPIO_FUNC_PWM); // Set PWM pin function
-    #if pwm_invert == 1
-        gpio_set_outover(pwm_pin, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
-    #endif
-    
-    uint slice_num = pwm_gpio_to_slice_num(pwm_pin);
-
-    // Get some sensible defaults for the slice configuration. By default, the
-    // counter is allowed to wrap over its maximum range (0 to 2**16-1)
-    pwm_config config = pwm_get_default_config();
-    // Set divider, reduces counter clock to sysclock/this value
-    pwm_config_set_clkdiv(&config, 1.0f);
-    // Set the PWM frequency to 1kHz
-    pwm_config_set_wrap(&config, 2048);
-    pwm_init(slice_num, &config, false); // Initialize the PWM slice with the config
-    //pwm_set_gpio_level(pwm_pin, 5000); // Set initial level to low
+    ninja_pwm_init();
+        #if pwm_invert == 1
+            gpio_set_outover(pwm_GP, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
+        #endif
     #endif
 
     #if use_outputs == 1
@@ -661,7 +641,7 @@ void handle_data(){
     #if use_pwm == 1
         // update pwm
         pwm_freq_buffer = rx_buffer->pwm_frequency;
-        pwm_set_gpio_level(pwm_pin, (uint16_t)rx_buffer->pwm_duty ); // Set PWM value
+        ninja_pwm_set_duty((uint16_t)rx_buffer->pwm_duty );
         }
     #else
     }
