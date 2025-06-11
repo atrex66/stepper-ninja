@@ -22,7 +22,9 @@ static const uint8_t init_sequence[] = {
     0xAF
 };
 
-uint8_t display_buffer[WIDTH * HEIGHT / 8];
+#define buffer_size WIDTH * HEIGHT / 8
+
+uint8_t display_buffer[buffer_size];
 static uint8_t rotated_font_8x8[256 * 8];
 
 void sh1106_write_cmd(uint8_t cmd) {
@@ -42,11 +44,10 @@ void sh1106_write_data(uint8_t *data, size_t len) {
 void sh1106_init() {
     for (size_t i = 0; i < sizeof(init_sequence); i++) {
         sh1106_write_cmd(init_sequence[i]);
+        sleep_ms(100);
     }
-    sleep_ms(100); // Rövid késleltetés a parancsok között
-    // Puffer törlése
     memset(display_buffer, 0, sizeof(display_buffer));
-    rotate_font(); // Betűtípus forgatása
+    rotate_font();
 }
 
 void sh1106_set_pixel(int x, int y) {
@@ -62,9 +63,8 @@ void sh1106_reset_pixel(int x, int y) {
 }
 
 void sh1106_clear() {
-    memset(display_buffer, 0, 1024);
+    memset(display_buffer, 0, buffer_size);
 }
-
 
 void draw_block(int x, int y, int size) {
     for (int i = 0; i < size; i++) {

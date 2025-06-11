@@ -1,9 +1,9 @@
 build/
 
 # ioLibrary_Driver build fájlok
-firmware/w5100s-evb-pico/ioLibrary_Driver/build/
-firmware/w5100s-evb-pico/ioLibrary_Driver/
-firmware/w5100s-evb-pico/python/
+firmware/ioLibrary_Driver/build/
+firmware/ioLibrary_Driver/
+firmware/python/
 
 hardware/
 .vscode/

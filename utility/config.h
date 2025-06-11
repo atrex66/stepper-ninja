@@ -1,1 +1,1 @@
-../firmware/w5100s-evb-pico/inc/config.h
+../firmware/inc/config.h
