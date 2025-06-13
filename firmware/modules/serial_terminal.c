@@ -63,6 +63,7 @@ void process_command(char* command) {
         printf("help - Show this help message\n");
         printf("check - Show current configuration\n");
         printf("ip <x.x.x.x> - Set IP address\n");
+        printf("gateway <x.x.x.x> - Set the gateway address\n");
         printf("port <port> - Set port\n");
         printf("mac <xx:xx:xx:xx:xx:xx> - Set MAC address\n");
         printf("timeout <value> - Set timeout in microseconds\n");
@@ -134,15 +135,6 @@ void process_command(char* command) {
             printf("Invalid timeout format\n");
         }
     }
-    /*else if (strncmp(command, "pwm ", 4) == 0) {
-        uint16_t pwm;
-        if (sscanf(command, "pwm %d", &pwm) == 1) {
-            pwm_set_gpio_level(pwm_GP, pwm);
-        }
-        else {
-            printf("Invalid pwm format\n");
-        }
-    }*/
     else if (strncmp(command, "port ", 5) == 0) {
         int new_port;
         if (sscanf(command, "port %d", &new_port) == 1) {
@@ -166,6 +158,20 @@ void process_command(char* command) {
         }
         else {
             printf("Invalid IP format\n");
+        }
+    } 
+    else if (strncmp(command, "gateway ", 8) == 0) {
+        int gw0, gw1, gw2, gw3;
+        if (sscanf(command, "gateway %d.%d.%d.%d", &gw0, &gw1, &gw2, &gw3) == 4) {
+            net_info.gw[0] = gw0;
+            net_info.gw[1] = gw1;
+            net_info.gw[2] = gw2;
+            net_info.gw[3] = gw3;
+            save_configuration();
+            printf("Gateway changed to %d.%d.%d.%d\n", gw0, gw1, gw2, gw3);
+        }
+        else {
+            printf("Invalid Gateway format\n");
         }
     } 
     else if (strncmp(command, "mac ", 4) == 0) {

@@ -95,8 +95,6 @@
     #define IODIR           0x00
     #define GPIO            0x09
 
-    #define USE_SPI_DMA     1
-
     #define IRQ_PIN         21
     #define LED_PIN         PICO_DEFAULT_LED_PIN
 

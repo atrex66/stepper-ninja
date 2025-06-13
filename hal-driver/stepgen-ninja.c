@@ -24,17 +24,20 @@
 #include "pio_settings.h" // Include the header file for PIO settings
 
 // name of the module
-#define module_name "stepgen-ninja"
+#if raspberry_pi_spi == 0
+    #define module_name "stepgen-ninja"
+    // to parse the modparam
+    char *ip_address[128] = {0,};
+    RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
+#else
+    #define module_name "stepgen-ninja-spi"
+#endif
 #define debug 1
 
 /* module information */
 MODULE_AUTHOR("Viola Zsolt");
 MODULE_DESCRIPTION(module_name " driver");
 MODULE_LICENSE("MIT");
-
-// to parse the modparam
-char *ip_address[128] = {0,};
-RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 
 // receive buffer size 
 // #define tx_size 25
@@ -121,10 +124,8 @@ typedef struct {
 static int instances = 0; // Példányok száma
 static int comp_id = -1; // HAL komponens azonosító
 static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adatra
-static int checksum_error = 0;
 static int bufsize = 65536;
 static uint32_t timing[1024] = {0, };
-static bool first_send = true;
 static uint32_t old_pulse_width = 0;
 static uint8_t tx_counter = 0;
 transmission_pc_pico_t *tx_buffer;
@@ -168,6 +169,8 @@ void module_init(void) {
     }
 }
 
+
+#if raspberry_pi_spi == 0
 /*
  * init_socket - Initializes a UDP socket for the io-samurai module.
  *
@@ -224,17 +227,13 @@ static void init_socket(module_data_t *arg) {
     setsockopt(d->sockfd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
     setsockopt(d->sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
 }
+#else
+// todo: need to implement the spi initialization
+#endif
 
 // Watchdog process
 void watchdog_process(void *arg, long period) {
     module_data_t *d = arg;
-    static uint64_t prev_time_ns = 0;
-    uint64_t now = get_time_ns();
-    if (prev_time_ns != 0) {
-        uint64_t diff = now - prev_time_ns;
-        //*d->period = (uint32_t)diff;
-    }
-    prev_time_ns = now;
 
     d->current_time += 1; 
     d->watchdog_running = 1; 
@@ -276,16 +275,35 @@ uint16_t nearest(uint16_t period){
     return index;
 }
 
+int _receive(void *arg){
+    module_data_t *d = arg;
+    static socklen_t addrlen = sizeof(d->remote_addr);
+    #if raspberry_pi_spi == 0
+        return recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+    #else
+        // todo: need to implement the spi receive
+        return 0;
+    #endif
+}
+
+int _send(void *arg){
+    module_data_t *d = arg;
+    #if raspberry_pi_spi == 0
+        return sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
+    #else
+        // todo: need to implement the spi send
+        return 0;
+    #endif
+}
+
 // parse inputs
 void udp_io_process_recv(void *arg, long period) {
     module_data_t *d = arg;
-    static socklen_t addrlen = sizeof(d->remote_addr);
-    uint8_t calcChecksum = 0;
     if (d->watchdog_expired) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+    int len = _receive(d);
     //int len = recvfrom(d->sockfd, d->rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     if (len == rx_size) {
         if (!tx_checksum_ok(rx_buffer)) {
@@ -303,19 +321,18 @@ void udp_io_process_recv(void *arg, long period) {
         // user code start (process received data) rx_buffer[*]
         for (uint8_t i = 0; i < encoders; i++) {
             #if debug == 1
-            if (*d->enc_reset[i] == 1)
-            {
-                d->enc_offset[i] = rx_buffer->encoder_counter[i];
-                *d->enc_reset[i] = 0; // reset the encoder
-            }
-            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-            *d->enc_value[i] = (float)(*d->raw_count[i] * *d->enc_scale[i]);
-            *d->scaled_count[i] = (int32_t)(*d->raw_count[i] * *d->enc_scale[i]);
-
+                if (*d->enc_reset[i] == 1)
+                {
+                    d->enc_offset[i] = rx_buffer->encoder_counter[i];
+                    *d->enc_reset[i] = 0; // reset the encoder
+                }
+                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
+                *d->enc_value[i] = (float)(*d->raw_count[i] * *d->enc_scale[i]);
+                *d->scaled_count[i] = (int32_t)(*d->raw_count[i] * *d->enc_scale[i]);
             #else
-            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-            *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-            *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
+                *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
             #endif
 
         }
@@ -331,7 +348,6 @@ void udp_io_process_recv(void *arg, long period) {
                 *d->input_not[i + sizeof(input_pins)] = !(*d->input[i]); // Inverted inputs
             }
         #endif
-
         // user code end
     }
     // no data received len = -1
@@ -356,12 +372,10 @@ void print_binary_to_array(uint32_t num) {
 // parse outputs
 static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
-    uint8_t enc_index = 0;
     int16_t steps;
     double f_steps[stepgens] = {0,};
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
-    bool reset_active = false;
     uint32_t max_f = (uint32_t)(1.0 / ((*d->pulse_width * 2) * 1e-9));
     #if debug == 1
     *d->debug_freq = (float)max_f / 1000.0;
@@ -498,11 +512,11 @@ static void udp_io_process_send(void *arg, long period) {
     #endif
 
     #if breakout_board > 0
-    uint8_t outs=0;
-    for (uint8_t i = 0; i < 8; i++) {
-        // Copy the encoder values to the tx_buffer
-        outs |= *d->output[i] == 1 ? 1 << i : 0; // Set the bit if output is high
-    }
+        uint8_t outs=0;
+        for (uint8_t i = 0; i < 8; i++) {
+            // Copy the encoder values to the tx_buffer
+            outs |= *d->output[i] == 1 ? 1 << i : 0; // Set the bit if output is high
+        }
     #endif
 
     #if use_pwm == 1
@@ -531,7 +545,7 @@ static void udp_io_process_send(void *arg, long period) {
 
     tx_buffer->packet_id = tx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1); // Calculate checksum excluding the checksum byte itself
-    sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
+    _send(d);
     tx_counter++;
     //rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: sent data to %s:%d\n", d->index, d->ip_address->ip, d->ip_address->port);
 

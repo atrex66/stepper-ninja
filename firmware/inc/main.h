@@ -35,9 +35,7 @@ void network_init();
 uint8_t xor_checksum(const uint8_t *data, uint8_t len);
 void core1_entry();
 
-#if USE_SPI_DMA
-static void wizchip_write_burst(uint8_t *pBuf, uint16_t len);
-static void wizchip_read_burst(uint8_t *pBuf, uint16_t len);
-#endif
+static void spi_write_burst(uint8_t *pBuf, uint16_t len);
+static void spi_read_burst(uint8_t *pBuf, uint16_t len);
 
 #endif // MAIN_H

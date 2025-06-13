@@ -84,12 +84,10 @@ volatile bool spindle_index_enabled = false;
 uint8_t first_send = 1;
 volatile bool first_data = true;
 
-#ifdef USE_SPI_DMA
 static uint dma_tx;
 static uint dma_rx;
 static dma_channel_config dma_channel_config_tx;
 static dma_channel_config dma_channel_config_rx;
-#endif
 
 uint32_t step_pin[stepgens] = {0, 2, 4, 6};
 uint8_t encoder_base[4] = {8, 10, 12, 14};
@@ -362,16 +360,29 @@ int main() {
     network_init();
     #else
    
-    // GPIO init
-    gpio_init(PIN_CS);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-   
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    // Enable SPI 0 at 1 MHz and connect to GPIOs, pico working in slave mode so frequency is not used
+    spi_init(SPI_PORT, 1000 * 1000);
+    spi_set_format(SPI_PORT, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
+    spi_set_slave(SPI_PORT, true);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_CS, GPIO_FUNC_SPI);
+    // Make the SPI pins available to picotool
+    // bi_decl(bi_4pins_with_func(PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_SCK_PIN, PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI));
 
-    // Raspberry Pi SPI interface initialization
-    spi_set_slave(spi0, true); // Set SPI slave select to 0
+    dma_tx = dma_claim_unused_channel(true);
+    dma_rx = dma_claim_unused_channel(true);
+
+    dma_channel_config_tx = dma_channel_get_default_config(dma_tx);
+    channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
+    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+
+    dma_channel_config_rx = dma_channel_get_default_config(dma_rx);
+    channel_config_set_transfer_data_size(&dma_channel_config_rx, DMA_SIZE_8);
+    channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
+    channel_config_set_read_increment(&dma_channel_config_rx, false);
+    channel_config_set_write_increment(&dma_channel_config_rx, true);
 
     #endif
     
@@ -580,7 +591,7 @@ void __not_in_flash_func(core0_wait)(void) {
     printf("Core0 is ready to write...\n");
     uint32_t signal = multicore_fifo_pop_blocking();
     if (signal == 0xDEADBEEF) {
-        watchdog_reboot(0, 0, 0);
+        watchdog_reboot(0, 0, 1000);
     }
 }
 
@@ -687,6 +698,7 @@ void handle_data(){
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
+    last_packet_time = get_absolute_time();
 
     #if raspberry_pi_spi == 0
         setIMR(0x01);
@@ -724,12 +736,14 @@ void __not_in_flash_func(handle_udp)() {
             }
     #else
         while(1){
-            spi_read_blocking(spi0, 0x00, (uint8_t *)rx_buffer, sizeof(rx_buffer));
-            handle_data();
-            spi_write_blocking(spi0, (uint8_t *)tx_buffer, sizeof(tx_buffer));
-            rx_counter += 1;
+            if (spi_is_readable(SPI_PORT)){
+                last_packet_time = get_absolute_time();
+                spi_read_burst((uint8_t *)rx_buffer, sizeof(rx_buffer));
+                handle_data();
+                spi_write_burst((uint8_t *)tx_buffer, sizeof(tx_buffer));
+                rx_counter += 1;
+            }
     #endif
-
             if (multicore_fifo_rvalid()) {
             uint32_t signal = multicore_fifo_pop_blocking();
             printf("Core1 signal: %08X\n", signal);
@@ -774,16 +788,13 @@ void w5100s_init() {
     reg_wizchip_cs_cbfunc(cs_select, cs_deselect);
     reg_wizchip_spi_cbfunc(spi_read, spi_write);
     
-    #if USE_SPI_DMA
-        reg_wizchip_spiburst_cbfunc(wizchip_read_burst, wizchip_write_burst);
-    #endif
+    reg_wizchip_spiburst_cbfunc(spi_read_burst, spi_write_burst);
 
     gpio_put(PIN_RESET, 0);
     sleep_ms(100);
     gpio_put(PIN_RESET, 1);
     sleep_ms(500);
 
-#ifdef USE_SPI_DMA
     dma_tx = dma_claim_unused_channel(true);
     dma_rx = dma_claim_unused_channel(true);
 
@@ -796,7 +807,6 @@ void w5100s_init() {
     channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
-#endif
 
 }
 
@@ -846,8 +856,8 @@ void network_init() {
     printf("*******************************************\n");
     }
 
-#ifdef USE_SPI_DMA
-static void wizchip_read_burst(uint8_t *pBuf, uint16_t len)
+
+static void spi_read_burst(uint8_t *pBuf, uint16_t len)
 {
     uint8_t dummy_data = 0xFF;
 
@@ -871,7 +881,7 @@ static void wizchip_read_burst(uint8_t *pBuf, uint16_t len)
     dma_channel_wait_for_finish_blocking(dma_rx);
 }
 
-static void wizchip_write_burst(uint8_t *pBuf, uint16_t len)
+static void spi_write_burst(uint8_t *pBuf, uint16_t len)
 {
     uint8_t dummy_data;
 
@@ -894,4 +904,4 @@ static void wizchip_write_burst(uint8_t *pBuf, uint16_t len)
     dma_start_channel_mask((1u << dma_tx) | (1u << dma_rx));
     dma_channel_wait_for_finish_blocking(dma_rx);
 }
-#endif
+
