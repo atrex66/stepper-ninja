@@ -1,65 +1,71 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "pico/stdlib.h"
-#include "pico/stdio_usb.h"
-#include "pico/multicore.h"
-#include "pico/divider.h"
-#include "hardware/spi.h"
-#include "hardware/dma.h"
-#include "hardware/gpio.h"
-#include "hardware/watchdog.h"
-#include "hardware/clocks.h"
-#include "hardware/pll.h"
-#include "hardware/regs/pll.h"
-#include "hardware/structs/pll.h"
-#include "hardware/pio.h"
-#include "hardware/timer.h"
-#include "serial_terminal.h"
-#include "wizchip_conf.h"
-#include "socket.h"
-#include "jump_table.h"
-#include "transmission.h"
-#include "flash_config.h"
-#include "pio_settings.h"
-#include "pwm.h"
-#include "freq_generator.pio.h"
-#if use_stepcounter == 0
-#include "quadrature_encoder.pio.h"
-#else
-#include "step_counter.pio.h"
-#endif
-
-#if brakeout_board > 0
-#include "hardware/i2c.h"
-#endif 
-
 #include "main.h"
 
+// Name: Stepper-Ninja
+
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⠤⠤⠤⠤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⠶⠋⠉⠀⠀⠀⠀⠀⠀⠀⠀⠉⠑⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⢦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⣤⣶⡶⣶⢦⠀⠀⠀⠀⠀⠀⠀⡾⠀⠀⠀⢀⣠⠀⠀⠀⠀⠀⠀⠀⠠⢤⣀⠀⠀⠸⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠸⡏⠁⣠⡤⠾⣆⠀⠀⠀⠀⠀⢸⡇⢠⠖⣾⣭⣀⡀⠀⠀⠀⠀⠀⠀⣀⣠⣼⡷⢶⡀⢻⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⢹⣿⠋⠈⣩⢿⡄⠀⠀⠀⠀⣾⠀⣿⠀⠀⠉⠉⠚⠻⠿⠶⠾⠿⠛⢋⠉⠁⠀⠈⡇⠘⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠈⢯⣉⠟⠛⣲⢷⡀⠀⠀⠀⡿⠀⢻⣄⡀⠀⠀⠀⠀⢀⡴⠂⣀⠴⠃⠀⠀⢀⣰⠇⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠘⡏⢒⡶⠧⢬⣧⠀⠀⠀⡇⠀⢸⡏⠉⣷⣶⣲⠤⢤⣶⣯⡥⠴⣶⣶⣎⠉⢻⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠻⡷⠶⣤⣏⣙⡆⠀⠀⡇⠀⢸⡆⠀⠑⢆⣩⡿⣖⣀⣰⡶⢯⣁⡴⠃⠀⣸⡄⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⢧⠾⢥⣰⣟⣹⡄⠀⣧⠀⣼⠘⢦⣠⠴⠛⠋⠉⠉⠉⠉⠛⠳⢤⣀⡴⢻⡇⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠘⣇⣼⣋⣩⡏⣳⠀⢻⡀⢸⡴⠚⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠳⣼⡇⣶⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠸⣤⢾⣡⣾⣽⣷⢼⡇⢿⡄⠀⠀⠀⠀⠠⣄⡀⢀⡀⠀⠀⠀⠀⠀⢸⠇⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⢀⣀⣿⠿⣓⣋⡥⣿⠟⢷⠘⣿⣆⠀⠀⠀⠀⠀⠉⠉⠀⠀⠀⠀⠀⣰⡿⢀⡏⢳⡦⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⢀⣴⣯⣁⣠⣿⠁⠀⠀⠻⡄⠀⠀⠸⣎⢧⡀⠀⠀⠀⠀⠀⢰⣿⣷⣀⣼⣫⠃⠀⠀⣸⠇⠀⠀⠙⣦⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⢰⠞⣍⡍⠉⠉⣿⢹⡀⠀⠀⠀⠱⡄⠀⠀⠈⠳⢽⣦⣀⠀⠀⢰⣿⣿⣟⣿⠕⠋⠀⠀⡰⠃⠀⠀⠀⣼⠃⠀⠉⢉⣭⠽⢶⠀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⢨⡷⠋⠙⢷⡀⠹⣾⣧⠀⠀⠀⠀⠈⠦⣄⠀⠀⠀⠀⠈⠉⠉⣿⣾⠁⣼⡇⠀⠀⡠⠞⠁⠀⠀⠀⣸⠏⠀⠀⣠⡞⠉⠻⣾⡀⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⢰⡟⠀⠀⠀⠀⢻⡄⢷⠙⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡏⡏⠀⠈⡇⠀⠀⠀⠀⠀⠀⠀⣴⠏⠀⠀⢠⡟⠀⠀⠀⠘⣷⠀⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⣾⡇⠀⠀⠀⠀⠀⢿⡘⣇⠙⣧⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⢱⠁⠐⠲⡇⢀⡀⠀⠀⠀⠀⣼⠃⠀⠀⢀⡾⠀⠀⠀⠀⠀⢹⣧⠀⠀⠀⠀⠀⠀
+//    ⠀⢠⣿⡇⠀⠀⠀⠀⠀⣨⡇⠸⡄⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⢀⡏⠘⣀⣀⣀⡟⠉⣿⠀⠀⢠⡞⠁⠀⠀⠀⣸⣃⠀⠀⠀⠀⠀⠘⡏⢧⠀⠀⠀⠀⠀
+//    ⠀⣿⠀⢻⡀⠀⣠⠔⠛⠉⠻⣄⠹⡄⠀⠈⠙⠶⢤⣀⡀⠀⠀⢀⣿⣟⡻⣷⠛⠛⠋⢉⣉⣻⡖⠋⠀⠀⠀⠀⡀⡏⢉⠟⠦⣀⠀⠀⠀⢧⠈⣇⠀⠀⠀⠀
+//    ⢸⠃⠀⠈⣷⠈⢁⡄⠀⠀⠀⠘⢦⠘⣦⠀⠀⠀⠀⠈⠫⣭⣽⠟⠁⠈⢳⠈⡇⠀⠀⠀⠈⠉⠙⣷⠀⠀⠀⠀⢸⡽⠃⠀⠀⠈⡀⠀⠀⠘⢧⡸⡆⠀⠀⠀
+//    ⢸⠀⠀⠀⠁⠀⡞⠀⠀⠀⠀⠀⠘⣇⠈⢳⡀⠀⠀⠀⣠⣾⡌⣆⠀⠀⢸⠀⣧⣀⣹⠤⣶⡀⢀⣿⠀⠀⠀⠀⣾⠁⠀⠀⠀⠀⣇⠀⠀⠀⠈⠈⢹⡀⠀⠀
+//    ⢸⠀⡀⠀⠀⢸⠁⠀⢀⣠⡤⠶⠒⠛⠁⠉⠉⠉⠉⠉⠁⠈⣿⠘⢦⢀⡞⢰⣇⡀⢹⡧⣄⣩⡽⠃⠀⠀⠀⢸⠃⠀⠀⠀⠀⠀⢸⡆⠀⠀⠀⠐⡄⣧⠀⠀
+//    ⢸⡀⣇⠀⠀⢸⣦⡞⢻⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠈⢷⡈⠻⣄⣾⠁⢉⡿⠁⠀⠀⠀⠀⠀⠀⠀⢸⠀⠀⠀⠀⠀⢀⣠⡇⠀⠀⠀⠀⠹⣻⠀⠀
+//    ⠀⣇⢸⠀⢀⣴⣿⡇⠘⡆⠀⠀⠀⠀⠀⠀⠀⠀⢀⣤⠞⠁⠀⠈⠛⣦⣿⡿⠒⢯⣀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣇⠀⣀⣤⡴⢿⡉⠙⢶⣄⣀⡀⠀⠹⡄⠀
+//    ⠀⠘⣾⡇⢸⠏⠀⣧⠀⢻⡀⠀⠀⠀⣀⣠⠶⠚⠉⠀⠀⠀⠀⠀⣠⡞⠁⠀⠀⠀⠙⠳⣄⠀⠀⠀⠀⠀⠀⢀⡿⠊⠁⠀⠀⠀⢱⡄⠈⣧⠉⠓⢄⠀⢧⠀
+//    ⠀⠀⢹⡇⢸⠀⠀⠸⣇⠀⢳⡀⠈⠉⠀⠀⠀⠀⠀⠀⠀⠀⢀⡼⠿⡶⢞⣛⣛⣓⣒⣾⣶⣿⣲⣦⣤⠤⠚⠁⠀⠀⠀⠀⠀⠀⠀⢳⠀⢸⡆⠀⠀⠀⢿⡆
+//    ⠀⠀⢸⡇⠀⠀⠀⠀⠙⣷⡀⠙⣆⠀⠀⠀⠀⠀⠀⢀⣠⡾⣋⠁⡾⣱⠋⠁⠀⠀⠀⠈⠙⣮⢷⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⡄⠘⡇⠀⠀⠀⢸⡇
+//    ⠀⠀⠈⢿⡀⠀⠀⠀⠀⠈⢳⣄⠈⠱⣦⡀⣀⡠⠖⠋⡽⠛⢁⣾⡇⡇⠀⠀⠀⠀⠀⠀⠀⢸⡏⣷⠀⠰⠦⠤⢤⣤⣀⣤⠤⠴⠖⠂⡇⠀⡇⠀⠀⢀⡾⠁
+//    ⠀⠀⠀⠘⠻⢦⣄⣀⣀⣀⣀⣈⣿⠦⠤⠿⠁⠀⠀⣼⡧⠔⢛⢿⡇⣇⠀⠀⠀⠀⠀⠀⠀⠀⡇⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡏⠀⡇⠀⣠⠟⠁⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⣿⣠⠴⠋⢀⣧⡸⣦⣀⣀⣀⣀⣀⣠⣼⣇⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠇⢰⠗⠋⠁⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣇⡀⠀⠘⠙⣻⡶⠭⠭⠭⠽⠟⠒⠛⠛⠉⠉⠑⠒⠒⠒⠒⠒⠒⠒⠋⠉⠙⠒⠉⠀⠀⠀⠀⠀⠀
+//    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
 // Author:Viola Zsolt (atrex66@gmail.com)
 // Date: 2025
-// Description: stepper-ninja driver for W5100S-EVB-PICO
+// Description: stepper-ninja driver for W5100S-EVB-PICO and rpi4 with pico
 // License: MIT
-// Description: This code is a driver for the W5100S-EVB-PICO board.
+// Description: This code is a driver for the W5100S-EVB-PICO board (ethernet udp) and pico (spi and rpi4).
 // It also includes a serial terminal interface for configuration and debugging.
 // The code is designed to run on the Raspberry Pi Pico and uses the Pico SDK for hardware access.
 // The code is using DMA for SPI (burst) communication with the W5100S chip, which allows for high-speed data transfer.
-// The code uses the Wiznet W5100S library for network communication.
+// The code works with normal pico + W5500-lite module (cmake -DWIZCHIP_TYPE=W5500 ..)
+// The code works with normal pico + raspberry Pi4 (spi communication)
+// The code uses the Wiznet W5100S library for network communication (for W5100S-EVB-PICO, and W5500-Lite).
 // The code includes functions for initializing the hardware, handling network communication, and processing commands from the serial terminal.
 // The code is designed to be modular and extensible, allowing for easy addition of new features and functionality.
 // The code is also designed to be efficient and responsive, with low latency and high throughput.
+// The code supports pulse width settings for the step-generators trough HAL pin.
+// The code can make 1Mhz step pulse frequency with 1mS servo-thread (1024 steps/servo-thread).
+// The code supports PWM generation up to 1Mhz (7bit resolution),with a minimum frequency 1907Hz (16bit resolution)
 // Note: checksum algorithm is used to ensure data integrity, and the code includes error handling for network communication. (timeout + jumpcode checksum)
-// Note: The code is disables the terminal when the HAL driver connect to the W5100S-EVB-PICO board, and enables when not running.
+// Note: The code is disables the terminal when the HAL driver connected and LinuxCNC running and enables when not running.
+
 
 // -------------------------------------------
-// Network Configuration
+// GLOBAL VARIABLES
 // -------------------------------------------
+
 extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
-extern const uint8_t input_pins[in_pins_no];
-extern const uint8_t output_pins[out_pins_no];
+const uint8_t input_pins[] = in_pins;
+const uint8_t output_pins[] = out_pins; // Example output pins
 
 wiz_NetInfo net_info;
 wiz_PhyConf *phy_conf;
@@ -120,11 +126,11 @@ uint8_t checksum_index = 1;
 uint8_t checksum_index_in = 1;
 uint32_t old_pwm_frequency = 0;
 
-#define ALARM_NUM 0
-#define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
 
+// -------------------------------------------
+// Pulse generation setup
+// -------------------------------------------
 void __time_critical_func(stepgen_update_handler)() {
-    // uint32_t irq = save_and_disable_interrupts();
     static int32_t cmd[stepgens] = {0, };
     static PIO pio;
     int j=0;
@@ -132,12 +138,10 @@ void __time_critical_func(stepgen_update_handler)() {
     if (checksum_error){
         return;
     }
-    // get command from rx_buffer and set direction signals
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
         j = i < 4 ? i : i - 4;
         command[i] = rx_buffer->stepgen_command[i];
-        // ha van sebesseg parancs
         if (command[i] != 0){
             if ((command[i] >> 31) & 1) {
                 gpio_put(step_pin[i] + 1, 1);
@@ -148,42 +152,19 @@ void __time_critical_func(stepgen_update_handler)() {
         }
     }
 
-    sety = pio_settings[rx_buffer->pio_timing].sety & 31;
-    nop = pio_settings[rx_buffer->pio_timing].nop & 31;
-
-    if (old_sety != sety || old_nop != nop) {
-        for (int i=0; i<stepgens; i++){
-            // jump to the pull block
-            pio_sm_exec(pio0, i, pio_encode_jmp(1));
-        }
-        pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
-        pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
-        printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
-        old_sety = sety;
-        old_nop = nop;
-    }
-
-    //pio0->ctrl = 0;
-    // restart all PIO state machines
-    // put non zero commands to PIO fifo
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
             pio_sm_put_blocking(pio0, i, command[i] & 0x7fffffff);
             total_steps[i] += (command[i] & 0x1ff) + 1;
             }
     }
-    // enable PIO
-    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3; // Enable all SMs
-    // restore_interrupts(irq);
 
 }
 
-// spindle index interrupt
 void gpio_callback(uint gpio, uint32_t events) {
     if (gpio == spindle_encoder_index_GPIO) {
-        // Csak akkor fut, ha a megadott GPIO-n történik esemény
         if (events & GPIO_IRQ_EDGE_RISE) {
-            spindle_index_enabled = true; // Jelzi az index impulzust
+            spindle_index_enabled = true;
         }
     }
 }
@@ -195,7 +176,6 @@ void core1_entry() {
 
     memset(src_ip, 0, 4);
     sleep_ms(500);
-    //init_timer_interrupt();
 
     gpio_init(LED_PIN);
     gpio_set_dir(LED_PIN, GPIO_OUT);
@@ -203,7 +183,6 @@ void core1_entry() {
     if (spindle_encoder_index_GPIO != -1){
         gpio_init(spindle_encoder_index_GPIO);
         gpio_set_dir(spindle_encoder_index_GPIO, false);
-        // Interrupt engedélyezése csak a GPIO_PIN-re, emelkedő élre
         if (spindle_encoder_active_level == high){
             gpio_set_irq_enabled_with_callback(spindle_encoder_index_GPIO, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
         }
@@ -214,7 +193,7 @@ void core1_entry() {
 
     #if brakeout_board > 0
 
-        i2c_setup(); // Set I2C frequency to 100kHz
+        i2c_setup();
         #ifdef MCP23008_ADDR
         printf("Detecting MCP23008 (Outputs) on %#x address\n", MCP23008_ADDR);
         if (i2c_check_address(i2c1, MCP23008_ADDR)) {
@@ -246,7 +225,6 @@ void core1_entry() {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
 
-                // reset encoder PIO-s when timeout
                 for (int i = 0; i < encoders; i++) {
                     pio_sm_set_enabled(pio1, i, false);
                     pio_sm_restart(pio1, i);
@@ -258,6 +236,7 @@ void core1_entry() {
                     printf("Step counter %d reset\n", i);
                     #endif
                 }
+
                 rx_counter = 0;
                 timeout_error = 1;
                 checksum_index = 1;
@@ -274,6 +253,20 @@ void core1_entry() {
         }
         else {
             timeout_error = 0;
+        }
+
+        sety = pio_settings[rx_buffer->pio_timing].sety & 31;
+        nop = pio_settings[rx_buffer->pio_timing].nop & 31;
+
+        if (old_sety != sety || old_nop != nop) {
+            for (int i=0; i<stepgens; i++){
+                pio_sm_exec(pio0, i, pio_encode_jmp(1));
+            }
+            pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
+            pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
+            printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
+            old_sety = sety;
+            old_nop = nop;
         }
 
         #if brakeout_board > 0
@@ -303,9 +296,6 @@ void core1_entry() {
     }
 }
 
-// -------------------------------------------
-// (Core 0) UDP communication (DMA, SPI)
-// -------------------------------------------
 int main() {
 
     stdio_init_all();
@@ -339,7 +329,12 @@ int main() {
     printf("rx_buffer size: %d\n", rx_size);
     printf("tx_buffer size: %d\n", tx_size);
 
-    // igy jon ki pontosra a 1mS PIO
+    if (debug_mode){
+        printf(" *********************** Debug mode enabled ******************** \n");
+        printf(" ***********!!!! DO NOT USE IN PRODUCTION !!!!****************** \n");
+        printf(" set debug_mode = 0 in config.h \n");
+    }
+
     set_sys_clock_khz(125000, true);
     
     clock_configure(clk_peri,
@@ -348,9 +343,11 @@ int main() {
                     clock_get_hz(clk_sys),
                     clock_get_hz(clk_sys));
 
+    #if raspberry_pi_spi == 0
     spi_init(spi0, 40000000);
     hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
     hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
+    #endif
     
     load_configuration();
 
@@ -359,17 +356,15 @@ int main() {
     w5100s_interrupt_init();
     network_init();
     #else
-   
-    // Enable SPI 0 at 1 MHz and connect to GPIOs, pico working in slave mode so frequency is not used
+    printf("Raspberry PI spi communication.\n");
     spi_init(SPI_PORT, 1000 * 1000);
-    spi_set_format(SPI_PORT, 8, SPI_CPOL_0, SPI_CPHA_1, SPI_MSB_FIRST);
     spi_set_slave(SPI_PORT, true);
+    spi_set_format(SPI_PORT, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS, GPIO_FUNC_SPI);
-    // Make the SPI pins available to picotool
-    // bi_decl(bi_4pins_with_func(PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_SCK_PIN, PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI));
+    gpio_set_pulls(PIN_CS, true, false);
 
     dma_tx = dma_claim_unused_channel(true);
     dma_rx = dma_claim_unused_channel(true);
@@ -377,6 +372,8 @@ int main() {
     dma_channel_config_tx = dma_channel_get_default_config(dma_tx);
     channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
     channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+    channel_config_set_read_increment(&dma_channel_config_tx, true);
+    channel_config_set_write_increment(&dma_channel_config_tx, false);
 
     dma_channel_config_rx = dma_channel_get_default_config(dma_rx);
     channel_config_set_transfer_data_size(&dma_channel_config_rx, DMA_SIZE_8);
@@ -392,19 +389,22 @@ int main() {
     int p = 0;
 
     printf("Output pins: ");
-    for (int i = 0; i < out_pins_no; i++) {
+    for (int i = 0; i < sizeof(output_pins); i++) {
         gpio_init(output_pins[i]);
         gpio_set_dir(output_pins[i], GPIO_OUT);
-        gpio_put(output_pins[i], 0); // Set output pins to low
+        gpio_put(output_pins[i], 0);
         printf("%d ", output_pins[i]);
     }
     printf("\n");
 
     printf("Input pins: ");
-    for (int i = 0; i < in_pins_no; i++) {
+    uint8_t pullups[sizeof(input_pins)] = in_pullup;
+    for (int i = 0; i < sizeof(input_pins); i++) {
         gpio_init(input_pins[i]);
         gpio_set_dir(input_pins[i], GPIO_IN);
-        gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+        if (pullups[i]){
+            gpio_pull_up(input_pins[i]);
+        }
         printf("%d ", input_pins[i]);
     }
     printf("\n");
@@ -420,7 +420,7 @@ int main() {
     for (int i = 0; i < sizeof(output_pins); i++) {
         gpio_init(output_pins[i]);
         gpio_set_dir(output_pins[i], GPIO_OUT);
-        gpio_put(output_pins[i], 0); // Set output pins to low
+        gpio_put(output_pins[i], 0);
     }
     #endif
 
@@ -428,7 +428,6 @@ int main() {
     uint8_t *step_inverts = (uint8_t *)step_invert;
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
-    //offset[1] = pio_add_program_at_offset(pio1, &freq_generator_program, 0);
     
     uint32_t sm = 0;
     uint8_t o = 0;
@@ -436,34 +435,28 @@ int main() {
         pio = i < 4 ? pio0 : pio1;
         sm = i < 4 ? i : i - 4;
         p = i < 4 ? 0 : 1;
-        // step pin
         pio_gpio_init(pio, step_pin[i]);
-        // dir pin
         gpio_init(step_pin[i]+1);
         if (step_inverts[i] == 1){
-           gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT); // Invert the stepgen signal
+           gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT);
         }
         gpio_set_dir(step_pin[i]+1, GPIO_OUT);
         pio_sm_set_consecutive_pindirs(pio, sm, step_pin[i], 1, true);
         pio_sm_config c = freq_generator_program_get_default_config(offset[o]);
-        // sm_config_set_clkdiv(&c, clock_get_hz(5) / 10000000);
         sm_config_set_set_pins(&c, step_pin[i], 1);
         pio_sm_init(pio, sm, offset[o], &c);
-        // pio_sm_put_blocking(pio, sm, (uint32_t)(10000 << 8) + 5);
         pio_sm_set_enabled(pio, sm, true);
         printf("stepgen%d init done...\n", i);
-        //printf("Pio tx_fifo_is %d\n", pio_sm_is_tx_fifo_empty(pio, sm));
     }
 
-    // encoder init
     #if use_stepcounter == 0
         for (int i = 0; i < encoders; i++) {
             gpio_init(encoder_base[i]);
             gpio_init(encoder_base[i]+1);
             gpio_set_dir(encoder_base[i], GPIO_IN);
             gpio_set_dir(encoder_base[i]+1, GPIO_IN);
-            gpio_pull_up(encoder_base[i]); // Pull-up ellenállás, ha szükséges
-            gpio_pull_up(encoder_base[i]+1); // Pull-up ellenállás, ha szükséges
+            gpio_pull_up(encoder_base[i]);
+            gpio_pull_up(encoder_base[i]+1);
         }
         pio_add_program(pio1, &quadrature_encoder_program);
         for (int i = 0; i < encoders; i++) {
@@ -476,8 +469,8 @@ int main() {
             gpio_init(encoder_base[i]+1);
             gpio_set_dir(encoder_base[i], GPIO_IN);
             gpio_set_dir(encoder_base[i]+1, GPIO_IN);
-            gpio_pull_up(encoder_base[i]); // Pull-up ellenállás, ha szükséges
-            gpio_pull_up(encoder_base[i]+1); // Pull-up ellenállás, ha szükséges
+            gpio_pull_up(encoder_base[i]);
+            gpio_pull_up(encoder_base[i]+1);
         }
 
         pio_add_program(pio1, &step_counter_program);
@@ -631,15 +624,17 @@ void handle_data(){
     tx_buffer->jitter = get_absolute_time() - last_packet_time;
     //printf("%d Received bytes: %d\n", rx_counter, len);
     last_packet_time = get_absolute_time();
-    if (rx_buffer->packet_id != rx_counter) {
-        printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
-        rx_counter = rx_buffer->packet_id;
+    if (!debug_mode){
+        if (rx_buffer->packet_id != rx_counter) {
+            printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
+            rx_counter = rx_buffer->packet_id;
+        }
+        if (!rx_checksum_ok(rx_buffer)) {
+            printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
+            checksum_error = 1;
+        }
     }
-    if (!rx_checksum_ok(rx_buffer)) {
-        printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
-        checksum_error = 1;
-    }
-    if (!checksum_error) {
+    if (!checksum_error | debug_mode) {
     
     // update stepgens
     stepgen_update_handler();
@@ -690,7 +685,15 @@ void handle_data(){
     spindle_index_enabled = 0;
 
     tx_buffer->packet_id = rx_counter;
-    tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+    //tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+}
+
+void printbuf(uint8_t *buf, size_t len) {
+    size_t i;
+    for (i = 0; i < len; ++i) {
+        printf("%02x", buf[i]);
+    }
+    putchar('\n');
 }
 
 // -------------------------------------------
@@ -698,6 +701,12 @@ void handle_data(){
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(IRQ_PIN);
+    uint8_t *packet_buffer;
+    packet_buffer = malloc(rx_size);
+    memset(packet_buffer, 0, rx_size);
+    //for (uint8_t i=0; i < tx_size;i++){
+    //    packet_buffer[i] = i;
+    //}
     last_packet_time = get_absolute_time();
 
     #if raspberry_pi_spi == 0
@@ -736,11 +745,12 @@ void __not_in_flash_func(handle_udp)() {
             }
     #else
         while(1){
-            if (spi_is_readable(SPI_PORT)){
-                last_packet_time = get_absolute_time();
-                spi_read_burst((uint8_t *)rx_buffer, sizeof(rx_buffer));
+            time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
+            if (!gpio_get(PIN_CS)){
+                memset(packet_buffer, 0, rx_size);
+                memcpy(packet_buffer, (uint8_t *)tx_buffer, tx_size);
+                spi_read_fulldup((uint8_t *)rx_buffer, packet_buffer, rx_size);
                 handle_data();
-                spi_write_burst((uint8_t *)tx_buffer, sizeof(tx_buffer));
                 rx_counter += 1;
             }
     #endif
@@ -754,12 +764,36 @@ void __not_in_flash_func(handle_udp)() {
         }
 }
 
+static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
+{
+    channel_config_set_read_increment(&dma_channel_config_tx, true);
+    channel_config_set_write_increment(&dma_channel_config_tx, false);
+    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+    dma_channel_configure(dma_tx, &dma_channel_config_tx,
+                          &spi_get_hw(SPI_PORT)->dr,
+                          sBuf,
+                          len,                      
+                          false);                   
+
+    channel_config_set_read_increment(&dma_channel_config_rx, false);
+    channel_config_set_write_increment(&dma_channel_config_rx, true);
+    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_RX);
+    dma_channel_configure(dma_rx, &dma_channel_config_rx,
+                          pBuf,                     
+                          &spi_get_hw(SPI_PORT)->dr,
+                          len,                      
+                          false);                   
+
+    dma_start_channel_mask((1u << dma_tx) | (1u << dma_rx));
+    dma_channel_wait_for_finish_blocking(dma_rx);
+}
+
+
 void w5100s_interrupt_init() {
     gpio_init(INT_PIN);
     gpio_set_dir(INT_PIN, GPIO_IN);
     gpio_pull_up(INT_PIN);
 
-    //TODO:need to implement w5500 interrupt initialization also, in current state the w5500 using polling mode.
     uint8_t imr = IMR_RECV;        
     uint8_t sn_imr = Sn_IMR_RECV;  
     
@@ -772,7 +806,6 @@ void w5100s_interrupt_init() {
 // -------------------------------------------
 void w5100s_init() {
 
-    // GPIO init
     gpio_init(PIN_CS);
     gpio_set_dir(PIN_CS, GPIO_OUT);
     cs_deselect();
@@ -807,7 +840,6 @@ void w5100s_init() {
     channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
-
 }
 
 // -------------------------------------------
@@ -822,15 +854,13 @@ void network_init() {
     memset(rx, 2, _WIZCHIP_SOCK_NUM_);
     wizchip_init(tx, rx);
 
-    // Set default network configuration
     phy_conf = malloc(sizeof(wiz_PhyConf));
     wizphy_getphyconf(phy_conf);
-    phy_conf->mode = PHY_MODE_MANUAL; // Set PHY mode to auto
-    phy_conf->speed = PHY_SPEED_100; // Set PHY speed to 100Mbps
-    phy_conf->duplex = PHY_DUPLEX_FULL; // Set PHY duplex to full
+    phy_conf->mode = PHY_MODE_MANUAL;
+    phy_conf->speed = PHY_SPEED_100;
+    phy_conf->duplex = PHY_DUPLEX_FULL;
     wizphy_setphyconf(phy_conf);
 
-    // wizchip_init(0, 0);
     wizchip_setnetinfo(&net_info);
 
     setSn_CR(0, Sn_CR_CLOSE);
@@ -863,6 +893,7 @@ static void spi_read_burst(uint8_t *pBuf, uint16_t len)
 
     channel_config_set_read_increment(&dma_channel_config_tx, false);
     channel_config_set_write_increment(&dma_channel_config_tx, false);
+    channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
     dma_channel_configure(dma_tx, &dma_channel_config_tx,
                           &spi_get_hw(SPI_PORT)->dr,
                           &dummy_data,              
@@ -871,6 +902,7 @@ static void spi_read_burst(uint8_t *pBuf, uint16_t len)
 
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
+    channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
     dma_channel_configure(dma_rx, &dma_channel_config_rx,
                           pBuf,                     
                           &spi_get_hw(SPI_PORT)->dr,

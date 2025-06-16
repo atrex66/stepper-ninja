@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-const uint8_t input_pins[in_pins_no] = in_pins;
-const uint8_t output_pins[out_pins_no] = out_pins; // Example output pins
 
 
 uint8_t calculate_checksum(void *buffer, uint8_t len) {
