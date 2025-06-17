@@ -13,7 +13,7 @@
     
     // defined with PINS
     #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
-    #define stepgen_dirs {PIN_2, PIN_6, PIN_7, PIN_10}
+    #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
 
     #define encoders 1
@@ -29,7 +29,7 @@
     #define out_pins {PIN_16, PIN_17, PIN_20}
 
     // if you want to use the module with pwm output, set this to 1
-    #define use_pwm 1 // use pwm output removes 1 encoder
+    #define use_pwm 1 // use of pwm output
     #define pwm_GP PIN_19 // PWM GPIO for the module (GPIO 14)
     #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
