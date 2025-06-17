@@ -13,7 +13,7 @@
     
     // defined with PINS
     #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
-    #define stepgen_dirs {PIN_2, PIN_6, PIN_7, PIN_9}
+    #define stepgen_dirs {PIN_2, PIN_6, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
 
     #define encoders 1
