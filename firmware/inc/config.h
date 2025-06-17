@@ -9,12 +9,12 @@
     // ** If you change this file, you may break the module functionality    **
     // ************************************************************************
 
-    #define raspberry_pi_spi 1 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+    #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     #if raspberry_pi_spi == 1
         // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
         // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
-        #define raspi_inputs {2, 3, 4, 17, 27, 33, 0, 5, 6, 13, 19, 26, 14, 15, 18, 23, 25}
-        #define raspi_outputs {1, 12, 16, 20, 21}
+        #define raspi_inputs {GP_03, GP_05}
+        #define raspi_outputs {GP_22, GP_23}
     #endif
 
     #define stepgens 4
