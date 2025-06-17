@@ -9,7 +9,7 @@
     // ** If you change this file, you may break the module functionality    **
     // ************************************************************************
 
-    #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+    #define raspberry_pi_spi 1 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     #if raspberry_pi_spi == 1
         // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
         // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
@@ -71,8 +71,10 @@
 
         #if encoders == 1
             #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pullup {0, 0, 0, 0, 0, 0}
         #elif encoders == 2
             #define in_pins {22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pullup {0, 0, 0, 0}
         #endif // encoders < 2
 
     #endif // brakeout_board > 0
