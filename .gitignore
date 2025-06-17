@@ -11,4 +11,10 @@ hardware/
 firmware.zip
 hal-driver.zip
 buildall.sh
-__pycache__
+__pycache__0
+configurations/configure.py
+firmware/tree.txt
+utility/CMakeLists.txt
+utility/pico_sdk_import.cmake
+utility/pico_spi_test.c
+utility/spi_test_master.c
