@@ -6,7 +6,7 @@
     // ** This file contains the configuration for the stepper ninja project   **
     // ** if you want to use pins instead of GPIO use PIN_1, PIN_2, PIN_4, ... **
     // **************************************************************************
-    // all pin alias is defined in the internals.h is you want to use instead of using GPIO numbers
+    // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
 
     // All GPIO form 0-15 and 22-31 are usable
     #define stepgens 4
@@ -23,7 +23,7 @@
     #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
     #define in_pullup {0, 0, 0, 0, 0, 0}
 
-    // if using spindle encoder input need to define the GPIO as input
+    // if using spindle encoder index, input need to define the GPIO as input
     #define spindle_encoder_index_GPIO 10
     #define spindle_encoder_active_level high
 
