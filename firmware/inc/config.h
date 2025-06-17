@@ -17,21 +17,20 @@
     #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
 
     #define encoders 1
-    #define enc_pins {8} // uses 2 pins, you need to set the first pin (8 + 9)
+    #define enc_pins {PIN_11} // uses 2 pins, you need to set the first pin (8 + 9)
 
-    // or use GPIO
-    #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+    #define in_pins {PIN_14, PIN_15, PIN_29, PIN_31, PIN_32, PIN_34} // Free GPIO for inputs (GPIO 22-28)
     #define in_pullup {0, 0, 0, 0, 0, 0}
 
     // if using spindle encoder index, input need to define the GPIO as input
-    #define spindle_encoder_index_GPIO 10
+    #define spindle_encoder_index_GPIO PIN_14
     #define spindle_encoder_active_level high
 
-    #define out_pins {12, 13, 15} // output GPIO
+    #define out_pins {PIN_16, PIN_17, PIN_20}
 
     // if you want to use the module with pwm output, set this to 1
     #define use_pwm 1 // use pwm output removes 1 encoder
-    #define pwm_GP 14 // PWM pin for the module (GPIO 8)
+    #define pwm_GP PIN_19 // PWM GPIO for the module (GPIO 14)
     #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
