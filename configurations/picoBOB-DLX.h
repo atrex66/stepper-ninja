@@ -2,34 +2,12 @@
 #define CONFIG_H
 #include "internals.h"
 
+
     // *****************************************************************************
     // ** This file contains the configuration for the stepper ninja project      **
     // ** if you want to use pins instead of GPIO use like PPIN_1, PPIN_2, PPIN_4 **
     // *****************************************************************************
     // all pin alias is defined in the internals.h is you want to use instead of using GPIO numbers
-
-    // All GPIO form 0-15 and 22-31 are usable
-    #define stepgens 4
-    #define stepgen_steps {0, 2, 4, 6}
-    #define stepgen_dirs {1, 3, 5, 7}
-    #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
-
-    #define encoders 1
-    #define enc_pins {8} // uses 2 pins, you need to set the first pin (8 + 9)
-
-    #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
-    #define in_pullup {0, 0, 0, 0, 0, 0}
-
-    // if using spindle encoder input need to define the GPIO as input
-    #define spindle_encoder_index_GPIO 10
-    #define spindle_encoder_active_level high
-
-    #define out_pins {12, 13, 15} // output GPIO
-
-    // if you want to use the module with pwm output, set this to 1
-    #define use_pwm 1 // use pwm output removes 1 encoder
-    #define pwm_GP 14 // PWM pin for the module (GPIO 8)
-    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     #if raspberry_pi_spi == 1
@@ -42,6 +20,29 @@
         #define raspi_outputs {GP_22, GP_23}
     #endif
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
+
+    // All GPIO form 0-15 and 22-31 are usable
+    #define stepgens 5
+    #define stepgen_steps {22, 23, 24, 25, 26}
+    #define stepgen_dirs {9, 10, 11, 12, 13}
+    #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+
+    #define encoders 0
+    #define enc_pins {} // uses 2 pins, you need to set the first pin (8 + 9)
+
+    #define in_pins {1, 2, 3, 4, 5, 15} // Free GPIO pins for inputs (GPIO 22-28)
+    #define in_pullup {1, 1, 1, 1, 1, 1}
+
+    #define out_pins {14, 8} // output GPIO
+
+    // if using spindle encoder input need to define the GPIO as input
+    #define spindle_encoder_index_GPIO 10
+    #define spindle_encoder_active_level high
+
+    // if you want to use the module with pwm output, set this to 1
+    #define use_pwm 1 // use pwm output removes 1 encoder
+    #define pwm_GP 14 // PWM pin for the module (GPIO 8)
+    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
 
     #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration

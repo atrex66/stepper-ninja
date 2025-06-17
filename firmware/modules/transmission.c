@@ -3,8 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
-
 uint8_t calculate_checksum(void *buffer, uint8_t len) {
     uint8_t checksum = 0;
     char *bytes = (char *)buffer;

@@ -97,9 +97,11 @@ static dma_channel_config dma_channel_config_rx;
 
 uint32_t step_pin[stepgens] = stepgen_steps;
 uint32_t dir_pin[stepgens] = stepgen_dirs;
-uint8_t encoder_base[4] = {8, 10, 12, 14};
 
-int32_t encoder[encoders] = {0,};
+#if encoders > 0
+    uint8_t encoder_base[encoders] = enc_pins;
+    int32_t encoder[encoders] = {0,};
+#endif
 
 uint8_t buffer_index = 0;
 
@@ -226,17 +228,19 @@ void core1_entry() {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
 
-                for (int i = 0; i < encoders; i++) {
-                    pio_sm_set_enabled(pio1, i, false);
-                    pio_sm_restart(pio1, i);
-                    pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
-                    pio_sm_set_enabled(pio1, i, true);
-                    #if use_stepcounter == 0
-                    printf("Encoder %d reset\n", i);
-                    #else
-                    printf("Step counter %d reset\n", i);
-                    #endif
-                }
+                #if encoders >0
+                    for (int i = 0; i < encoders; i++) {
+                        pio_sm_set_enabled(pio1, i, false);
+                        pio_sm_restart(pio1, i);
+                        pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
+                        pio_sm_set_enabled(pio1, i, true);
+                        #if use_stepcounter == 0
+                        printf("Encoder %d reset\n", i);
+                        #else
+                        printf("Step counter %d reset\n", i);
+                        #endif
+                    }
+                #endif
 
                 rx_counter = 0;
                 timeout_error = 1;
@@ -450,36 +454,37 @@ int main() {
         printf("stepgen%d init done...\n", i);
     }
 
-    #if use_stepcounter == 0
-        for (int i = 0; i < encoders; i++) {
-            gpio_init(encoder_base[i]);
-            gpio_init(encoder_base[i]+1);
-            gpio_set_dir(encoder_base[i], GPIO_IN);
-            gpio_set_dir(encoder_base[i]+1, GPIO_IN);
-            gpio_pull_up(encoder_base[i]);
-            gpio_pull_up(encoder_base[i]+1);
-        }
-        pio_add_program(pio1, &quadrature_encoder_program);
-        for (int i = 0; i < encoders; i++) {
-            quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
-            printf("encoder %d init done...\n", i);
-        }
-    #else
-        for (int i = 0; i < encoders; i++) {
-            gpio_init(encoder_base[i]);
-            gpio_init(encoder_base[i]+1);
-            gpio_set_dir(encoder_base[i], GPIO_IN);
-            gpio_set_dir(encoder_base[i]+1, GPIO_IN);
-            gpio_pull_up(encoder_base[i]);
-            gpio_pull_up(encoder_base[i]+1);
-        }
-
-        pio_add_program(pio1, &step_counter_program);
-        for (int i = 0; i < encoders; i++) {
-            step_counter_program_init(pio1, i, encoder_base[i], 0);
-            printf("step counter %d init done...\n", i);
-        }
-    #endif
+    #if encoders > 0
+        #if use_stepcounter == 0
+            for (int i = 0; i < encoders; i++) {
+                gpio_init(encoder_base[i]);
+                gpio_init(encoder_base[i]+1);
+                gpio_set_dir(encoder_base[i], GPIO_IN);
+                gpio_set_dir(encoder_base[i]+1, GPIO_IN);
+                gpio_pull_up(encoder_base[i]);
+                gpio_pull_up(encoder_base[i]+1);
+            }
+            pio_add_program(pio1, &quadrature_encoder_program);
+            for (int i = 0; i < encoders; i++) {
+                quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
+                printf("encoder %d init done...\n", i);
+            }
+        #else
+            for (int i = 0; i < encoders; i++) {
+                gpio_init(encoder_base[i]);
+                gpio_init(encoder_base[i]+1);
+                gpio_set_dir(encoder_base[i], GPIO_IN);
+                gpio_set_dir(encoder_base[i]+1, GPIO_IN);
+                gpio_pull_up(encoder_base[i]);
+                gpio_pull_up(encoder_base[i]+1);
+            }
+            pio_add_program(pio1, &step_counter_program);
+            for (int i = 0; i < encoders; i++) {
+                step_counter_program_init(pio1, i, encoder_base[i], 0);
+                printf("step counter %d init done...\n", i);
+            }
+        #endif
+    #endif //encoders>0
 
     printf("Pio init done....\n");
 
@@ -654,18 +659,20 @@ void handle_data(){
     }
     #endif
 
-    #if use_stepcounter == 0
-        // update encoders
-        for (int i = 0; i < encoders; i++) {
-            encoder[i] = quadrature_encoder_get_count(pio1, i);
-            tx_buffer->encoder_counter[i] = encoder[i];
-        }
-    #else
-        // update step counters
-        for (int i = 0; i < encoders; i++) {
-            encoder[i] = step_counter_get_count(pio1, i);
-            tx_buffer->encoder_counter[i] = encoder[i];
-        }
+    #if encoders > 0
+        #if use_stepcounter == 0
+            // update encoders
+            for (int i = 0; i < encoders; i++) {
+                encoder[i] = quadrature_encoder_get_count(pio1, i);
+                tx_buffer->encoder_counter[i] = encoder[i];
+            }
+        #else
+            // update step counters
+            for (int i = 0; i < encoders; i++) {
+                encoder[i] = step_counter_get_count(pio1, i);
+                tx_buffer->encoder_counter[i] = encoder[i];
+            }
+        #endif
     #endif
 
     if (sizeof(output_pins)>0){
