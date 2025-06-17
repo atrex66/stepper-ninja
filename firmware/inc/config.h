@@ -2,21 +2,24 @@
 #define CONFIG_H
 #include "internals.h"
 
-    // *****************************************************************************
-    // ** This file contains the configuration for the stepper ninja project      **
-    // ** if you want to use pins instead of GPIO use like PPIN_1, PPIN_2, PPIN_4 **
-    // *****************************************************************************
+    // **************************************************************************
+    // ** This file contains the configuration for the stepper ninja project   **
+    // ** if you want to use pins instead of GPIO use PIN_1, PIN_2, PIN_4, ... **
+    // **************************************************************************
     // all pin alias is defined in the internals.h is you want to use instead of using GPIO numbers
 
     // All GPIO form 0-15 and 22-31 are usable
     #define stepgens 4
-    #define stepgen_steps {0, 2, 4, 6}
-    #define stepgen_dirs {1, 3, 5, 7}
+    
+    // defined with PINS
+    #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
+    #define stepgen_dirs {PIN_2, PIN_6, PIN_7, PIN_9}
     #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
 
     #define encoders 1
     #define enc_pins {8} // uses 2 pins, you need to set the first pin (8 + 9)
 
+    // or use GPIO
     #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
     #define in_pullup {0, 0, 0, 0, 0, 0}
 
