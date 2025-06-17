@@ -9,7 +9,7 @@
         .section { margin-bottom: 20px; }
         .pinout { font-family: monospace; white-space: pre; border: 1px solid #ccc; padding: 10px; }
         label { display: inline-block; width: 200px; }
-        input, select { margin-bottom: 10px; }
+        input, select { width:100px; margin-top: 10px; }
         .warning { color: red; }
         #configOutput { width: 100%; height: 200px; font-family: monospace; }
         button { margin-right: 10px; }
@@ -29,9 +29,9 @@
             <option value="1">1 (GPIO 0-1)</option>
         </select><br>
         <label>Default Pulse Width (ns):</label>
-        <input type="number" id="default_pulse_width" value="2000" min="1"><br>
+        <input type="number" id="default_pulse_width" value="2000" min="100" max="6400"><br>
         <label>Default Step Scale:</label>
-        <input type="number" id="default_step_scale" value="1000" min="1"><br>
+        <input type="number" id="default_step_scale" value="1000" min="1" max="10000"><br>
     </div>
     <div class="section">
         <h2>PWM Settings</h2>
@@ -44,7 +44,7 @@
         <label>PWM Frequency (Hz):</label>
         <input type="number" id="default_pwm_frequency" value="10000" min="1"><br>
         <label>PWM Max Scale:</label>
-        <input type="number" id="default_pwm_maxscale" value="4096" min="1"><br>
+        <input type="number" id="default_pwm_maxscale" value="4096" min="127"><br>
         <label>PWM Min Limit:</label>
         <input type="number" id="default_pwm_min_limit" value="0" min="0"><br>
     </div>
@@ -97,8 +97,7 @@
 
         // Reserved pins
         const reservedPins = {
-            spi: [16, 17, 18, 19], // MISO, CS, SCK, MOSI
-            irq: 21,
+            spi: [16, 17, 18, 19, 20, 21], // MISO, CS, SCK, MOSI, RESETn, INTn
             led: 25
         };
 
@@ -242,13 +241,13 @@
             const pinout = document.getElementById('pinout');
             let output = 'Pico Pinout (R=Reserved, P=PWM, I=Input, O=Output, S=Stepgen)\n';
             const usedPins = {};
-            reservedPins.spi.forEach(pin => usedPins[pin] = `R (SPI ${['MISO', 'CS', 'SCK', 'MOSI'][reservedPins.spi.indexOf(pin)]})`);
+            reservedPins.spi.forEach(pin => usedPins[pin] = `R (SPI ${['MISO', 'CS', 'SCK', 'MOSI', 'RESETn', 'INTn'][reservedPins.spi.indexOf(pin)]})`);
             usedPins[reservedPins.irq] = 'R (IRQ)';
             usedPins[reservedPins.led] = 'R (LED)';
             if (config.use_pwm) usedPins[config.pwm_GP] = 'P (PWM)';
             config.in_pins.forEach(pin => usedPins[pin] = 'I (Input)');
             config.out_pins.forEach(pin => usedPins[pin] = 'O (Output)');
-            stepgenPins.slice(0, config.stepgens).flat().forEach(pin => usedPins[pin] = 'S (Stepgen)');
+            stepgenPins.slice(0, config.stepgens).flat().forEach(pin => usedPins[pin] = pin % 2 == 0 ? 'S (Stepgen/Step)' : 'S (Stepgen/Dir)');
 
             for (let i = 0; i <= 28; i++) {
                 output += `GPIO ${i.toString().padStart(2, ' ')}: ${usedPins[i] || 'Free'}\n`;
@@ -272,6 +271,7 @@
 
             // Generate config.h
             let configText = `#ifndef CONFIG_H\n#define CONFIG_H\n\n`;
+            configText += `#include "internals.h"\n\n`;
             configText += `// User-configurable settings\n`;
             configText += `#define raspberry_pi_spi ${config.raspberry_pi_spi}\n`;
             configText += `#define stepgens ${config.stepgens}\n`;
@@ -286,12 +286,6 @@
             configText += `#define use_outputs ${config.use_outputs}\n`;
             configText += `#define step_invert ((const uint8_t[]){${config.step_invert.slice(0, config.stepgens).join(', ')}})\n`;
             configText += `#define brakeout_board 0 // Not supported, do not change\n\n`;
-
-            // Add protected settings
-            configText += `// Protected settings (do not modify)\n`;
-            configText += `#define SPI_PORT spi0\n#define PIN_MISO 16\n#define PIN_CS 17\n#define PIN_SCK 18\n#define PIN_MOSI 19\n#define PIN_RESET 20\n#define IRQ_PIN 21\n`;
-            configText += `#define IODIR 0x00\n#define GPIO 0x09\n#define USE_SPI_DMA 1\n#define LED_PIN PICO_DEFAULT_LED_PIN\n`;
-            configText += `#define IMR_RECV 0x04\n#define Sn_IMR_RECV 0x04\n#define Sn_IR_RECV 0x04\n#define SOCKET_DHCP 0\n\n`;
 
             // Add dynamic pin assignments
             if (config.brakeout_board) {
