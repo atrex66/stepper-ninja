@@ -95,7 +95,8 @@ static uint dma_rx;
 static dma_channel_config dma_channel_config_tx;
 static dma_channel_config dma_channel_config_rx;
 
-uint32_t step_pin[stepgens] = {0, 2, 4, 6};
+uint32_t step_pin[stepgens] = stepgen_steps;
+uint32_t dir_pin[stepgens] = stepgen_dirs;
 uint8_t encoder_base[4] = {8, 10, 12, 14};
 
 int32_t encoder[encoders] = {0,};
@@ -144,10 +145,10 @@ void __time_critical_func(stepgen_update_handler)() {
         command[i] = rx_buffer->stepgen_command[i];
         if (command[i] != 0){
             if ((command[i] >> 31) & 1) {
-                gpio_put(step_pin[i] + 1, 1);
+                gpio_put(dir_pin[i] + 1, 1);
             }
             else {
-                gpio_put(step_pin[i] + 1, 0);
+                gpio_put(dir_pin[i] + 1, 0);
             }
         }
     }
@@ -177,8 +178,8 @@ void core1_entry() {
     memset(src_ip, 0, 4);
     sleep_ms(500);
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_init(LED_GPIO);
+    gpio_set_dir(LED_GPIO, GPIO_OUT);
 
     if (spindle_encoder_index_GPIO != -1){
         gpio_init(spindle_encoder_index_GPIO);
@@ -220,7 +221,7 @@ void core1_entry() {
 
     while(1){
 
-        gpio_put(LED_PIN, !timeout_error);
+        gpio_put(LED_GPIO, !timeout_error);
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
@@ -244,11 +245,11 @@ void core1_entry() {
                 checksum_error = 0;
                 first_data = true;
                 first_send = 1;
-                #if use_outputs == 1
-                for (int i = 0; i < sizeof(output_pins); i++) {
-                    gpio_put(output_pins[i], 0); // reset outputs
+                if (sizeof(output_pins) > 0){
+                    for (int i = 0; i < sizeof(output_pins); i++) {
+                        gpio_put(output_pins[i], 0); // reset outputs
+                    }
                 }
-                #endif
             }
         }
         else {
@@ -300,8 +301,8 @@ int main() {
 
     stdio_init_all();
     stdio_usb_init();
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
+    gpio_init(LED_GPIO);
+    gpio_set_dir(LED_GPIO, GPIO_OUT);
 
     sleep_ms(2000);
 
@@ -360,11 +361,11 @@ int main() {
     spi_init(SPI_PORT, 1000 * 1000);
     spi_set_slave(SPI_PORT, true);
     spi_set_format(SPI_PORT, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_CS, GPIO_FUNC_SPI);
-    gpio_set_pulls(PIN_CS, true, false);
+    gpio_set_function(GPIO_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_CS, GPIO_FUNC_SPI);
+    gpio_set_pulls(GPIO_CS, true, false);
 
     dma_tx = dma_claim_unused_channel(true);
     dma_rx = dma_claim_unused_channel(true);
@@ -416,16 +417,16 @@ int main() {
         #endif
     #endif
 
-    #if use_outputs == 1
-    for (int i = 0; i < sizeof(output_pins); i++) {
-        gpio_init(output_pins[i]);
-        gpio_set_dir(output_pins[i], GPIO_OUT);
-        gpio_put(output_pins[i], 0);
+    if (sizeof(sizeof(output_pins)) > 0){
+        for (int i = 0; i < sizeof(output_pins); i++) {
+            gpio_init(output_pins[i]);
+            gpio_set_dir(output_pins[i], GPIO_OUT);
+            gpio_put(output_pins[i], 0);
+        }
     }
-    #endif
 
     uint32_t offset[2] = {0, };
-    uint8_t *step_inverts = (uint8_t *)step_invert;
+    uint8_t step_inverts[] = step_invert;
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
     
@@ -436,7 +437,7 @@ int main() {
         sm = i < 4 ? i : i - 4;
         p = i < 4 ? 0 : 1;
         pio_gpio_init(pio, step_pin[i]);
-        gpio_init(step_pin[i]+1);
+        gpio_init(dir_pin[i]);
         if (step_inverts[i] == 1){
            gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT);
         }
@@ -491,12 +492,12 @@ void reset_with_watchdog() {
 }
 
 void __time_critical_func(cs_select)() {
-    gpio_put(PIN_CS, 0);
+    gpio_put(GPIO_CS, 0);
     asm volatile("nop \n nop \n nop");
 }
 
 void __time_critical_func(cs_deselect)() {
-    gpio_put(PIN_CS, 1);
+    gpio_put(GPIO_CS, 1);
 }
 
 uint8_t __time_critical_func(spi_read)() {
@@ -667,12 +668,12 @@ void handle_data(){
         }
     #endif
 
-    #if use_outputs == 1
-    //set output pins
-    for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-        gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
-        }
-    #endif
+    if (sizeof(output_pins)>0){
+        //set output pins
+        for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+            gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
+            }
+    }
     
     tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
 
@@ -700,7 +701,7 @@ void printbuf(uint8_t *buf, size_t len) {
 // UDP handler
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
-    gpio_pull_up(IRQ_PIN);
+    gpio_pull_up(GPIO_INT);
     uint8_t *packet_buffer;
     packet_buffer = malloc(rx_size);
     memset(packet_buffer, 0, rx_size);
@@ -720,7 +721,7 @@ void __not_in_flash_func(handle_udp)() {
         while (1){
         // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
             #if _WIZCHIP_ == W5100S
-                while(gpio_get(IRQ_PIN) == 1)
+                while(gpio_get(GPIO_INT) == 1)
                 {
                     time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
                     if (multicore_fifo_rvalid()) {
@@ -746,7 +747,7 @@ void __not_in_flash_func(handle_udp)() {
     #else
         while(1){
             time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-            if (!gpio_get(PIN_CS)){
+            if (!gpio_get(GPIO_CS)){
                 memset(packet_buffer, 0, rx_size);
                 memcpy(packet_buffer, (uint8_t *)tx_buffer, tx_size);
                 spi_read_fulldup((uint8_t *)rx_buffer, packet_buffer, rx_size);
@@ -790,9 +791,9 @@ static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 
 
 void w5100s_interrupt_init() {
-    gpio_init(INT_PIN);
-    gpio_set_dir(INT_PIN, GPIO_IN);
-    gpio_pull_up(INT_PIN);
+    gpio_init(GPIO_INT);
+    gpio_set_dir(GPIO_INT, GPIO_IN);
+    gpio_pull_up(GPIO_INT);
 
     uint8_t imr = IMR_RECV;        
     uint8_t sn_imr = Sn_IMR_RECV;  
@@ -806,26 +807,26 @@ void w5100s_interrupt_init() {
 // -------------------------------------------
 void w5100s_init() {
 
-    gpio_init(PIN_CS);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_init(GPIO_CS);
+    gpio_set_dir(GPIO_CS, GPIO_OUT);
     cs_deselect();
 
-    gpio_init(PIN_RESET);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_put(PIN_RESET, 1);
+    gpio_init(GPIO_RESET);
+    gpio_set_dir(GPIO_RESET, GPIO_OUT);
+    gpio_put(GPIO_RESET, 1);
 
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(GPIO_MISO, GPIO_FUNC_SPI);
    
     reg_wizchip_cs_cbfunc(cs_select, cs_deselect);
     reg_wizchip_spi_cbfunc(spi_read, spi_write);
     
     reg_wizchip_spiburst_cbfunc(spi_read_burst, spi_write_burst);
 
-    gpio_put(PIN_RESET, 0);
+    gpio_put(GPIO_RESET, 0);
     sleep_ms(100);
-    gpio_put(PIN_RESET, 1);
+    gpio_put(GPIO_RESET, 1);
     sleep_ms(500);
 
     dma_tx = dma_claim_unused_channel(true);
