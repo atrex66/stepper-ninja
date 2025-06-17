@@ -3,13 +3,8 @@
 #include "internals.h"
 
 
-    // ************************************************************************
-    // ** This file contains the configuration for the stepper ninja project **
-    // ** Do not change this file unless you know what you are doing         **
-    // ** If you change this file, you may break the module functionality    **
-    // ************************************************************************
-
     // *****************************************************************************
+    // ** This file contains the configuration for the stepper ninja project      **
     // ** if you want to use pins instead of GPIO use like PPIN_1, PPIN_2, PPIN_4 **
     // *****************************************************************************
     // all pin alias is defined in the internals.h is you want to use instead of using GPIO numbers
