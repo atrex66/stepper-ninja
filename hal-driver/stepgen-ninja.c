@@ -34,7 +34,10 @@
     #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_64 // ~1 MHz (250 MHz / 256)
     const uint8_t rpi_inputs[] = raspi_inputs;
     const uint8_t rpi_outputs[] = raspi_outputs;
+    const uint8_t rpi_inputs_no = sizeof(rpi_inputs);
+    const uint8_t rpi_outputs_no = sizeof(rpi_outputs);
 #endif
+
 #define debug 1
 
 /* module information */
@@ -56,6 +59,11 @@ uint32_t total_cycles;
 // Add 10,000 mm offset to *d->command[i] to avoid simulator zero-crossing issue
 // Not needed on real machine due to homing at axis limits, but not hurts real machines.
 #define offset 10000
+
+const uint8_t input_pins[] = in_pins;
+const uint8_t output_pins[] = out_pins;
+const uint8_t in_pins_no = sizeof(input_pins);
+const uint8_t out_pins_no = sizeof(output_pins);
 
 typedef struct {
     char ip[16]; // Holds IPv4 address
@@ -128,7 +136,6 @@ typedef struct {
 static int instances = 1; // Példányok száma
 static int comp_id = -1; // HAL komponens azonosító
 static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adatra
-static int bufsize = 65536;
 static uint32_t timing[1024] = {0, };
 static uint32_t old_pulse_width = 0;
 static uint8_t tx_counter = 0;
@@ -193,7 +200,8 @@ void module_init(void) {
  */
 static void init_socket(module_data_t *arg) {
     module_data_t *d = arg;
-
+    uint32_t bufsize = 65535;
+    
     if ((d->sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: socket creation failed: %s\n", 
                        d->index, strerror(errno));
@@ -293,9 +301,8 @@ uint16_t nearest(uint16_t period){
 }
 
 int _receive(void *arg){
-    module_data_t *d = arg;
-
     #if raspberry_pi_spi == 0
+        module_data_t *d = arg;
         static socklen_t addrlen = sizeof(d->remote_addr);
         return recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
     #else
@@ -313,8 +320,8 @@ void printbuf(uint8_t *buf, size_t len){
 }
 
 int _send(void *arg){
-    module_data_t *d = arg;
     #if raspberry_pi_spi == 0
+        module_data_t *d = arg;
         return sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
     #else
         // working full duplex
@@ -372,13 +379,13 @@ void udp_io_process_recv(void *arg, long period) {
 
         }
         // get the inputs defined in the transmission.c
-        for (uint8_t i = 0; i < sizeof(input_pins); i++) {
+        for (uint8_t i = 0; i < in_pins_no; i++) {
             *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;
             *d->input_not[i] = !(*d->input[i]); // Inverted inputs
         }
 
         #if raspberry_pi_spi == 1
-            for (int i=0; i<sizeof(rpi_inputs);i++){
+            for (int i=0; i<rpi_inputs_no;i++){
                 *d->rpi_input[i]=bcm2835_gpio_lev(i);
             }
         #endif
@@ -533,14 +540,14 @@ static void udp_io_process_send(void *arg, long period) {
 
     #if use_outputs == 1
     uint32_t outs=0;
-    for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+    for (uint8_t i = 0; i < out_pins_no; i++) {
         outs |= *d->output[i] == 1 ? 1 << i : 0;
     }
     tx_buffer->outputs = outs;
     #endif
 
     #if raspberry_pi_spi == 1
-        for (int i=0; i<sizeof(rpi_outputs);i++){
+        for (int i=0; i<rpi_outputs_no;i++){
             if (*d->rpi_output[i]){
                 bcm2835_gpio_set(i);
             } else{
@@ -757,7 +764,7 @@ int rtapi_app_main(void) {
         #endif
 
         #if raspberry_pi_spi == 1
-            for (int i = 0; i< sizeof(rpi_inputs); i++){
+            for (int i = 0; i< rpi_inputs_no; i++){
                 bcm2835_gpio_fsel(rpi_inputs[i], BCM2835_GPIO_FSEL_INPT);
                 memset(name, 0, sizeof(name));
                 snprintf(name, sizeof(name), module_name ".%d.rpi-input.gp%d", j, rpi_inputs[i]);
@@ -776,7 +783,7 @@ int rtapi_app_main(void) {
                     return r;
                 }
             }
-            for (int i = 0; i< sizeof(rpi_outputs); i++){
+            for (int i = 0; i< rpi_outputs_no; i++){
                 bcm2835_gpio_fsel(rpi_outputs[i], BCM2835_GPIO_FSEL_OUTP);
                 memset(name, 0, sizeof(name));
                 snprintf(name, sizeof(name), module_name ".%d.rpi-output.gp%d", j, rpi_outputs[i]);
