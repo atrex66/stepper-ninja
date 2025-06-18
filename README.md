@@ -12,7 +12,7 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 
   - W5100S-evb-pico UDP Ethernet. <https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico>
   - pico + W5500 module (need same wiring as W5100S-evb-pico)
-  - planned support communication over spi with raspberry-pi4
+  - alpha test of the rpi4 - stepper-ninja setup.
 
 - **step-generator**: multiple channels 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS).
 
@@ -25,17 +25,17 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 - **pwm**: you can configure 1 GPIO for the pwm signal (1900Hz(16bit resolution) to 1Mhz(7bit resolution)) and can configure active low or active high
 
 - **Software**:
-  - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks). (tested with raspberry-pi4)
+  - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks).
 
 - **Open-Source**: code and docs under MIT License.
 
-- **ready-to-ride**: w5100s-evb-pico and w5500 + pico version prebuilt uf2 in the binary directory. To install the hal driver you need to run the install.sh in the hal-driver directory
+- **ready-to-ride**: w5100s-evb-pico and w5500 + pico version prebuilt uf2 in the binary directory. To install the hal driver you need to run the install.sh in the hal-driver directory.
 
 ## Contributors
 
 - **code**: atrex66
 
-- **testing**: Jimfong1
+- **testing**: Jimfong1, Galetops
 
 ## Contact
 
