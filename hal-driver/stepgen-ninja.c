@@ -1062,7 +1062,7 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
-        
+        #pragma message "Adding export functions. (watchdog)"
         char watchdog_name[48] = {0};
         snprintf(watchdog_name, sizeof(watchdog_name),module_name ".%d.watchdog-process", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for watchdog-process: %d init...\n", j, r);
@@ -1074,6 +1074,7 @@ int rtapi_app_main(void) {
         }
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for watchdog-process: %d\n", j, r);
 
+        #pragma message "Adding export functions. (process-send)"
         char process_send[48] = {0};
         snprintf(process_send, sizeof(process_send), module_name ".%d.process-send", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-send %d init...\n", j, r);
@@ -1085,6 +1086,7 @@ int rtapi_app_main(void) {
         }
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process_send: %d\n", j, r);
 
+        #pragma message "Adding export functions. (process-recv)"
         char process_recv[48] = {0};
         snprintf(process_recv, sizeof(process_recv), module_name ".%d.process-recv", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-recv: %d init...\n", j, r);
