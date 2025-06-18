@@ -2,7 +2,16 @@ cmake_minimum_required(VERSION 3.12)
 set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk")
 set(CMAKE_BUILD_TYPE Release) # Release mód
 
-set(PICO_BOARD pico)
+# WIZnet chip típusának beállítása (alapértelmezett: W5100S)
+set(BOARD "pico" CACHE STRING "Pico board type (pico or pico2)")
+set_property(CACHE BOARD PROPERTY STRINGS "pico" "pico2")
+
+# Ellenőrizzük az érvényes értékeket
+if(NOT BOARD MATCHES "^(pico|pico2)$")
+    message(FATAL_ERROR "Invalid board type: ${BOARD}. Must be pico or pico2")
+endif()
+
+set(PICO_BOARD ${BOARD})
 
 include(pico_sdk_import.cmake)
 
