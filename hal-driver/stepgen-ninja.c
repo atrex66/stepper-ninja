@@ -96,11 +96,9 @@ typedef struct {
     hal_bit_t *input_not[32];
     hal_bit_t *rpi_input[32];
     hal_bit_t *rpi_input_not[32];
-    #if use_outputs == 1
     // outputs
     hal_bit_t *output[32];
     hal_bit_t *rpi_output[32];
-    #endif
 
 #if debug == 1
     hal_float_t *debug_freq;
@@ -538,13 +536,13 @@ static void udp_io_process_send(void *arg, long period) {
 
         tx_buffer->pio_timing = nearest(*d->pulse_width);
 
-    #if use_outputs == 1
-    uint32_t outs=0;
-    for (uint8_t i = 0; i < out_pins_no; i++) {
-        outs |= *d->output[i] == 1 ? 1 << i : 0;
+    if (out_pins_no > 0){
+        uint32_t outs=0;
+        for (uint8_t i = 0; i < out_pins_no; i++) {
+            outs |= *d->output[i] == 1 ? 1 << i : 0;
+        }
+        tx_buffer->outputs = outs;
     }
-    tx_buffer->outputs = outs;
-    #endif
 
     #if raspberry_pi_spi == 1
         for (int i=0; i<rpi_outputs_no;i++){
@@ -827,19 +825,19 @@ int rtapi_app_main(void) {
         }
         #endif
 
-        #if use_outputs == 1
-        for (int i = 0; i< out_pins_no; i++){
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
-            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
+        if (out_pins_no > 0){
+            for (int i = 0; i< out_pins_no; i++){
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
+                r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                *hal_data[j].output[i] = 0; // Initialize output pins to 0
             }
-            *hal_data[j].output[i] = 0; // Initialize output pins to 0
         }
-        #endif
 
         #if breakout_board > 0
             for (int i = 0; i < 8; i++){
