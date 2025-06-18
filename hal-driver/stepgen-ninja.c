@@ -655,20 +655,20 @@ int rtapi_app_main(void) {
     module_init();
 
     #if raspberry_pi_spi == 0
-    IpPort results[MAX_CHAN];
-    // parse the IP address and port from the modparam
-    instances = parse_ip_port((char *)ip_address[0], results, 8);
+        IpPort results[MAX_CHAN];
+        // parse the IP address and port from the modparam
+        instances = parse_ip_port((char *)ip_address[0], results, 8);
 
-    // print parsed IP addresses and ports
-    for (int i = 0; i < instances; i++) {
-        rtapi_print_msg(RTAPI_MSG_INFO, "Parsed IP: %s, Port: %d\n", results[i].ip, results[i].port);
-    }
+        // print parsed IP addresses and ports
+        for (int i = 0; i < instances; i++) {
+            rtapi_print_msg(RTAPI_MSG_INFO, "Parsed IP: %s, Port: %d\n", results[i].ip, results[i].port);
+        }
 
-    // Check if instances is greater than MAX_CHAN
-    if (instances > MAX_CHAN) {
-        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": Too many channels, max %d allowed\n", MAX_CHAN);
-        return -1;
-    }
+        // Check if instances is greater than MAX_CHAN
+        if (instances > MAX_CHAN) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ": Too many channels, max %d allowed\n", MAX_CHAN);
+            return -1;
+        }
     #endif
 
     // Allocate memory for hal_data in shared memory
@@ -701,8 +701,6 @@ int rtapi_app_main(void) {
         hal_data[j].first_data = true;
         hal_data[j].error_triggered = false;
 
-
-
         #if raspberry_pi_spi == 0
             hal_data[j].ip_address = &results[j];
             rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: init_socket\n", j);
@@ -712,6 +710,7 @@ int rtapi_app_main(void) {
             rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: init_spi\n", j);
             init_spi();
             rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: init_spi ready..\n", j);
+            instances = 1;
         #endif
 
         memset(name, 0, sizeof(name));
@@ -815,14 +814,14 @@ int rtapi_app_main(void) {
         }
 
         #if spindle_encoder_index_GPIO > 0
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.spindle.index-enable", j);
-        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].spindle_index, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.spindle.index-enable", j);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].spindle_index, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
         #endif
 
         if (out_pins_no > 0){
@@ -872,57 +871,55 @@ int rtapi_app_main(void) {
         #endif
 
         #if use_pwm == 1
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.pwm.enable", j);
-        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        *hal_data[j].pwm_enable = 0;
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.pwm.duty", j);
-        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.pwm.frequency", j);
-        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        *hal_data[j].pwm_frequency = default_pwm_frequency; // Default PWM frequency in Hz
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.pwm.enable", j);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].pwm_enable = 0;
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.pwm.duty", j);
+            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.pwm.frequency", j);
+            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].pwm_frequency = default_pwm_frequency; // Default PWM frequency in Hz
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.pwm.min-limit", j);
-        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        *hal_data[j].pwm_min_limit = 0; // Default minimum limit for PWM output
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.pwm.min-limit", j);
+            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].pwm_min_limit = 0; // Default minimum limit for PWM output
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.pwm.max-scale", j);
-        r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        *hal_data[j].pwm_maxscale = default_pwm_maxscale; // default max scale
+            memset(name, 0, sizeof(name));
+            snprintf(name, sizeof(name), module_name ".%d.pwm.max-scale", j);
+            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            *hal_data[j].pwm_maxscale = default_pwm_maxscale; // default max scale
         #endif
 
-        for (int i = 0; i<stepgens; i++)
-        {
-
+        for (int i = 0; i<stepgens; i++){
             #if debug == 1
             memset(name, 0, sizeof(name));
             snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.debug-steps", j, i);
@@ -1068,6 +1065,7 @@ int rtapi_app_main(void) {
         
         char watchdog_name[48] = {0};
         snprintf(watchdog_name, sizeof(watchdog_name),module_name ".%d.watchdog-process", j);
+        rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for watchdog-process: %d init...\n", j, r);
         r = hal_export_funct(watchdog_name, watchdog_process, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed for watchdog-process: %d\n", r);
@@ -1078,6 +1076,7 @@ int rtapi_app_main(void) {
 
         char process_send[48] = {0};
         snprintf(process_send, sizeof(process_send), module_name ".%d.process-send", j);
+        rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-send %d init...\n", j, r);
         r = hal_export_funct(process_send, udp_io_process_send, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
@@ -1088,6 +1087,7 @@ int rtapi_app_main(void) {
 
         char process_recv[48] = {0};
         snprintf(process_recv, sizeof(process_recv), module_name ".%d.process-recv", j);
+        rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-recv: %d init...\n", j, r);
         r = hal_export_funct(process_recv, udp_io_process_recv, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
