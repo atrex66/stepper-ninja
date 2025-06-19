@@ -1,0 +1,5 @@
+loadrt stepgen-ninja ip_address="192.168.0.177:8888"
+
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send servo-thread
+addf stepgen-ninja.0.process-recv servo-thread

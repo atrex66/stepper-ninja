@@ -2,6 +2,17 @@ cmake_minimum_required(VERSION 3.12)
 set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk")
 set(CMAKE_BUILD_TYPE Release) # Release mód
 
+# WIZnet chip típusának beállítása (alapértelmezett: W5100S)
+set(BOARD "pico" CACHE STRING "Pico board type (pico or pico2)")
+set_property(CACHE BOARD PROPERTY STRINGS "pico" "pico2")
+
+# Ellenőrizzük az érvényes értékeket
+if(NOT BOARD MATCHES "^(pico|pico2)$")
+    message(FATAL_ERROR "Invalid board type: ${BOARD}. Must be pico or pico2")
+endif()
+
+set(PICO_BOARD ${BOARD})
+
 include(pico_sdk_import.cmake)
 
 project(stepper-ninja C CXX ASM)
@@ -26,13 +37,13 @@ file(GLOB_RECURSE WIZNET_SOURCES
     "ioLibrary_Driver/Ethernet/W5500/*.c"
 )
 
-# Cortex-M0+ cél explicit megadása
-set(PICO_PLATFORM rp2040)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-m0plus -mthumb")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-m0plus -mthumb")
-set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mcpu=cortex-m0plus -mthumb")
+# set(PICO_BOARD pico2)
 
-add_compile_options(-g -O3)
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-m0plus -mthumb")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mcpu=cortex-m0plus -mthumb")
+# set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -mcpu=cortex-m0plus -mthumb")
+
+# add_compile_options(-g -O3)
 
 pico_sdk_init()
 
@@ -47,20 +58,22 @@ include_directories(
 
 add_executable(stepper-ninja
     src/main.c
-    src/flash_config.c
-    src/serial_terminal.c
-    src/transmission.c
+    modules/flash_config.c
+    modules/serial_terminal.c
+    modules/transmission.c
+    modules/pwm.c
     ${WIZNET_SOURCES}
 )
 
 # PIO fájlok generálása
-pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/quadrature_encoder.pio)
-pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/freq_generator.pio)
-pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/src/step_counter.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_encoder.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/freq_generator.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/step_counter.pio)
 
 target_include_directories(stepper-ninja PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules/inc
 )
 
 # WIZnet chip típusának beállítása (alapértelmezett: W5100S)
@@ -90,6 +103,7 @@ target_link_libraries(stepper-ninja
     hardware_pll
     hardware_pwm
     hardware_timer
+    hardware_irq
 )
 
 # Set output filename based on WIZCHIP_TYPE

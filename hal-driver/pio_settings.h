@@ -1,1 +1,1 @@
-../firmware/w5100s-evb-pico/inc/pio_settings.h
+../firmware/modules/inc/pio_settings.h

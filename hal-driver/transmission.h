@@ -1,1 +1,1 @@
-../firmware/w5100s-evb-pico/inc/transmission.h
+../firmware/modules/inc/transmission.h
