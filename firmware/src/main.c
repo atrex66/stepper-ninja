@@ -429,7 +429,7 @@ int main() {
         printf("\n");
     #endif
 
-    if (sizeof(sizeof(output_pins)) > 0){
+    if (sizeof(output_pins) > 0){
         for (int i = 0; i < sizeof(output_pins); i++) {
             gpio_init(output_pins[i]);
             gpio_set_dir(output_pins[i], GPIO_OUT);
@@ -638,17 +638,17 @@ void handle_data(){
     tx_buffer->jitter = get_absolute_time() - last_packet_time;
     //printf("%d Received bytes: %d\n", rx_counter, len);
     last_packet_time = get_absolute_time();
-    if (!debug_mode){
-        if (rx_buffer->packet_id != rx_counter) {
-            printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
-            rx_counter = rx_buffer->packet_id;
-        }
-        if (!rx_checksum_ok(rx_buffer)) {
-            printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
-            checksum_error = 1;
-        }
+
+    if (rx_buffer->packet_id != rx_counter) {
+        printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
+        rx_counter = rx_buffer->packet_id;
     }
-    if (!checksum_error | debug_mode) {
+    if (!rx_checksum_ok(rx_buffer)) {
+        printf("Checksum error: %d != %d\n", rx_buffer->checksum, checksum_index_in);
+        checksum_error = 1;
+    }
+
+    if (!checksum_error) {
     
     // update stepgens
     stepgen_update_handler();
@@ -703,7 +703,7 @@ void handle_data(){
     spindle_index_enabled = 0;
 
     tx_buffer->packet_id = rx_counter;
-    //tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+    tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
 }
 
 void printbuf(uint8_t *buf, size_t len) {

@@ -301,14 +301,8 @@ uint16_t nearest(uint16_t period){
 }
 
 int _receive(void *arg){
-    #if raspberry_pi_spi == 0
-        module_data_t *d = arg;
-        static socklen_t addrlen = sizeof(d->remote_addr);
-        return recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
-    #else
-        // full duplex transmission not need to receive
-        return sizeof(transmission_pico_pc_t);
-    #endif
+    // full duplex transmission not need to receive
+    return sizeof(transmission_pico_pc_t);
 }
 
 void printbuf(uint8_t *buf, size_t len){
@@ -341,11 +335,17 @@ void udp_io_process_recv(void *arg, long period) {
         *d->io_ready_out = 0;
         return;
     }
-    int len = _receive(d);
+    #if raspberry_pi_spi == 1
+        int len = _receive(d);
+    #else
+        static socklen_t addrlen = sizeof(d->remote_addr);
+        int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+    #endif
     if (len == rx_size) {
-        if (!tx_checksum_ok(rx_buffer) && debug_mode == 0) {
+        if (!tx_checksum_ok(rx_buffer)) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: checksum error: %d != %d\n", 
                            d->index, rx_buffer->checksum, calculate_checksum(&rx_buffer, rx_size - 1));
+            printbuf((uint8_t*)rx_buffer, rx_size);
             d->checksum_error = 1;
             d->connected = 0;
             *d->io_ready_out = 0; // set io-ready-out to 0 to break the estop-loop
@@ -712,8 +712,9 @@ int rtapi_app_main(void) {
             instances = 1;
         #endif
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.connected", j);
+        uint32_t nsize = sizeof(name);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.connected", j);
 
         r = hal_pin_bit_newf(HAL_IN, &hal_data[j].connected, comp_id, name, j);
         if (r < 0) {
@@ -722,8 +723,8 @@ int rtapi_app_main(void) {
             return r;
         }
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.stepgen.pulse-width", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.stepgen.pulse-width", j);
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pulse_width, comp_id, name, j);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -733,24 +734,24 @@ int rtapi_app_main(void) {
         *hal_data[j].pulse_width = default_pulse_width; // Default pulse width in nanoseconds
 
         #if debug == 1
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.stepgen.max-freq-khz", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.stepgen.max-freq-khz", j);
         r = hal_pin_float_newf(HAL_OUT, &hal_data[j].debug_freq, comp_id, name, j);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
             hal_exit(comp_id);
             return r;
         }
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.jitter", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.jitter", j);
         r = hal_pin_u32_newf(HAL_OUT, &hal_data[j].jitter, comp_id, name, j);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
             hal_exit(comp_id);
             return r;
         }
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.stepgen.debug-steps-reset", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.stepgen.debug-steps-reset", j);
         r = hal_pin_bit_newf(HAL_IN, &hal_data[j].debug_steps_reset, comp_id, name, j);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -762,16 +763,16 @@ int rtapi_app_main(void) {
         #if raspberry_pi_spi == 1
             for (int i = 0; i< rpi_inputs_no; i++){
                 bcm2835_gpio_fsel(rpi_inputs[i], BCM2835_GPIO_FSEL_INPT);
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.rpi-input.gp%d", j, rpi_inputs[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.rpi-input.gp%d", j, rpi_inputs[i]);
                 r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].rpi_input[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                     hal_exit(comp_id);
                     return r;
                 }
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.rpi-input.gp%d-not", j, rpi_inputs[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.rpi-input.gp%d-not", j, rpi_inputs[i]);
                 r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].rpi_input_not[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -781,8 +782,8 @@ int rtapi_app_main(void) {
             }
             for (int i = 0; i< rpi_outputs_no; i++){
                 bcm2835_gpio_fsel(rpi_outputs[i], BCM2835_GPIO_FSEL_OUTP);
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.rpi-output.gp%d", j, rpi_outputs[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.rpi-output.gp%d", j, rpi_outputs[i]);
                 r = hal_pin_bit_newf(HAL_IN, &hal_data[j].rpi_output[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -794,16 +795,16 @@ int rtapi_app_main(void) {
         #endif
 
         for (int i = 0; i< in_pins_no; i++){
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.input.gp%d", j, input_pins[i]);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.input.gp%d", j, input_pins[i]);
             r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.input.gp%d-not", j, input_pins[i]);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.input.gp%d-not", j, input_pins[i]);
             r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input_not[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -813,8 +814,8 @@ int rtapi_app_main(void) {
         }
 
         #if spindle_encoder_index_GPIO > 0
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.spindle.index-enable", j);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.spindle.index-enable", j);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].spindle_index, comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -825,8 +826,8 @@ int rtapi_app_main(void) {
 
         if (out_pins_no > 0){
             for (int i = 0; i< out_pins_no; i++){
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.output.gp%d", j, output_pins[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.output.gp%d", j, output_pins[i]);
                 r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -839,8 +840,8 @@ int rtapi_app_main(void) {
 
         #if breakout_board > 0
             for (int i = 0; i < 8; i++){
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.output.%d", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.output.%d", j, i);
                 r = hal_pin_bit_newf(HAL_IN, &hal_data[j].output[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -850,16 +851,16 @@ int rtapi_app_main(void) {
                 *hal_data[j].output[i] = 0; // Initialize output pins to 0
             }
             for (int i = 0; i < 16; i++){
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.input.%d", j, input_pins[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.input.%d", j, input_pins[i]);
                 r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input[i + sizeof(input_pins)], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                     hal_exit(comp_id);
                     return r;
                 }
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.input.%d-not", j, input_pins[i]);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.input.%d-not", j, input_pins[i]);
                 r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].input_not[i + sizeof(input_pins)], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -871,8 +872,8 @@ int rtapi_app_main(void) {
 
         #if use_pwm == 1
             for(int i = 0; i < pwm_count; ++i){
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.enable", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.pwm.%d.enable", j, i);
                 r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -880,16 +881,16 @@ int rtapi_app_main(void) {
                     return r;
                 }
                 *hal_data[j].pwm_enable[i] = 0;
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.duty", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.pwm.%d.duty", j, i);
                 r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                     hal_exit(comp_id);
                     return r;
                 }
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.frequency", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.pwm.%d.frequency", j, i);
                 r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -898,8 +899,8 @@ int rtapi_app_main(void) {
                 }
                 *hal_data[j].pwm_frequency[i] = default_pwm_frequency; // Default PWM frequency in Hz
 
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.min-limit", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.pwm.%d.min-limit", j, i);
                 r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -908,8 +909,8 @@ int rtapi_app_main(void) {
                 }
                 *hal_data[j].pwm_min_limit[i] = 0; // Default minimum limit for PWM output
 
-                memset(name, 0, sizeof(name));
-                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.max-scale", j, i);
+                memset(name, 0, nsize);
+                snprintf(name, nsize, module_name ".%d.pwm.%d.max-scale", j, i);
                 r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale[i], comp_id, name, j);
                 if (r < 0) {
                     rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -922,8 +923,8 @@ int rtapi_app_main(void) {
 
         for (int i = 0; i<stepgens; i++){
             #if debug == 1
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.debug-steps", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.debug-steps", j, i);
             r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].debug_steps[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -933,16 +934,16 @@ int rtapi_app_main(void) {
             *hal_data[j].debug_steps[i] = 0;
             #endif
 
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.command", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.command", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].command[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.step-scale", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.step-scale", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].scale[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -951,16 +952,16 @@ int rtapi_app_main(void) {
             }
             *hal_data[j].scale[i] = default_step_scale; // Default scale factor
 
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.feedback", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.feedback", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].feedback[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.mode", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.mode", j, i);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].mode[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -969,8 +970,8 @@ int rtapi_app_main(void) {
             }
             *hal_data[j].mode[i] = 0; //always start with position mode
 
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.stepgen.%d.enable", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.%d.enable", j, i);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enable[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -988,24 +989,24 @@ int rtapi_app_main(void) {
                 #define e_name module_name ".%d.encoder"
             #endif
             hal_data[j].enc_offset[i] = 0; // Initialize encoder offset to 0
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), e_name ".%d.raw-count", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.raw-count", j, i);
             r = hal_pin_s32_newf(HAL_IN, &hal_data[j].raw_count[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), e_name ".%d.scaled-count", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.scaled-count", j, i);
             r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].scaled_count[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), e_name ".%d.scale", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.scale", j, i);
             r = hal_pin_float_newf(HAL_IN, &hal_data[j].enc_scale[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -1013,8 +1014,8 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].scale[i] = 1;
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), e_name ".%d.scaled-value", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.scaled-value", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_value[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -1022,8 +1023,8 @@ int rtapi_app_main(void) {
                 return r;
             }
             #if debug == 1
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), e_name ".%d.debug-reset", j, i);
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.debug-reset", j, i);
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enc_reset[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
@@ -1034,8 +1035,8 @@ int rtapi_app_main(void) {
             #endif
         }
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.period", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.period", j);
 
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].period, comp_id, name, j);
         if (r < 0) {
@@ -1044,8 +1045,8 @@ int rtapi_app_main(void) {
             return r;
         }
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.io-ready-in", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.io-ready-in", j);
 
             r = hal_pin_bit_newf(HAL_IN, &hal_data[j].io_ready_in, comp_id, name, j);
         if (r < 0) {
@@ -1054,8 +1055,8 @@ int rtapi_app_main(void) {
             return r;
         }
 
-        memset(name, 0, sizeof(name));
-        snprintf(name, sizeof(name), module_name ".%d.io-ready-out", j);
+        memset(name, 0, nsize);
+        snprintf(name, nsize, module_name ".%d.io-ready-out", j);
 
         r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].io_ready_out, comp_id, name, j);
         if (r < 0) {

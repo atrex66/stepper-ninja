@@ -26,13 +26,13 @@
     #define spindle_encoder_index_GPIO PIN_14
     #define spindle_encoder_active_level high
 
-    #define out_pins {PIN_16, PIN_20}
+    #define out_pins {PIN_16, PIN_17, PIN_20}
 
     // if you want to use the module with pwm output, set this to 1
     #define use_pwm 1 // use of pwm output
-    #define pwm_count 2
-    #define pwm_pin {PIN_17, PIN_19} // PWM GPIO for the module (GPIO 13, GPIO 14)
-    #define pwm_invert {0, 0} // Invert the PWM signal (1 = inverted, 0 = not inverted)
+    #define pwm_count 1
+    #define pwm_pin {PIN_19} // PWM GPIO for the module (GPIO 13, GPIO 14)
+    #define pwm_invert {0} // Invert the PWM signal (1 = inverted, 0 = not inverted)
     #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
     #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration

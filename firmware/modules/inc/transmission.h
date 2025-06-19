@@ -15,19 +15,16 @@ typedef struct{
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pc_pico_t;
-#pragma pack(pop)
 
-#pragma pack(push, 1)
 // transmission structure from Pico to PC
 typedef struct{
-    #if encoders < 2
-        uint32_t encoder_counter[2];        // i dont know yet why but this generates checksum error if encoder_counter size is < 2
-    #else
+    #if encoders > 0
         uint32_t encoder_counter[encoders];
     #endif
     uint32_t inputs[2]; // Two 32-bit inputs
     uint32_t jitter;
     uint8_t interrupt_data;
+    uint8_t dummy;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;
@@ -38,4 +35,4 @@ bool rx_checksum_ok(transmission_pc_pico_t *rx_buffer);
 bool tx_checksum_ok(transmission_pico_pc_t *tx_buffer);
 uint8_t calculate_checksum(void *buffer, uint8_t len);
 
-#endif 
+#endif
