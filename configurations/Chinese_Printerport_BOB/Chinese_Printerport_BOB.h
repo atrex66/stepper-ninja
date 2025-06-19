@@ -15,7 +15,7 @@
     #define enc_pins {}
 
     #define in_pins {PIN_14, PIN_15, PIN_16, PIN_29, PIN_31, PIN_32}
-    #define in_pullup {0, 0, 0, 0, 0, 0}
+    #define in_pullup {1, 1, 1, 1, 1, 1}
 
     #define spindle_encoder_index_GPIO PIN_32
     #define spindle_encoder_active_level high
