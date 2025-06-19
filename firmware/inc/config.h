@@ -31,7 +31,7 @@
     // if you want to use the module with pwm output, set this to 1
     #define use_pwm 1 // use of pwm output
     #define pwm_count 2
-    #define pwm_pin {PIN_17, PIN_19} // PWM GPIO for the module (GPIO 14)
+    #define pwm_pin {PIN_17, PIN_19} // PWM GPIO for the module (GPIO 13, GPIO 14)
     #define pwm_invert {0, 0} // Invert the PWM signal (1 = inverted, 0 = not inverted)
     #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
