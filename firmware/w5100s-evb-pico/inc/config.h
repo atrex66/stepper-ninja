@@ -66,9 +66,11 @@
 
         #if encoders == 1
             #define in_pins {10, 11, 22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pullup {0, 0, 0, 0, 0, 0} //configure pullups for the inputs
             #define in_pins_no 6
         #elif encoders == 2
             #define in_pins {22, 26, 27, 28} // Free GPIO pins for inputs (GPIO 22-28)
+            #define in_pullup {0, 0, 0, 0} //configure pullups for the inputs
             #define in_pins_no 4
         #endif // encoders < 2
 
