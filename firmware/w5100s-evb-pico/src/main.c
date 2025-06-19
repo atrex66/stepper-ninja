@@ -401,7 +401,7 @@ int main() {
     for (int i = 0; i < in_pins_no; i++) {
         gpio_init(input_pins[i]);
         gpio_set_dir(input_pins[i], GPIO_IN);
-        gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+        // gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
         printf("%d ", input_pins[i]);
     }
     printf("\n");
