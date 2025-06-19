@@ -44,9 +44,6 @@
 
     #define default_pulse_width 3000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
-    #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
-    #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
-    #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
     
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
@@ -71,6 +68,6 @@
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
-    #define debug_mode 1    // only used in Raspberry PI communications
+    #define debug_mode 0    // only used in Raspberry PI communications
 
 #endif
