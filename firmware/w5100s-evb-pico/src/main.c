@@ -398,12 +398,23 @@ int main() {
     printf("\n");
 
     printf("Input pins: ");
+    //for (int i = 0; i < in_pins_no; i++) {
+    //    gpio_init(input_pins[i]);
+    //    gpio_set_dir(input_pins[i], GPIO_IN);
+    //    // gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+    //    printf("%d ", input_pins[i]);
+    //}
+
+    uint8_t pullups[in_pins_no] = in_pullup;
     for (int i = 0; i < in_pins_no; i++) {
         gpio_init(input_pins[i]);
         gpio_set_dir(input_pins[i], GPIO_IN);
-        // gpio_pull_up(input_pins[i]); // Pull-up ellenállás, ha szükséges
+        if (pullups[i]){
+            gpio_pull_up(input_pins[i]);
+        }
         printf("%d ", input_pins[i]);
     }
+    
     printf("\n");
 
     #if use_pwm == 1
