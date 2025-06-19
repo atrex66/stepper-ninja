@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include "config.h"
+#include "pwm.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-void ninja_pwm_init(){
-    gpio_set_function(pwm_GP, GPIO_FUNC_PWM); // Set PWM pin function
-    uint slice_num = pwm_gpio_to_slice_num(pwm_GP);
+void ninja_pwm_init(uint8_t pin){
+    gpio_set_function(pin, GPIO_FUNC_PWM); // Set PWM pin function
+    uint slice_num = pwm_gpio_to_slice_num(pin);
     // Get some sensible defaults for the slice configuration. By default, the
     // counter is allowed to wrap over its maximum range (0 to 2**16-1)
     pwm_config config = pwm_get_default_config();
@@ -29,17 +30,17 @@ uint16_t pwm_calculate_wrap(uint32_t freq) {
     return (uint16_t)wrap;
 }
 
-void ninja_pwm_set_frequency(uint32_t frequency){
+void ninja_pwm_set_frequency(uint8_t pin, uint32_t frequency){
     uint16_t wrap = pwm_calculate_wrap(frequency);
     if (wrap > 0) {
-        uint slice = pwm_gpio_to_slice_num(pwm_GP);
-        pwm_set_enabled(pwm_gpio_to_slice_num(pwm_GP), false); // Disable PWM output before changing wrap
+        uint slice = pwm_gpio_to_slice_num(pin);
+        pwm_set_enabled(pwm_gpio_to_slice_num(pin), false); // Disable PWM output before changing wrap
         pwm_set_wrap(slice, wrap); // Set the PWM wrap value
         pwm_set_enabled(slice, true); // Enable PWM output
-        printf("PWM frequency: %d Hz wrap:%d\n", frequency, wrap);
+        printf("PWM %d frequency: %d Hz wrap:%d\n", pin, frequency, wrap);
     }
 }
 
-void ninja_pwm_set_duty(uint16_t duty){
-    pwm_set_gpio_level(pwm_GP, duty ); // Set PWM value
+void ninja_pwm_set_duty(uint8_t pin, uint16_t duty){
+    pwm_set_gpio_level(pin, duty ); // Set PWM value
 }

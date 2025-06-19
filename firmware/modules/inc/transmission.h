@@ -9,8 +9,8 @@
 typedef struct{
     uint32_t stepgen_command[stepgens];
     uint32_t outputs;
-    uint32_t pwm_duty;
-    uint32_t pwm_frequency;
+    uint32_t pwm_duty[pwm_count];
+    uint32_t pwm_frequency[pwm_count];
     uint16_t pio_timing;
     uint8_t packet_id;
     uint8_t checksum;

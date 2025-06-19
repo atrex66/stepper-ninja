@@ -83,8 +83,6 @@ static uint64_t start_time = 0;
 // Számláló az interruptokhoz
 static uint32_t interrupt_count = 0;
 
-uint32_t pwm_freq_buffer;
-
 volatile bool spindle_index_enabled = false;
 
 uint8_t first_send = 1;
@@ -127,8 +125,11 @@ uint32_t TIMEOUT_US = 100000;
 uint32_t time_diff;
 uint8_t checksum_index = 1;
 uint8_t checksum_index_in = 1;
-uint32_t old_pwm_frequency = 0;
 
+uint32_t pwm_freq_buffer[pwm_count];
+const uint8_t pwm_pins[pwm_count] = pwm_pin;
+const uint8_t pwm_inverts[pwm_count] = pwm_invert;
+uint32_t old_pwm_frequency[pwm_count];
 
 // -------------------------------------------
 // Pulse generation setup
@@ -291,9 +292,11 @@ void core1_entry() {
         #endif
 
         #if use_pwm == 1
-        if (old_pwm_frequency != pwm_freq_buffer){
-            old_pwm_frequency = pwm_freq_buffer;
-            ninja_pwm_set_frequency(rx_buffer->pwm_frequency);
+        for (int i=0; i<pwm_count; i++){
+            if (old_pwm_frequency[i] != pwm_freq_buffer[i]){
+                old_pwm_frequency[i] = pwm_freq_buffer[i];
+                ninja_pwm_set_frequency(pwm_pins[i], rx_buffer->pwm_frequency[i]);
+            }
         }
         #endif
 
@@ -342,13 +345,12 @@ int main() {
 
     set_sys_clock_khz(125000, true);
     
+    #if raspberry_pi_spi == 0
     clock_configure(clk_peri,
                     0,
                     CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
                     clock_get_hz(clk_sys),
                     clock_get_hz(clk_sys));
-
-    #if raspberry_pi_spi == 0
     spi_init(spi0, 40000000);
     hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
     hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
@@ -393,7 +395,7 @@ int main() {
     PIO pio = pio0;
     int p = 0;
 
-    printf("Output pins: ");
+    printf("Output GPIO: ");
     for (int i = 0; i < sizeof(output_pins); i++) {
         gpio_init(output_pins[i]);
         gpio_set_dir(output_pins[i], GPIO_OUT);
@@ -402,7 +404,7 @@ int main() {
     }
     printf("\n");
 
-    printf("Input pins: ");
+    printf("Input GPIO: ");
     uint8_t pullups[sizeof(input_pins)] = in_pullup;
     for (int i = 0; i < sizeof(input_pins); i++) {
         gpio_init(input_pins[i]);
@@ -415,10 +417,16 @@ int main() {
     printf("\n");
 
     #if use_pwm == 1
-    ninja_pwm_init();
-        #if pwm_invert == 1
-            gpio_set_outover(pwm_GP, GPIO_OVERRIDE_INVERT); // Invert the PWM signal
-        #endif
+        printf("Pwm GPIO:");
+        for (int i=0;i<pwm_count;i++){
+            ninja_pwm_init(pwm_pins[i]);
+            if (pwm_inverts[i] == 1){
+                gpio_set_outover(pwm_pins[i], GPIO_OVERRIDE_INVERT); // Invert the PWM signal
+                printf("_");
+            }
+            printf("%d ", pwm_pins[i]);
+        }
+        printf("\n");
     #endif
 
     if (sizeof(sizeof(output_pins)) > 0){
@@ -652,9 +660,11 @@ void handle_data(){
 
     #if use_pwm == 1
         // update pwm
-        pwm_freq_buffer = rx_buffer->pwm_frequency;
-        ninja_pwm_set_duty((uint16_t)rx_buffer->pwm_duty );
+        for (int i=0;i<pwm_count;i++){
+            pwm_freq_buffer[i] = rx_buffer->pwm_frequency[i];
+            ninja_pwm_set_duty(pwm_pins[i], (uint16_t)rx_buffer->pwm_duty[i]);
         }
+    }
     #else
     }
     #endif

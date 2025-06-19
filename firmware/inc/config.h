@@ -26,12 +26,16 @@
     #define spindle_encoder_index_GPIO PIN_14
     #define spindle_encoder_active_level high
 
-    #define out_pins {PIN_16, PIN_17, PIN_20}
+    #define out_pins {PIN_16, PIN_20}
 
     // if you want to use the module with pwm output, set this to 1
     #define use_pwm 1 // use of pwm output
-    #define pwm_GP PIN_19 // PWM GPIO for the module (GPIO 14)
-    #define pwm_invert 0 // Invert the PWM signal (1 = inverted, 0 = not inverted)
+    #define pwm_count 2
+    #define pwm_pin {PIN_17, PIN_19} // PWM GPIO for the module (GPIO 14)
+    #define pwm_invert {0, 0} // Invert the PWM signal (1 = inverted, 0 = not inverted)
+    #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
+    #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
+    #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     #if raspberry_pi_spi == 1
@@ -40,16 +44,13 @@
         // used gpio for SPI on the PICO: 16, 17, 18, 19
         // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
         // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
-        #define raspi_inputs {GP_03, GP_05}
-        #define raspi_outputs {GP_22, GP_23}
+        #define raspi_inputs {GP_03}
+        #define raspi_outputs {GP_05}
     #endif
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
 
     #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
-    #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
-    #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
-    #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
     
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
@@ -74,6 +75,6 @@
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
-    #define debug_mode 1    // only used in Raspberry PI communications
+    #define debug_mode 0    // only used in Raspberry PI communications
 
 #endif

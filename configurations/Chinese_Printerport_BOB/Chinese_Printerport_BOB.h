@@ -33,8 +33,8 @@
         // used gpio for SPI on the PICO: 16, 17, 18, 19
         // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
         // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
-        #define raspi_inputs {GP_03, GP_05}
-        #define raspi_outputs {GP_22, GP_23}
+        #define raspi_inputs {GP_03}
+        #define raspi_outputs {GP_05}
     #endif
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
 

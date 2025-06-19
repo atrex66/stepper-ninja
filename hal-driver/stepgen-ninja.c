@@ -25,11 +25,13 @@
 
 // name of the module
 #if raspberry_pi_spi == 0
+    #pragma message "Ethernet version"
     #define module_name "stepgen-ninja"
     // to parse the modparam
     char *ip_address[128] = {0,};
     RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
 #else
+    #pragma message "SPI version"
     #define module_name "stepgen-ninja"
     #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_64 // ~1 MHz (250 MHz / 256)
     const uint8_t rpi_inputs[] = raspi_inputs;
@@ -85,11 +87,11 @@ typedef struct {
     hal_float_t *enc_scale[encoders];
     hal_bit_t *enc_reset[encoders];
     // pwm output
-    hal_bit_t *pwm_enable;
-    hal_u32_t *pwm_output;
-    hal_u32_t *pwm_frequency;
-    hal_u32_t *pwm_maxscale;
-    hal_u32_t *pwm_min_limit;
+    hal_bit_t *pwm_enable[pwm_count];
+    hal_u32_t *pwm_output[pwm_count];
+    hal_u32_t *pwm_frequency[pwm_count];
+    hal_u32_t *pwm_maxscale[pwm_count];
+    hal_u32_t *pwm_min_limit[pwm_count];
     hal_u32_t *jitter;
     // inputs
     hal_bit_t *input[32];
@@ -324,15 +326,10 @@ int _send(void *arg){
     #else
         // working full duplex
         static size_t ssize = sizeof(transmission_pc_pico_t);
-        //static uint16_t counter;
         char *readbuff = malloc(ssize);
         memset(readbuff, 0, ssize);
         bcm2835_spi_transfernb((char *)tx_buffer, readbuff, ssize);
         memcpy(rx_buffer, readbuff + 3, sizeof(transmission_pico_pc_t));
-        //if (counter % 256 == 0){
-        //printbuf((uint8_t *)rx_buffer, 32);
-        //}
-        //counter ++;
         return sizeof(transmission_pc_pico_t);
     #endif
 }
@@ -563,25 +560,27 @@ static void udp_io_process_send(void *arg, long period) {
     #endif
 
     #if use_pwm == 1
-    if (*d->pwm_enable) {
-        if (*d->pwm_frequency > 0) {
-            if (*d->pwm_frequency > 1000000) {
-                *d->pwm_frequency = 1000000;
+    for (int i=0;i<pwm_count;i++){
+        if (*d->pwm_enable[i]) {
+            if (*d->pwm_frequency[i] > 0) {
+                if (*d->pwm_frequency[i] > 1000000) {
+                    *d->pwm_frequency[i] = 1000000;
+                }
+                if (*d->pwm_frequency[i] < 1907) {
+                    *d->pwm_frequency[i] = 1907;
+                }
+                if (*d->pwm_output[i] < *d->pwm_min_limit[i]) {
+                    *d->pwm_output[i] = *d->pwm_min_limit[i];
+                }
+                uint16_t wrap = pwm_calculate_wrap(*d->pwm_frequency[i]);
+                uint16_t duty_cycle = (uint16_t)(round(((float)*d->pwm_output[i] / *d->pwm_maxscale[i]) * wrap));
+                tx_buffer->pwm_duty[i] = duty_cycle;
+            } else {
+                tx_buffer->pwm_duty[i] = 0;
             }
-            if (*d->pwm_frequency < 1907) {
-                *d->pwm_frequency = 1907;
-            }
-            if (*d->pwm_output < *d->pwm_min_limit) {
-                *d->pwm_output = *d->pwm_min_limit;
-            }
-            uint16_t wrap = pwm_calculate_wrap(*d->pwm_frequency);
-            uint16_t duty_cycle = (uint16_t)(round(((float)*d->pwm_output / *d->pwm_maxscale) * wrap));
-            tx_buffer->pwm_duty = duty_cycle;
-        } else {
-            tx_buffer->pwm_duty = 0;
         }
+    tx_buffer->pwm_frequency[i] = *d->pwm_frequency[i];
     }
-    tx_buffer->pwm_frequency = *d->pwm_frequency;
     #endif
 
     tx_buffer->packet_id = tx_counter;
@@ -871,52 +870,54 @@ int rtapi_app_main(void) {
         #endif
 
         #if use_pwm == 1
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.pwm.enable", j);
-            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
-            *hal_data[j].pwm_enable = 0;
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.pwm.duty", j);
-            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.pwm.frequency", j);
-            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
-            *hal_data[j].pwm_frequency = default_pwm_frequency; // Default PWM frequency in Hz
+            for(int i = 0; i < pwm_count; ++i){
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.enable", j, i);
+                r = hal_pin_bit_newf(HAL_IN, &hal_data[j].pwm_enable[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                *hal_data[j].pwm_enable[i] = 0;
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.duty", j, i);
+                r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_output[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.frequency", j, i);
+                r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_frequency[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                *hal_data[j].pwm_frequency[i] = default_pwm_frequency; // Default PWM frequency in Hz
 
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.pwm.min-limit", j);
-            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
-            *hal_data[j].pwm_min_limit = 0; // Default minimum limit for PWM output
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.min-limit", j, i);
+                r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_min_limit[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                *hal_data[j].pwm_min_limit[i] = 0; // Default minimum limit for PWM output
 
-            memset(name, 0, sizeof(name));
-            snprintf(name, sizeof(name), module_name ".%d.pwm.max-scale", j);
-            r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
+                memset(name, 0, sizeof(name));
+                snprintf(name, sizeof(name), module_name ".%d.pwm.%d.max-scale", j, i);
+                r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pwm_maxscale[i], comp_id, name, j);
+                if (r < 0) {
+                    rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                    hal_exit(comp_id);
+                    return r;
+                }
+                *hal_data[j].pwm_maxscale[i] = default_pwm_maxscale; // default max scale
             }
-            *hal_data[j].pwm_maxscale = default_pwm_maxscale; // default max scale
         #endif
 
         for (int i = 0; i<stepgens; i++){
