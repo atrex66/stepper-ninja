@@ -142,6 +142,7 @@ void __time_critical_func(stepgen_update_handler)() {
     if (checksum_error){
         return;
     }
+
     for (int i = 0; i < stepgens; i++) {
         pio = i < 4 ? pio0 : pio1;
         j = i < 4 ? i : i - 4;
@@ -158,18 +159,10 @@ void __time_critical_func(stepgen_update_handler)() {
 
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
-            pio_sm_put_blocking(pio0, i, command[i] & 0x7fffffff);
-            total_steps[i] += (command[i] & 0x1ff) + 1;
+            pio = i < 4 ? pio0 : pio1;
+            j = i < 4 ? i : i - 4;
+            pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
             }
-    }
-
-}
-
-void gpio_callback(uint gpio, uint32_t events) {
-    if (gpio == spindle_encoder_index_GPIO) {
-        if (events & GPIO_IRQ_EDGE_RISE) {
-            spindle_index_enabled = true;
-        }
     }
 }
 
@@ -329,19 +322,13 @@ int main() {
     printf("\033[2J");
     printf("\033[H");
     
-    printf("\n\n--- stepper-ninja V1.0 ---\n");
-    printf("Viola Zsolt 2025\n");
+    printf("\n\n--- stepper-ninja ---\n");
+    printf("https://github.com/atrex66/stepper-ninja\n");
     printf("E-mail:atrex66@gmail.com\n");
     printf("\n");
 
-    printf("rx_buffer size: %d\n", rx_size);
-    printf("tx_buffer size: %d\n", tx_size);
-
-    if (debug_mode){
-        printf(" *********************** Debug mode enabled ******************** \n");
-        printf(" ***********!!!! DO NOT USE IN PRODUCTION !!!!****************** \n");
-        printf(" set debug_mode = 0 in config.h \n");
-    }
+    //printf("rx_buffer size: %d\n", rx_size);
+    //printf("tx_buffer size: %d\n", tx_size);
 
     set_sys_clock_khz(125000, true);
     
@@ -359,8 +346,16 @@ int main() {
     load_configuration();
 
     #if raspberry_pi_spi == 0
-    w5100s_init();
-    w5100s_interrupt_init();
+        #if _WIZCHIP_==W5100S
+            #pragma message "W5100S init"
+            w5100s_init();
+            w5100s_interrupt_init();
+        #endif
+        #if _WIZCHIP_==W5500
+            #pragma message "W5500 init"
+            w5100s_init();
+            w5500_interrupt_init();
+        #endif
     network_init();
     #else
     printf("Raspberry PI spi communication.\n");
@@ -714,6 +709,16 @@ void printbuf(uint8_t *buf, size_t len) {
     putchar('\n');
 }
 
+void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
+    uint32_t irq = save_and_disable_interrupts();
+    if (gpio == spindle_encoder_index_GPIO) {
+        if (events & GPIO_IRQ_EDGE_RISE) {
+            spindle_index_enabled = true;
+        }
+    }
+    restore_interrupts(irq);
+}
+
 // -------------------------------------------
 // UDP handler
 // -------------------------------------------
@@ -722,45 +727,28 @@ void __not_in_flash_func(handle_udp)() {
     uint8_t *packet_buffer;
     packet_buffer = malloc(rx_size);
     memset(packet_buffer, 0, rx_size);
-    //for (uint8_t i=0; i < tx_size;i++){
-    //    packet_buffer[i] = i;
-    //}
     last_packet_time = get_absolute_time();
 
     #if raspberry_pi_spi == 0
-        setIMR(0x01);
-        #if _WIZCHIP_ == W5100S
-            setIMR2(0x00);
-        #endif
-
         last_packet_time = get_absolute_time();
-        //time_diff = 0xFFFFFFFF;
         while (1){
-        // todo: W5100S interrupt setup is different than W5500 so to work with W5500 and int's need to implement new interrupt inicialization
-            #if _WIZCHIP_ == W5100S
-                while(gpio_get(GPIO_INT) == 1)
-                {
-                    time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-                    if (multicore_fifo_rvalid()) {
-                        break;
-                }
-                }
-            #endif
-            #if _WIZCHIP_ == W5500
-            #pragma message("W5500 interrupt setup is not implemented, polling mode")
+            while(!multicore_fifo_rvalid())
+            {
                 time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-            #endif
-            setSn_IR(0, Sn_IR_RECV);  // clear interrupt
-            if(getSn_RX_RSR(0) != 0) {
-                int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
-                if (len == rx_size) {
-                    handle_data();
-                    if (!checksum_error){
-                    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-                    rx_counter += 1;
+                if (!gpio_get(GPIO_INT)){
+                    setSn_IR(0, Sn_IR_RECV);
+                    int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
+                    if (len == rx_size) {
+                        handle_data();
+                        if (!checksum_error){
+                        _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+                        rx_counter += 1;
+                        }
                     }
+                    break;
                 }
             }
+
     #else
         while(1){
             time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
@@ -819,6 +807,16 @@ void w5100s_interrupt_init() {
     setSn_IMR(SOCKET_DHCP, sn_imr);
 }
 
+void w5500_interrupt_init() {
+    gpio_init(GPIO_INT);
+    gpio_set_dir(GPIO_INT, GPIO_IN);
+    gpio_pull_up(GPIO_INT);
+    
+    setSIMR(0x01);
+    setSn_IMR(SOCKET_DHCP, Sn_IMR_RECV);
+}
+
+
 // -------------------------------------------
 // W5100S Init
 // -------------------------------------------
@@ -858,13 +856,6 @@ void w5100s_init() {
     channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
-}
-
-// -------------------------------------------
-// Network Init
-// -------------------------------------------
-void network_init() {
-    wiz_PhyConf phyconf;
 
     uint8_t tx[_WIZCHIP_SOCK_NUM_] = {0,};
     uint8_t rx[_WIZCHIP_SOCK_NUM_] = {0,};
@@ -872,20 +863,14 @@ void network_init() {
     memset(rx, 2, _WIZCHIP_SOCK_NUM_);
     wizchip_init(tx, rx);
 
+    wiz_PhyConf phyconf;
     phy_conf = malloc(sizeof(wiz_PhyConf));
     wizphy_getphyconf(phy_conf);
     phy_conf->mode = PHY_MODE_MANUAL;
     phy_conf->speed = PHY_SPEED_100;
     phy_conf->duplex = PHY_DUPLEX_FULL;
     wizphy_setphyconf(phy_conf);
-
     wizchip_setnetinfo(&net_info);
-
-    setSn_CR(0, Sn_CR_CLOSE);
-    setSn_CR(0, Sn_CR_OPEN);
-    uint8_t sock_num = 0;
-    socket(sock_num, Sn_MR_UDP, port, 0);
-
     printf("Network Init Done\n");
     wizchip_getnetinfo(&net_info);
     wizphy_getphyconf(&phyconf);
@@ -902,6 +887,17 @@ void network_init() {
     printf("PHY Duplex: %s\n", phyconf.duplex == PHY_DUPLEX_FULL ? "Full" : "Half");
     printf("PHY Speed: %s\n", phyconf.speed == PHY_SPEED_100 ? "100Mbps" : "10Mbps");
     printf("*******************************************\n");
+
+}
+
+// -------------------------------------------
+// Network Init
+// -------------------------------------------
+void network_init() {
+    setSn_CR(0, Sn_CR_CLOSE);
+    setSn_CR(0, Sn_CR_OPEN);
+    uint8_t sock_num = 0;
+    socket(sock_num, Sn_MR_UDP, port, 0);
     }
 
 

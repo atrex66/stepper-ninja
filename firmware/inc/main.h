@@ -27,6 +27,7 @@
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "pwm.h"
+#include "pio_util.h"
 #include "freq_generator.pio.h"
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
@@ -66,11 +67,13 @@ int32_t _sendto(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t 
 int32_t _recvfrom(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port);
 void handle_udp();
 void w5100s_interrupt_init();
+void w5500_interrupt_init();
 void w5100s_init();
 void network_init();
 uint8_t xor_checksum(const uint8_t *data, uint8_t len);
 void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
+void gpio_callback(uint gpio, uint32_t events);
 
 static void spi_write_burst(uint8_t *pBuf, uint16_t len);
 static void spi_read_burst(uint8_t *pBuf, uint16_t len);

@@ -76,5 +76,19 @@
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
     #define debug_mode 0    // only used in Raspberry PI communications
+    #define max_statemachines stepgens + encoders
+
+
+    // general checking
+    #if BOARD == pico2
+        #if max_statemachines > 12
+            #pragma error "Maximum number of state machines > 12"
+        #endif
+    #endif
+    #if BOARD == pico
+        #if max_statemachines > 8
+            #pragma error "Maximum number of state machines > 8"
+        #endif
+    #endif
 
 #endif
