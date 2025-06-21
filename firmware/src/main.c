@@ -157,7 +157,7 @@ void __time_critical_func(stepgen_update_handler)() {
         }
     }
 
-    pio0->ctrl = 0;
+    //pio0->ctrl = 0;
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
             pio = i < 4 ? pio0 : pio1;
@@ -165,7 +165,7 @@ void __time_critical_func(stepgen_update_handler)() {
             pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
             }
     }
-    pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
+    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 }
 
 // -------------------------------------------
@@ -456,7 +456,7 @@ int main() {
         pio_sm_config c = freq_generator_program_get_default_config(offset[o]);
         sm_config_set_set_pins(&c, step_pin[i], 1);
         pio_sm_init(pio, sm, offset[o], &c);
-        //pio_sm_set_enabled(pio, sm, true);
+        pio_sm_set_enabled(pio, sm, true);
         printf("stepgen%d init done...\n", i);
     }
 
@@ -743,7 +743,6 @@ void __not_in_flash_func(handle_udp)() {
                 setSn_IR(0, Sn_IR_RECV);
                 int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
                 if (len == rx_size) {
-
                     handle_data();
                     if (!checksum_error){
                     _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
@@ -751,6 +750,14 @@ void __not_in_flash_func(handle_udp)() {
                     }
                 }
             }
+            if (multicore_fifo_rvalid()) {
+                uint32_t signal = multicore_fifo_pop_blocking();
+                printf("Core1 signal: %08X\n", signal);
+                if (signal == 0xCAFEBABE) {
+                    core0_wait();
+                }
+            }
+        }
     #else
         while(1){
             time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
@@ -761,16 +768,9 @@ void __not_in_flash_func(handle_udp)() {
                 handle_data();
                 rx_counter += 1;
             }
-    #endif
-            if (multicore_fifo_rvalid()) {
-            uint32_t signal = multicore_fifo_pop_blocking();
-            printf("Core1 signal: %08X\n", signal);
-            if (signal == 0xCAFEBABE) {
-                core0_wait();
-                }
-            }
         }
-}
+    #endif
+    }
 
 static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 {

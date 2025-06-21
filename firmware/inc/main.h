@@ -27,7 +27,6 @@
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "pwm.h"
-#include "pio_util.h"
 #include "freq_generator.pio.h"
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
