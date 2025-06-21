@@ -149,14 +149,15 @@ void __time_critical_func(stepgen_update_handler)() {
         command[i] = rx_buffer->stepgen_command[i];
         if (command[i] != 0){
             if ((command[i] >> 31) & 1) {
-                gpio_put(dir_pin[i] + 1, 1);
+                gpio_put(dir_pin[i], 1);
             }
             else {
-                gpio_put(dir_pin[i] + 1, 0);
+                gpio_put(dir_pin[i], 0);
             }
         }
     }
 
+    pio0->ctrl = 0;
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
             pio = i < 4 ? pio0 : pio1;
@@ -164,6 +165,7 @@ void __time_critical_func(stepgen_update_handler)() {
             pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
             }
     }
+    pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 }
 
 // -------------------------------------------
@@ -453,7 +455,7 @@ int main() {
         pio_sm_config c = freq_generator_program_get_default_config(offset[o]);
         sm_config_set_set_pins(&c, step_pin[i], 1);
         pio_sm_init(pio, sm, offset[o], &c);
-        pio_sm_set_enabled(pio, sm, true);
+        //pio_sm_set_enabled(pio, sm, true);
         printf("stepgen%d init done...\n", i);
     }
 
@@ -598,8 +600,8 @@ void __not_in_flash_func(core0_wait)(void) {
 }
 
 int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port) {
-    uint8_t head[8];
-    uint16_t pack_len = 0;
+    static uint8_t head[8];
+    static uint16_t pack_len = 0;
 
     while ((pack_len = getSn_RX_RSR(sn)) == 0) {
         if (getSn_SR(sn) == SOCK_CLOSED) return SOCKERR_SOCKCLOSED;
@@ -645,24 +647,28 @@ void handle_data(){
 
     if (!checksum_error) {
     
-    // update stepgens
-    stepgen_update_handler();
+        // update stepgens
+        stepgen_update_handler();
 
-    #if breakout_board > 0
-        // update output buffer
-        output_buffer = rx_buffer->outputs;
-    #endif
+        #if breakout_board > 0
+            // update output buffer
+            output_buffer = rx_buffer->outputs;
+        #endif
 
-    #if use_pwm == 1
+#if use_pwm == 1
+        #if pwm_count < 1
+            #pragma error "Defined to use pwm but not defined any PWM pins"
+        #endif
         // update pwm
         for (int i=0;i<pwm_count;i++){
             pwm_freq_buffer[i] = rx_buffer->pwm_frequency[i];
             ninja_pwm_set_duty(pwm_pins[i], (uint16_t)rx_buffer->pwm_duty[i]);
         }
     }
-    #else
+#else
+    // no pwm
     }
-    #endif
+#endif
 
     #if encoders > 0
         #if use_stepcounter == 0
@@ -799,6 +805,7 @@ void w5100s_interrupt_init() {
     gpio_init(GPIO_INT);
     gpio_set_dir(GPIO_INT, GPIO_IN);
     gpio_pull_up(GPIO_INT);
+    gpio_set_input_hysteresis_enabled(GPIO_INT, false); 
 
     uint8_t imr = IMR_RECV;        
     uint8_t sn_imr = Sn_IMR_RECV;  
@@ -811,6 +818,7 @@ void w5500_interrupt_init() {
     gpio_init(GPIO_INT);
     gpio_set_dir(GPIO_INT, GPIO_IN);
     gpio_pull_up(GPIO_INT);
+    gpio_set_input_hysteresis_enabled(GPIO_INT, false); 
     
     setSIMR(0x01);
     setSn_IMR(SOCKET_DHCP, Sn_IMR_RECV);

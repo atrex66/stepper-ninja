@@ -56,6 +56,7 @@ uint8_t rx_size; // receive buffer size
 
 uint32_t total_cycles;
 
+// do not modify
 #define dormant_cycles 6
 
 // Add 10,000 mm offset to *d->command[i] to avoid simulator zero-crossing issue
