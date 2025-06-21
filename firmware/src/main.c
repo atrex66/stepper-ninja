@@ -220,6 +220,7 @@ void core1_entry() {
     while(1){
 
         gpio_put(LED_GPIO, !timeout_error);
+        time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
@@ -738,23 +739,18 @@ void __not_in_flash_func(handle_udp)() {
     #if raspberry_pi_spi == 0
         last_packet_time = get_absolute_time();
         while (1){
-            while(!multicore_fifo_rvalid())
-            {
-                time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-                if (!gpio_get(GPIO_INT)){
-                    setSn_IR(0, Sn_IR_RECV);
-                    int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
-                    if (len == rx_size) {
-                        handle_data();
-                        if (!checksum_error){
-                        _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-                        rx_counter += 1;
-                        }
+            if (!gpio_get(GPIO_INT)){
+                setSn_IR(0, Sn_IR_RECV);
+                int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
+                if (len == rx_size) {
+
+                    handle_data();
+                    if (!checksum_error){
+                    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+                    rx_counter += 1;
                     }
-                    break;
                 }
             }
-
     #else
         while(1){
             time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
