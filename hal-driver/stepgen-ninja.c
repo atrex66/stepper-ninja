@@ -80,12 +80,13 @@ typedef struct {
     hal_bit_t *mode[stepgens];
     hal_bit_t *enable[stepgens];
     hal_u32_t *pulse_width;
-    hal_bit_t *spindle_index;
     // encoder pins
     hal_s32_t *raw_count[encoders];
     hal_s32_t *scaled_count[encoders];
-    hal_float_t *enc_value[encoders];
     hal_float_t *enc_scale[encoders];
+    hal_float_t *enc_position[encoders];
+    hal_float_t *enc_velocity[encoders];
+    hal_bit_t *enc_index[encoders];
     hal_bit_t *enc_reset[encoders];
     // pwm output
     hal_bit_t *pwm_enable[pwm_count];
@@ -118,6 +119,8 @@ typedef struct {
     int sockfd;
     struct sockaddr_in local_addr, remote_addr;
 #endif
+
+    float_t enc_prev_pos[encoders];
     long long last_received_time;
     long long watchdog_timeout;
     int watchdog_expired; 
@@ -355,8 +358,6 @@ void udp_io_process_recv(void *arg, long period) {
         *d->connected = 1;
         d->last_received_time = d->current_time;
         *d->jitter = rx_buffer->jitter; // Set jitter value from received data
-        *d->spindle_index = rx_buffer->interrupt_data && 1;
-        // user code start (process received data) rx_buffer[*]
         for (uint8_t i = 0; i < encoders; i++) {
             #if debug == 1
                 if (*d->enc_reset[i] == 1)
@@ -364,15 +365,12 @@ void udp_io_process_recv(void *arg, long period) {
                     d->enc_offset[i] = rx_buffer->encoder_counter[i];
                     *d->enc_reset[i] = 0; // reset the encoder
                 }
-                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-                *d->enc_value[i] = (float)(*d->raw_count[i] * *d->enc_scale[i]);
-                *d->scaled_count[i] = (int32_t)(*d->raw_count[i] * *d->enc_scale[i]);
-            #else
-                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-                *d->enc_value[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
             #endif
-
+            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
+            *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+            *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+            *d->enc_velocity[i] = d->enc_prev_pos[i] - *d->enc_position[i];
+            d->enc_prev_pos[i] = *d->enc_position[i];
         }
         // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < in_pins_no; i++) {
@@ -398,7 +396,6 @@ void udp_io_process_recv(void *arg, long period) {
 void print_binary_to_array(uint32_t num) {
     char binary[40];
     int index = 0;
-
     for (int i = 31; i >= 0; i--) {
         binary[index++] = ((num >> i) & 1) ? '1' : '0';
         if (i % 8 == 0 && i != 0) {
@@ -406,7 +403,6 @@ void print_binary_to_array(uint32_t num) {
         }
     }
     binary[index] = '\0';
-
     rtapi_print_msg(RTAPI_MSG_INFO,"%s\n", binary);
 } 
   
@@ -421,6 +417,11 @@ static void udp_io_process_send(void *arg, long period) {
     *d->debug_freq = (float)max_f / 1000.0;
     #endif
     memset(tx_buffer, 0, tx_size);
+    // handle control bits (encoder index pulse activation)
+    tx_buffer->enc_control = 0;
+    for (int i=0;i<encoders;i++){
+        tx_buffer->enc_control |= (uint8_t)(1 * *d->enc_index[i])  << (CTRL_SPINDEX + i);
+    }
     if (old_pulse_width != *d->pulse_width) {
         uint32_t step_counter;
         uint32_t pio_cmd;
@@ -440,7 +441,6 @@ static void udp_io_process_send(void *arg, long period) {
         }
         old_pulse_width = *d->pulse_width;
     }
-
     // if watchdog expired, turn off io-ready-out
     if (d->watchdog_expired) {
         *d->io_ready_out = 0;  // turn off io-ready-out (breaking estop-loop)
@@ -502,13 +502,10 @@ static void udp_io_process_send(void *arg, long period) {
                 float steps_per_sec = velocity * *d->scale[i];
                 uint8_t sign = (velocity >= 0) ? 1 : 0;
                 steps_per_sec = fabs(steps_per_sec);
-
                 if (steps_per_sec > max_f) {
                     steps_per_sec = max_f; 
                 }
-
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0)); // Lépések/ciklus
-
                 #if debug == 1
                 *d->debug_steps[i] += (uint16_t)steps_per_cycle;
                 if (*d->debug_steps_reset == 1) {
@@ -516,7 +513,6 @@ static void udp_io_process_send(void *arg, long period) {
                     *d->debug_steps_reset = 0;
                 }
                 #endif
-
                 if (steps_per_cycle > 0) {
                     cmd[i] = timing[steps_per_cycle] | (sign << 31) ;
                 } else {
@@ -525,15 +521,11 @@ static void udp_io_process_send(void *arg, long period) {
             }
             *d->feedback[i] = *d->command[i];
         }
-
         d->first_data = false;
-
         for (uint8_t i = 0; i < stepgens; i++) {
             tx_buffer->stepgen_command[i] = cmd[i];
         }
-
         tx_buffer->pio_timing = nearest(*d->pulse_width);
-
     if (out_pins_no > 0){
         uint32_t outs=0;
         for (uint8_t i = 0; i < out_pins_no; i++) {
@@ -814,17 +806,6 @@ int rtapi_app_main(void) {
             }
         }
 
-        #if spindle_encoder_index_GPIO > 0
-            memset(name, 0, nsize);
-            snprintf(name, nsize, module_name ".%d.spindle.index-enable", j);
-            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].spindle_index, comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
-        #endif
-
         if (out_pins_no > 0){
             for (int i = 0; i< out_pins_no; i++){
                 memset(name, 0, nsize);
@@ -1016,8 +997,24 @@ int rtapi_app_main(void) {
             }
             *hal_data[j].scale[i] = 1;
             memset(name, 0, nsize);
-            snprintf(name, nsize, e_name ".%d.scaled-value", j, i);
-            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_value[i], comp_id, name, j);
+            snprintf(name, nsize, e_name ".%d.position", j, i);
+            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_position[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.velocity", j, i);
+            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_velocity[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.index-enable", j, i);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].enc_index[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
@@ -1033,6 +1030,7 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].enc_reset[i] = 0; // Initialize reset pin to 0
+            hal_data[j].enc_prev_pos[i] = 0;
             #endif
         }
 

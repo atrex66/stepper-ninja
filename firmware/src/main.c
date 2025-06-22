@@ -78,6 +78,13 @@ transmission_pico_pc_t *tx_buffer;
     uint32_t output_buffer;
 #endif
 
+typedef struct {
+    PIO pio;
+    uint8_t sm;
+}PIO_def_t;
+
+PIO_def_t encoder_pio[encoders];
+
 // Globális változó a kezdő időpont tárolására
 static uint64_t start_time = 0;
 // Számláló az interruptokhoz
@@ -131,6 +138,13 @@ const uint8_t pwm_pins[pwm_count] = pwm_pin;
 const uint8_t pwm_inverts[pwm_count] = pwm_invert;
 uint32_t old_pwm_frequency[pwm_count];
 
+#if encoders > 0
+    static uint8_t encoder_indexes[encoders] = enc_index_pins;
+    static uint8_t indexes = sizeof(encoder_indexes);
+    static uint8_t enc_index_lvl[encoders] = enc_index_active_level;
+    static uint8_t enc_index_enabled[encoders] = {0,};
+#endif
+
 // -------------------------------------------
 // Pulse generation setup
 // -------------------------------------------
@@ -179,16 +193,15 @@ void core1_entry() {
     gpio_init(LED_GPIO);
     gpio_set_dir(LED_GPIO, GPIO_OUT);
 
-    if (spindle_encoder_index_GPIO != -1){
-        gpio_init(spindle_encoder_index_GPIO);
-        gpio_set_dir(spindle_encoder_index_GPIO, false);
-        if (spindle_encoder_active_level == high){
-            gpio_set_irq_enabled_with_callback(spindle_encoder_index_GPIO, GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+    // initialize encoder index pins
+    #if encoders > 0
+        for (int i=0;i<indexes;i++){
+            if (encoder_indexes[i]!=PIN_NULL){
+                gpio_init(encoder_indexes[i]);
+                gpio_set_dir(encoder_indexes[i], false);
+            }
         }
-        else{
-            gpio_set_irq_enabled_with_callback(spindle_encoder_index_GPIO, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-        }
-    }
+    #endif
 
     #if brakeout_board > 0
 
@@ -255,6 +268,37 @@ void core1_entry() {
         }
         else {
             timeout_error = 0;
+        }
+        
+        // enable disable encoder index interrupts based on the enc_control pins
+        if (indexes > 0){
+            for (int i=0;i<indexes;i++){
+                if (encoder_indexes[i]!=PIN_NULL){
+                    if (rx_buffer->enc_control >> i == 1){
+                        if (enc_index_enabled[i] == 0){
+                            printf("Index-enable %d enabled\n", i);
+                            if (enc_index_lvl[i] == high){
+                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+                            }
+                            else{
+                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+                            }
+                            enc_index_enabled[i] = 1;
+                        }
+                    }else {
+                        if (enc_index_enabled[i] == 1){
+                            printf("Index-enable %d disabled\n", i);
+                            if (enc_index_lvl[i] == high){
+                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
+                            }
+                            else{
+                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
+                            }
+                            enc_index_enabled[i] = 0;
+                        }
+                    }
+                }
+            }
         }
 
         sety = pio_settings[rx_buffer->pio_timing].sety & 31;
@@ -474,6 +518,8 @@ int main() {
             for (int i = 0; i < encoders; i++) {
                 quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
                 printf("encoder %d init done...\n", i);
+                encoder_pio[i].pio = pio1;
+                encoder_pio[i].sm = i;
             }
         #else
             for (int i = 0; i < encoders; i++) {
@@ -717,13 +763,13 @@ void printbuf(uint8_t *buf, size_t len) {
 }
 
 void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
-    uint32_t irq = save_and_disable_interrupts();
-    if (gpio == spindle_encoder_index_GPIO) {
-        if (events & GPIO_IRQ_EDGE_RISE) {
-            spindle_index_enabled = true;
+    for (int i=0;i<indexes;i++){
+        if (gpio == encoder_indexes[i]) {
+            if (events & GPIO_IRQ_EDGE_RISE) {
+                pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
+            }
         }
     }
-    restore_interrupts(irq);
 }
 
 // -------------------------------------------

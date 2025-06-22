@@ -4,6 +4,10 @@
 #include <stdbool.h>
 #include "config.h"
 
+// first encoder index
+#define CTRL_SPINDEX 0
+
+
 #pragma pack(push, 1)
 // transmission structure from PC to Pico
 typedef struct{
@@ -12,6 +16,7 @@ typedef struct{
     uint32_t pwm_duty[pwm_count];
     uint32_t pwm_frequency[pwm_count];
     uint16_t pio_timing;
+    uint8_t enc_control;  // enables encoder index 1st bit encoder 0 2nd encoder 1
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pc_pico_t;
