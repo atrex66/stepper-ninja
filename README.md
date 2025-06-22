@@ -15,9 +15,9 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
   - poco2 + W5500 module (if you use pico2 board with 48 GPIO you can use the extra GPIO now)
   - **alpha test of the rpi4 - stepper-ninja setup.**
 
-- **step-generator**: (max 8 with pico 1) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS).
+- **step-generator**: (max 8 with pico 1, max 12 with pico2) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS).
 
-- **quadrature-encoder**: (max 4 with pico1) high speed, zero pulse(index) handling.
+- **quadrature-encoder**: (max 8 with pico1, max 12 with pico2) high speed, zero pulse(index) handling.
 
 - **digital IO**: you can configure the free pins of the pico to inputs and outputs.
 

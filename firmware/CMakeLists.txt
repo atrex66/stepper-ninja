@@ -62,6 +62,7 @@ add_executable(stepper-ninja
     modules/serial_terminal.c
     modules/transmission.c
     modules/pwm.c
+    modules/pio_utils.c
     ${WIZNET_SOURCES}
 )
 

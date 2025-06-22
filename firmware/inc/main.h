@@ -28,6 +28,7 @@
 #include "pio_settings.h"
 #include "pwm.h"
 #include "freq_generator.pio.h"
+#include "pio_utils.h"
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
 #else

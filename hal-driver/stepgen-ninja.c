@@ -184,7 +184,6 @@ void module_init(void) {
     }
 }
 
-
 #if raspberry_pi_spi == 0
 /*
  * init_socket - Initializes a UDP socket for the io-samurai module.
@@ -331,7 +330,6 @@ int _send(void *arg){
         return sizeof(transmission_pc_pico_t);
     #endif
 }
-
 
 void udp_io_process_recv(void *arg, long period) {
     module_data_t *d = arg;

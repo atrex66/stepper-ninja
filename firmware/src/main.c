@@ -78,27 +78,20 @@ transmission_pico_pc_t *tx_buffer;
     uint32_t output_buffer;
 #endif
 
-typedef struct {
-    PIO pio;
-    uint8_t sm;
-}PIO_def_t;
-
-PIO_def_t encoder_pio[encoders];
-
 // Globális változó a kezdő időpont tárolására
-static uint64_t start_time = 0;
+uint64_t start_time = 0;
 // Számláló az interruptokhoz
-static uint32_t interrupt_count = 0;
+uint32_t interrupt_count = 0;
 
 volatile bool spindle_index_enabled = false;
 
 uint8_t first_send = 1;
 volatile bool first_data = true;
 
-static uint dma_tx;
-static uint dma_rx;
-static dma_channel_config dma_channel_config_tx;
-static dma_channel_config dma_channel_config_rx;
+uint dma_tx;
+uint dma_rx;
+dma_channel_config dma_channel_config_tx;
+dma_channel_config dma_channel_config_rx;
 
 uint32_t step_pin[stepgens] = stepgen_steps;
 uint32_t dir_pin[stepgens] = stepgen_dirs;
@@ -127,7 +120,7 @@ uint8_t old_nop = 0;
 uint8_t checksum_error = 0;
 uint8_t timeout_error = 1;
 uint32_t last_time = 0;
-static absolute_time_t last_packet_time;
+absolute_time_t last_packet_time;
 uint32_t TIMEOUT_US = 100000;
 uint32_t time_diff;
 uint8_t checksum_index = 1;
@@ -138,11 +131,15 @@ const uint8_t pwm_pins[pwm_count] = pwm_pin;
 const uint8_t pwm_inverts[pwm_count] = pwm_invert;
 uint32_t old_pwm_frequency[pwm_count];
 
+PIO_def_t stepgen_pio[stepgens];
+
+
 #if encoders > 0
     static uint8_t encoder_indexes[encoders] = enc_index_pins;
     static uint8_t indexes = sizeof(encoder_indexes);
     static uint8_t enc_index_lvl[encoders] = enc_index_active_level;
     static uint8_t enc_index_enabled[encoders] = {0,};
+    PIO_def_t encoder_pio[encoders];
 #endif
 
 // -------------------------------------------
@@ -150,7 +147,6 @@ uint32_t old_pwm_frequency[pwm_count];
 // -------------------------------------------
 void __time_critical_func(stepgen_update_handler)() {
     static int32_t cmd[stepgens] = {0, };
-    static PIO pio;
     int j=0;
 
     if (checksum_error){
@@ -158,8 +154,6 @@ void __time_critical_func(stepgen_update_handler)() {
     }
 
     for (int i = 0; i < stepgens; i++) {
-        pio = i < 4 ? pio0 : pio1;
-        j = i < 4 ? i : i - 4;
         command[i] = rx_buffer->stepgen_command[i];
         if (command[i] != 0){
             if ((command[i] >> 31) & 1) {
@@ -171,15 +165,11 @@ void __time_critical_func(stepgen_update_handler)() {
         }
     }
 
-    //pio0->ctrl = 0;
     for (int i = 0; i < stepgens; i++) {
         if (command[i] != 0){
-            pio = i < 4 ? pio0 : pio1;
-            j = i < 4 ? i : i - 4;
-            pio_sm_put_blocking(pio, j, command[i] & 0x7fffffff);
+            pio_sm_put_blocking(stepgen_pio[i].pio, stepgen_pio[i].sm, command[i] & 0x7fffffff);
             }
     }
-    //pio0->ctrl = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3;
 }
 
 // -------------------------------------------
@@ -237,13 +227,14 @@ void core1_entry() {
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Timeout error.\n");
-
                 #if encoders >0
                     for (int i = 0; i < encoders; i++) {
-                        pio_sm_set_enabled(pio1, i, false);
-                        pio_sm_restart(pio1, i);
-                        pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
-                        pio_sm_set_enabled(pio1, i, true);
+                        PIO pio = encoder_pio[i].pio;
+                        uint8_t sm = encoder_pio[i].sm;
+                        pio_sm_set_enabled(pio, sm, false);
+                        pio_sm_restart(pio, sm);
+                        pio_sm_exec(pio, sm, pio_encode_set(pio_y, 0));
+                        pio_sm_set_enabled(pio, sm, true);
                         #if use_stepcounter == 0
                         printf("Encoder %d reset\n", i);
                         #else
@@ -306,10 +297,10 @@ void core1_entry() {
 
         if (old_sety != sety || old_nop != nop) {
             for (int i=0; i<stepgens; i++){
-                pio_sm_exec(pio0, i, pio_encode_jmp(1));
+                pio_sm_exec(stepgen_pio[i].pio, stepgen_pio[i].sm, pio_encode_jmp(1));
+                stepgen_pio[i].pio->instr_mem[4] = pio_encode_set(pio_y, sety);
+                stepgen_pio[i].pio->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
             }
-            pio0->instr_mem[4] = pio_encode_set(pio_y, sety);
-            pio0->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
             printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
             old_sety = sety;
             old_nop = nop;
@@ -374,9 +365,6 @@ int main() {
     printf("E-mail:atrex66@gmail.com\n");
     printf("\n");
 
-    //printf("rx_buffer size: %d\n", rx_size);
-    //printf("tx_buffer size: %d\n", tx_size);
-
     set_sys_clock_khz(125000, true);
     
     #if raspberry_pi_spi == 0
@@ -386,10 +374,13 @@ int main() {
                     clock_get_hz(clk_sys),
                     clock_get_hz(clk_sys));
     spi_init(spi0, 40000000);
+
+    // force spi clock speed
     hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
     hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
     #endif
     
+    // load network config from the flash
     load_configuration();
 
     #if raspberry_pi_spi == 0
@@ -487,9 +478,12 @@ int main() {
     uint32_t sm = 0;
     uint8_t o = 0;
     for (uint32_t i = 0; i < stepgens; i++){
-        pio = i < 4 ? pio0 : pio1;
-        sm = i < 4 ? i : i - 4;
-        p = i < 4 ? 0 : 1;
+        stepgen_pio[i] = get_next_pio(stepgen_len);
+        if (stepgen_pio[i].sm == 255){
+            printf("Not enough pio state machines, check the config.h \n");
+        }
+        pio = stepgen_pio[i].pio;
+        sm = stepgen_pio[i].sm;
         pio_gpio_init(pio, step_pin[i]);
         gpio_init(dir_pin[i]);
         if (step_inverts[i] == 1){
@@ -501,7 +495,7 @@ int main() {
         sm_config_set_set_pins(&c, step_pin[i], 1);
         pio_sm_init(pio, sm, offset[o], &c);
         pio_sm_set_enabled(pio, sm, true);
-        printf("stepgen%d init done...\n", i);
+        printf("stepgen%d. pio:%d sm:%d init done...\n", i, stepgen_pio[i].pio_blk, sm);
     }
 
     #if encoders > 0
@@ -514,12 +508,19 @@ int main() {
                 gpio_pull_up(encoder_base[i]);
                 gpio_pull_up(encoder_base[i]+1);
             }
-            pio_add_program(pio1, &quadrature_encoder_program);
+            uint8_t fpio = 0;
             for (int i = 0; i < encoders; i++) {
-                quadrature_encoder_program_init(pio1, i, encoder_base[i], 0);
-                printf("encoder %d init done...\n", i);
-                encoder_pio[i].pio = pio1;
-                encoder_pio[i].sm = i;
+                encoder_pio[i] = get_next_pio(encoder_len);
+                if (encoder_pio[i].sm == 255){
+                    printf("Not enough pio state machines, check the config.h \n");
+                }
+                // todo: handle multiple pio banks
+                if (fpio == 0){
+                    pio_add_program_at_offset(encoder_pio[i].pio, &quadrature_encoder_program, 0);
+                    fpio = 1;
+                }
+                quadrature_encoder_program_init(encoder_pio[i].pio, encoder_pio[i].sm, encoder_base[i], 0);
+                printf("encoder%d. pio:%d sm:%d init done...\n", i, encoder_pio[i].pio_blk, encoder_pio[i].sm);
             }
         #else
             for (int i = 0; i < encoders; i++) {
@@ -721,7 +722,7 @@ void handle_data(){
         #if use_stepcounter == 0
             // update encoders
             for (int i = 0; i < encoders; i++) {
-                encoder[i] = quadrature_encoder_get_count(pio1, i);
+                encoder[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
                 tx_buffer->encoder_counter[i] = encoder[i];
             }
         #else
@@ -842,7 +843,7 @@ static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
     dma_channel_wait_for_finish_blocking(dma_rx);
 }
 
-
+#if _WIZCHIP_ == W5100S
 void w5100s_interrupt_init() {
     gpio_init(GPIO_INT);
     gpio_set_dir(GPIO_INT, GPIO_IN);
@@ -855,18 +856,18 @@ void w5100s_interrupt_init() {
     setIMR(imr);
     setSn_IMR(SOCKET_DHCP, sn_imr);
 }
+#endif
 
+#if _WIZCHIP_ == W5500
 void w5500_interrupt_init() {
     gpio_init(GPIO_INT);
     gpio_set_dir(GPIO_INT, GPIO_IN);
     gpio_pull_up(GPIO_INT);
     gpio_set_input_hysteresis_enabled(GPIO_INT, false); 
-    
     setSIMR(0x01);
     setSn_IMR(SOCKET_DHCP, Sn_IMR_RECV);
 }
-
-
+#endif
 // -------------------------------------------
 // W5100S Init
 // -------------------------------------------

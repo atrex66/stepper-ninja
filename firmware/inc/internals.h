@@ -1,6 +1,8 @@
 #ifndef INTERNALS_H
 #define INTERNALS_H
 
+#define version "1.1"
+
 #define low 0
 #define high 1
 
@@ -130,5 +132,7 @@
 #define Sn_IMR_RECV   0x04
 #define Sn_IR_RECV    0x04
 #define SOCKET_DHCP   0
+
+
 
 #endif // INTERNALS_H

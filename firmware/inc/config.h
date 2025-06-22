@@ -9,20 +9,20 @@
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
 
     // All GPIO form 0-15 and 22-31 are usable
-    #define stepgens 4
+    #define stepgens 5
     
     // defined with PINS
-    #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
-    #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
-    #define step_invert {0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+    #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9, PIN_11}
+    #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10, PIN_12}
+    #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
 
     #define encoders 1
-    #define enc_pins {PIN_11} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
-    #define enc_index_pins {PIN_14}  // pin the encoder index is connected (interrupt driven)
+    #define enc_pins {PIN_14} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
+    #define enc_index_pins {PIN_NULL}  // pin the encoder index is connected (interrupt driven)
     #define enc_index_active_level {high}
 
-    #define in_pins {PIN_15, PIN_29, PIN_31, PIN_32, PIN_34} // Free GPIO for inputs (GPIO 22-28)
-    #define in_pullup {0, 0, 0, 0, 0}
+    #define in_pins {PIN_29, PIN_31, PIN_32, PIN_34} // Free GPIO for inputs (GPIO 22-28)
+    #define in_pullup {0, 0, 0, 0}
 
     #define out_pins {PIN_16, PIN_17, PIN_20}
 
