@@ -12,6 +12,7 @@ You definietly not need this to work with the ninja, only a W5100S-evb-pico or a
 
   - W5100S-evb-pico UDP Ethernet. <https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico>
   - pico + W5500 module (need same wiring as W5100S-evb-pico)
+  - poco2 + W5500 module (if you use pico2 board with 48 GPIO you can use the extra GPIO now)
   - **alpha test of the rpi4 - stepper-ninja setup.**
 
 - **step-generator**: (max 8 with pico 1) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS).

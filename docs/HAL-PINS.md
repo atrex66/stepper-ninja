@@ -26,7 +26,9 @@ module_name.j.stepgen.i.enable - (BIT, IN) - Enable channel
 module_name.j.encoder.i.raw-count - (S32, IN) - Raw encoder counts
 module_name.j.encoder.i.scaled-count - (S32, OUT) - Scaled encoder counts
 module_name.j.encoder.i.scale - (FLOAT, IN) - Encoder scaling factor
-module_name.j.encoder.i.scaled-value - (FLOAT, OUT) - Scaled position value
+module_name.j.encoder.i.position - (FLOAT, OUT) - Scaled position value
+module_name.j.encoder.i.velocity - (FLOAT, OUT) - Scaled velocity value
+module_name.j.encoder.i.index-enable - (BIT, IN) - Encoder index-enable
 ```
 
 ## Digital I/O Pins
