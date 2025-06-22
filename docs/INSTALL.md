@@ -20,7 +20,7 @@ Before building, install the following dependencies:
   
    ```bash
    sudo apt update
-   sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi
+   sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi unzip
    ```
 
 3. **Pico SDK (2.1.1)**:
@@ -64,7 +64,7 @@ Follow these steps to build Stepper-Ninja using CMake with Unix Makefiles.
 ### 1. Create a Build Directory
 
 ```bash
-cd firmware/w5100s-evb-pico
+cd firmware/
 mkdir build && cd build
 ```
 
@@ -78,10 +78,22 @@ Run CMake to generate Makefiles, specifying the WIZnet chip type (`W5100S` or `W
   cmake ..
   ```
 
+- For **W5100S-EVB-Pico2** (default):
+  
+  ```bash
+  cmake -DBOARD=pico2 ..
+  ```
+
 - For **W5500 + pico**
   
   ```bash
   cmake -DWIZCHIP_TYPE=W5500 ..
+  ```
+
+- For **W5500 + pico2**
+  
+  ```bash
+  cmake -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 ..
   ```
 
 ### 3. Build the Project
@@ -92,13 +104,13 @@ Compile the project using `make`:
 make
 ```
 
-This generates `stepper-ninja.uf2` (for flashing the Pico).
+This generates `stepper-ninja-picoX-W5XXX.uf2` (for flashing the Pico, X-s is depend of cmake defs).
 
 ### 4. Flash the Pico
 
 - Connect the Pico in BOOTSEL mode (hold BOOTSEL, plug in USB).
 - If you are using the pico with other firmware use flash_nuke to erase previous data from the flash memory
-- Copy `stepper-ninja.uf2` to the Pico’s mass storage device.
+- Copy `stepper-ninja-picoX-W5XXX.uf2` to the Pico’s mass storage device.
 - The Pico reboots and runs the firmware.
 
 ---
@@ -109,6 +121,14 @@ For a standard Pico with a W5500 module, ensure:
 
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DWIZCHIP_TYPE=W5500` in the CMake step.
+
+## pico2 Support
+
+For a Pico2 with a W5500 module, ensure:
+
+- The W5500 is properly wired (SPI pins, 3.3V power).
+- Use `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` in the CMake step.
+
 
 ## Installing the LinuxCNC HAL Driver
 
