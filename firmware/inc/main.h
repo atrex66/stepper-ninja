@@ -1,6 +1,43 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "pico/stdlib.h"
+#include "pico/stdio_usb.h"
+#include "pico/multicore.h"
+#include "pico/divider.h"
+#include "hardware/spi.h"
+#include "hardware/dma.h"
+#include "hardware/gpio.h"
+#include "hardware/watchdog.h"
+#include "hardware/clocks.h"
+#include "hardware/pll.h"
+#include "hardware/regs/pll.h"
+#include "hardware/structs/pll.h"
+#include "hardware/pio.h"
+#include "hardware/timer.h"
+#include "hardware/irq.h"
+#include "serial_terminal.h"
+#include "wizchip_conf.h"
+#include "socket.h"
+#include "jump_table.h"
+#include "transmission.h"
+#include "flash_config.h"
+#include "pio_settings.h"
+#include "pwm.h"
+#include "freq_generator.pio.h"
+#include "pio_utils.h"
+#if use_stepcounter == 0
+#include "quadrature_encoder.pio.h"
+#else
+#include "step_counter.pio.h"
+#endif
+
+#if brakeout_board > 0
+#include "hardware/i2c.h"
+#endif 
 
 #define core1_running 1
 // Low-pass filter parameters
@@ -30,14 +67,18 @@ int32_t _sendto(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t 
 int32_t _recvfrom(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port);
 void handle_udp();
 void w5100s_interrupt_init();
+void w5500_interrupt_init();
 void w5100s_init();
 void network_init();
 uint8_t xor_checksum(const uint8_t *data, uint8_t len);
+void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
+void gpio_callback(uint gpio, uint32_t events);
 
-#if USE_SPI_DMA
-static void wizchip_write_burst(uint8_t *pBuf, uint16_t len);
-static void wizchip_read_burst(uint8_t *pBuf, uint16_t len);
-#endif
+static void spi_write_burst(uint8_t *pBuf, uint16_t len);
+static void spi_read_burst(uint8_t *pBuf, uint16_t len);
+static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf, uint16_t len);
+
+
 
 #endif // MAIN_H

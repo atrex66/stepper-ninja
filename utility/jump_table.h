@@ -1,1 +1,1 @@
-../firmware/w5100s-evb-pico/inc/jump_table.h
+../firmware/modules/inc/jump_table.h
