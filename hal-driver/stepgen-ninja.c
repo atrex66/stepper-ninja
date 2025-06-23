@@ -285,7 +285,7 @@ void watchdog_process(void *arg, long period) {
 
 
 uint16_t nearest(uint16_t period){
-    uint16_t min_diff = 655535;
+    uint16_t min_diff = 65535;
     //float value = (float)period * cycle_time_ns; // Period ciklusokból nanoszekundummá
     uint16_t value = (uint16_t)period / cycle_time_ns;
     int16_t calc = 0;
