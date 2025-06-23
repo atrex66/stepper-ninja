@@ -19,8 +19,8 @@
     #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
 
-    #define encoders 0
-    #define enc_pins {} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
+    #define encoders 1
+    #define enc_pins {PIN_11} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
     #define enc_index_pins {PIN_NULL}  // pin the encoder index is connected (interrupt driven)
     #define enc_index_active_level {high}
 

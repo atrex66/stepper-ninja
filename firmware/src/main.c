@@ -117,6 +117,11 @@ uint8_t nop = 0;
 uint8_t old_sety = 0;
 uint8_t old_nop = 0;
 
+uint8_t connected = 0;
+uint8_t timer_started = 0;
+absolute_time_t first_time;
+uint alarm_num = 0;
+
 uint8_t checksum_error = 0;
 uint8_t timeout_error = 1;
 uint32_t last_time = 0;
@@ -212,6 +217,8 @@ void core1_entry() {
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
                 printf("Disconnected from linuxcnc.\n");
+                connected = 0;
+                stop_timer();
                 #if encoders >0
                     for (int i = 0; i < encoders; i++) {
                         PIO pio = encoder_pio[i].pio;
@@ -245,6 +252,7 @@ void core1_entry() {
         }
         else {
             timeout_error = 0;
+            connected = 1;
             // enable disable encoder index interrupts based on the enc_control pins
             #if encoders > 0
                 if (indexes > 0){
@@ -760,6 +768,33 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
 }
 #endif
 
+#if use_timer_interrupt == 1
+// Timer interrupt kezelő függvény
+void timer_callback(uint alarm_num) {
+    hw_clear_bits(&timer_hw->intr, 1u << alarm_num);
+    first_time += 1000000; // 1 másodperc = 1 000 000 us
+    timer_hw->alarm[alarm_num] = (uint32_t)(first_time & 0xFFFFFFFF); // Alsó 32 bit
+
+    handle_data();
+    if (!checksum_error){
+    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+    rx_counter += 1;
+    }
+
+}
+#endif
+
+// Timer leállítása
+void stop_timer() {
+        // Timer interrupt kikapcsolása
+        hardware_alarm_set_callback(alarm_num, NULL); // Callback törlése
+        hw_clear_bits(&timer_hw->inte, 1u << alarm_num); // Interrupt engedélyezés törlése
+
+        // Timer csatorna felszabadítása
+        hardware_alarm_unclaim(alarm_num);
+        printf("Timer stopped\n");
+}
+
 // -------------------------------------------
 // UDP handler
 // -------------------------------------------
@@ -777,11 +812,22 @@ void __not_in_flash_func(handle_udp)() {
                 setSn_IR(0, Sn_IR_RECV);
                 int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
                 if (len == rx_size) {
+                    #if use_timer_interrupt
+                        if (timer_started == 0){
+                            sleep_us(250);
+                            hardware_alarm_claim(alarm_num);
+                            hardware_alarm_set_callback(alarm_num, timer_callback);
+                            first_time = make_timeout_time_us(1000000); // 1 másodperc
+                            timer_hw->alarm[alarm_num] = (uint32_t)(to_us_since_boot(first_time) & 0xFFFFFFFF);
+                            timer_started = 1;
+                        }
+                    #else
                     handle_data();
                     if (!checksum_error){
                     _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
                     rx_counter += 1;
                     }
+                    #endif
                 }
             }
             if (multicore_fifo_rvalid()) {
