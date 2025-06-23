@@ -1,4 +1,5 @@
-    
+#ifndef FOOTER_H
+#define FOOTER_H    
     // **********************************************************************************
     // ** the following code cunfigures the rest of the module please do not change it **
     // ** if you not know exactly what you are doing, it can break the module          **
@@ -35,3 +36,7 @@
             #pragma error "State machines exceeded the maximum platform size (12)."
         #endif
     #endif
+
+    #define pico_clock 125000000
+
+#endif

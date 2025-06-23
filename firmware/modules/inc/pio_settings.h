@@ -1,6 +1,6 @@
 /* Automatically generated header file for pio_settings lookup table */
 /* Sorted by high_cycles, duplicates removed (keeping first occurrence) */
-/* Generated on: 2025-05-27 13:09:03 */
+/* Generated on: 2025-06-23 18:36:19 */
 
 #ifndef PIO_SETTINGS_H
 #define PIO_SETTINGS_H

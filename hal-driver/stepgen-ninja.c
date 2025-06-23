@@ -154,7 +154,7 @@ uint64_t get_time_ns() {
 
 uint16_t pwm_calculate_wrap(uint32_t freq) {
     // Rendszer órajel lekérése (alapértelmezetten 125 MHz az RP2040 esetén)
-    uint32_t sys_clock = 125000000;
+    uint32_t sys_clock = pico_clock;
     
     // Wrap kiszámítása fix 1.0 divider-rel
     uint32_t wrap = (uint32_t)(sys_clock/ freq);
@@ -282,24 +282,27 @@ void watchdog_process(void *arg, long period) {
     }
 }
 
+
 uint16_t nearest(uint16_t period){
-    int min_diff = 655535;
-    int value = (uint16_t)period / 8;
-    int calc = 0;
-    uint8_t index = 0;
+    uint16_t min_diff = 655535;
+    float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
+    //float value = (float)period * cycle_time_ns; // Period ciklusokból nanoszekundummá
+    uint16_t value = (uint16_t)period / cycle_time_ns;
+    int16_t calc = 0;
+    uint16_t index = 0;
     if (value < pio_settings[0].high_cycles){
         return 0;
     }
     if (value > pio_settings[298].high_cycles){
         return 298;
     }
-    for (int i = 0; i < 299; i++){
-        calc = abs(pio_settings[i].high_cycles - value);
+    for (uint16_t i = 0; i < 299; i++){
+        calc = abs((int)pio_settings[i].high_cycles - (int)value);
         if (calc < min_diff){
             min_diff = calc;
             index = i;
         }
-    }   
+    }
     return index;
 }
 
@@ -423,9 +426,10 @@ static void udp_io_process_send(void *arg, long period) {
         tx_buffer->enc_control |= (uint8_t)(1 * *d->enc_index[i])  << (CTRL_SPINDEX + i);
     }
     if (old_pulse_width != *d->pulse_width) {
+        old_pulse_width = *d->pulse_width;
         uint32_t step_counter;
         uint32_t pio_cmd;
-        total_cycles = (uint32_t)((period * 125000UL) / 1000000UL); // pico = 125MHz
+        total_cycles = (uint32_t)((period * (pico_clock / 1000)) / 1000000UL); // pico = 125MHz
         uint16_t pio_index = nearest(*d->pulse_width);
         rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
         rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*8);
@@ -439,7 +443,6 @@ static void udp_io_process_send(void *arg, long period) {
             pio_cmd = (uint32_t)(step_counter << 10 | (i - 1));
             timing[i] = pio_cmd;
         }
-        old_pulse_width = *d->pulse_width;
     }
     // if watchdog expired, turn off io-ready-out
     if (d->watchdog_expired) {

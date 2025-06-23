@@ -296,7 +296,8 @@ void core1_entry() {
                         stepgen_pio[i].pio->instr_mem[4] = pio_encode_set(pio_y, sety);
                         stepgen_pio[i].pio->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
                     }
-                    printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
+                    float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
+                    printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * (uint8_t)cycle_time_ns);
                     old_sety = sety;
                     old_nop = nop;
                 }
@@ -358,19 +359,30 @@ int main() {
     printf("E-mail:atrex66@gmail.com\n");
     printf("\n");
 
-    set_sys_clock_khz(125000, true);
+    if (!set_sys_clock_khz(pico_clock / 1000, true))
+    {
+        printf("Clock can not configure to %d");
+        while (1)
+        {
+            sleep_ms(1000);
+        }
+    }
     
     #if raspberry_pi_spi == 0
-    clock_configure(clk_peri,
-                    0,
-                    CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-                    clock_get_hz(clk_sys),
-                    clock_get_hz(clk_sys));
-    spi_init(spi0, 40000000);
 
-    // force spi clock speed
-    hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
-    hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
+        //clock_configure(clk_peri,
+        //                0,
+        //                CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
+        //                clock_get_hz(clk_sys),
+        //                clock_get_hz(clk_sys));
+
+        spi_init(spi0, 40000000);
+
+        // force spi clock speed
+        #if pico_clock == 125000000
+            hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
+            hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
+        #endif
     #endif
     
     // load network config from the flash
