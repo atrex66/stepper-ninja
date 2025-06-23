@@ -67,8 +67,6 @@
         #define in_pins_no      4 // Number of input pins
         #define I2C_SDA         26
         #define I2C_SCK         27
-        #undef use_outputs
-        #define use_outputs 0
     #endif // brakeout_board > 0
 
     #define use_stepcounter 0 // Use step counter for the stepgen
