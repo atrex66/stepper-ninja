@@ -341,7 +341,7 @@ void udp_io_process_recv(void *arg, long period) {
         int len = _receive(d);
     #else
         static socklen_t addrlen = sizeof(d->remote_addr);
-        int len = recvfrom(d->sockfd, rx_buffer, rx_size, MSG_DONTWAIT, &d->remote_addr, &addrlen);
+        int len = recvfrom(d->sockfd, rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     #endif
     if (len == rx_size) {
         if (!tx_checksum_ok(rx_buffer)) {
@@ -356,20 +356,22 @@ void udp_io_process_recv(void *arg, long period) {
         *d->connected = 1;
         d->last_received_time = d->current_time;
         *d->jitter = rx_buffer->jitter; // Set jitter value from received data
-        for (uint8_t i = 0; i < encoders; i++) {
-            #if debug == 1
-                if (*d->enc_reset[i] == 1)
-                {
-                    d->enc_offset[i] = rx_buffer->encoder_counter[i];
-                    *d->enc_reset[i] = 0; // reset the encoder
-                }
-            #endif
-            *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-            *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-            *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-            *d->enc_velocity[i] = d->enc_prev_pos[i] - *d->enc_position[i];
-            d->enc_prev_pos[i] = *d->enc_position[i];
-        }
+        #if encoders > 0
+            for (uint8_t i = 0; i < encoders; i++) {
+                #if debug == 1
+                    if (*d->enc_reset[i] == 1)
+                    {
+                        d->enc_offset[i] = rx_buffer->encoder_counter[i];
+                        *d->enc_reset[i] = 0; // reset the encoder
+                    }
+                #endif
+                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
+                *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
+                *d->enc_velocity[i] = d->enc_prev_pos[i] - *d->enc_position[i];
+                d->enc_prev_pos[i] = *d->enc_position[i];
+            }
+        #endif
         // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < in_pins_no; i++) {
             *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;

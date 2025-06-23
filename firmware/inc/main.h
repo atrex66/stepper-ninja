@@ -74,6 +74,7 @@ uint8_t xor_checksum(const uint8_t *data, uint8_t len);
 void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
 void gpio_callback(uint gpio, uint32_t events);
+void stop_timer();
 
 static void spi_write_burst(uint8_t *pBuf, uint16_t len);
 static void spi_read_burst(uint8_t *pBuf, uint16_t len);
