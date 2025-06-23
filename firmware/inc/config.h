@@ -9,19 +9,18 @@
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
 
     // All GPIO form 0-15 and 22-31 are usable
-    #define stepgens 5
+    #define stepgens 4
     
     // defined with PINS
-    #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9, PIN_11}
-    #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10, PIN_12}
+    #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
+    #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
     
     #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
 
-
-    #define encoders 1
-    #define enc_pins {PIN_14} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
+    #define encoders 0
+    #define enc_pins {} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
     #define enc_index_pins {PIN_NULL}  // pin the encoder index is connected (interrupt driven)
     #define enc_index_active_level {high}
 
