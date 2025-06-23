@@ -246,35 +246,37 @@ void core1_entry() {
         else {
             timeout_error = 0;
             // enable disable encoder index interrupts based on the enc_control pins
-            if (indexes > 0){
-                for (int i=0;i<indexes;i++){
-                    if (encoder_indexes[i]!=PIN_NULL){
-                        if (rx_buffer->enc_control >> i == 1){
-                            if (enc_index_enabled[i] == 0){
-                                printf("Index-enable %d enabled\n", i);
-                                if (enc_index_lvl[i] == high){
-                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+            #if encoders > 0
+                if (indexes > 0){
+                    for (int i=0;i<indexes;i++){
+                        if (encoder_indexes[i]!=PIN_NULL){
+                            if (rx_buffer->enc_control >> i == 1){
+                                if (enc_index_enabled[i] == 0){
+                                    printf("Index-enable %d enabled\n", i);
+                                    if (enc_index_lvl[i] == high){
+                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+                                    }
+                                    else{
+                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+                                    }
+                                    enc_index_enabled[i] = 1;
                                 }
-                                else{
-                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+                            }else {
+                                if (enc_index_enabled[i] == 1){
+                                    printf("Index-enable %d disabled\n", i);
+                                    if (enc_index_lvl[i] == high){
+                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
+                                    }
+                                    else{
+                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
+                                    }
+                                    enc_index_enabled[i] = 0;
                                 }
-                                enc_index_enabled[i] = 1;
-                            }
-                        }else {
-                            if (enc_index_enabled[i] == 1){
-                                printf("Index-enable %d disabled\n", i);
-                                if (enc_index_lvl[i] == high){
-                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
-                                }
-                                else{
-                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
-                                }
-                                enc_index_enabled[i] = 0;
                             }
                         }
                     }
                 }
-            }
+            #endif
 
             sety = pio_settings[rx_buffer->pio_timing].sety & 31;
             nop = pio_settings[rx_buffer->pio_timing].nop & 31;
@@ -746,6 +748,7 @@ void printbuf(uint8_t *buf, size_t len) {
     putchar('\n');
 }
 
+#if encoders > 0
 void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
     for (int i=0;i<indexes;i++){
         if (gpio == encoder_indexes[i]) {
@@ -755,6 +758,7 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
         }
     }
 }
+#endif
 
 // -------------------------------------------
 // UDP handler

@@ -272,7 +272,7 @@ void watchdog_process(void *arg, long period) {
     }
     if (elapsed > d->watchdog_timeout) {
         if (d->watchdog_expired == 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: watchdog timeout error, please restart Linuxcnc\n", d->index);
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: No transmission, check connection settings and restart Linuxcnc\n", d->index);
             d->checksum_index_in = 1;  // Reset checksum index
             d->checksum_index = 1;     // Reset checksum index
         }
