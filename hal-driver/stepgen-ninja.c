@@ -143,6 +143,7 @@ static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adat
 static uint32_t timing[1024] = {0, };
 static uint32_t old_pulse_width = 0;
 static uint8_t tx_counter = 0;
+float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
 transmission_pc_pico_t *tx_buffer;
 transmission_pico_pc_t *rx_buffer;
 
@@ -285,7 +286,6 @@ void watchdog_process(void *arg, long period) {
 
 uint16_t nearest(uint16_t period){
     uint16_t min_diff = 655535;
-    float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
     //float value = (float)period * cycle_time_ns; // Period ciklusokból nanoszekundummá
     uint16_t value = (uint16_t)period / cycle_time_ns;
     int16_t calc = 0;
@@ -432,8 +432,8 @@ static void udp_io_process_send(void *arg, long period) {
         total_cycles = (uint32_t)((period * (pico_clock / 1000)) / 1000000UL); // pico = 125MHz
         uint16_t pio_index = nearest(*d->pulse_width);
         rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*8);
-        rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles*8);
+        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*(int)cycle_time_ns);
+        rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles*(int)cycle_time_ns);
         rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
         rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
