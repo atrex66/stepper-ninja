@@ -1,0 +1,1 @@
+../firmware/inc/footer.h

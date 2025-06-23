@@ -4,6 +4,7 @@ build/
 firmware/ioLibrary_Driver/build/
 firmware/ioLibrary_Driver/
 firmware/python/
+docs/configure-stepper-ninja.html
 
 hardware/
 .vscode/

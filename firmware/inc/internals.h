@@ -133,6 +133,4 @@
 #define Sn_IR_RECV    0x04
 #define SOCKET_DHCP   0
 
-
-
 #endif // INTERNALS_H

@@ -1,6 +1,8 @@
 # Python script a C header fájl generálására rendezett lookup táblával, duplikátumok nélkül
 import datetime
 
+ns_clk = 5
+
 def generate_lookup_header():
     # Header fájl neve
     output_file = "pio_settings.h"
@@ -14,9 +16,9 @@ def generate_lookup_header():
     for x in range(x_min, x_max):
         for y in range(y_min, y_max):
             # Korrigált indexszámítás (csak nyomon követéshez)
-            calc_z = ((x + 2.0) * (y + 1)) * 8
+            calc_z = ((x + 2.0) * (y + 1)) * ns_clk
             print(f"Calculating for x: {x}, y: {y} => calc_z: {calc_z}")
-            settings.append((y, x, round(calc_z / 8)))
+            settings.append((y, x, round(calc_z / ns_clk)))
 
     # Rendezés high_cycles szerint (calc_z a 3-as indexű elem)
     settings.sort(key=lambda s: s[2])
