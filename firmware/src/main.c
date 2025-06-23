@@ -895,10 +895,10 @@ void w5100s_interrupt_init() {
     gpio_pull_up(GPIO_INT);
     gpio_set_input_hysteresis_enabled(GPIO_INT, false); 
 
-    uint8_t imr = IMR_RECV;        
     uint8_t sn_imr = Sn_IMR_RECV;  
     
-    setIMR(imr);
+    setIMR(0x01);
+    setIMR2(0x00);
     setSn_IMR(SOCKET_DHCP, sn_imr);
 }
 #endif
