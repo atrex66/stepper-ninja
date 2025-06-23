@@ -204,15 +204,7 @@ void process_command(char* command) {
 // and echoes valid input. Stores characters in a buffer (up to 63) until '\r' or full, 
 // then null-terminates and processes the command via process_command, resetting the buffer.
 void handle_serial_input() {
-    if (!enable_serial) {
-        if (timeout_error == 1) {
-            enable_serial = true;
-            printf("Terminal unlocked.\n");
-            printf("Ready.\n");
-        }
-        return;
-    }
-    if (timeout_error == 0 && enable_serial) {
+    if (timeout_error == 0) {
         enable_serial = false;
         printf("Terminal locked.\n");
     }

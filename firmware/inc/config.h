@@ -15,6 +15,10 @@
     #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9, PIN_11}
     #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10, PIN_12}
     #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+    
+    #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
+    #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
+
 
     #define encoders 1
     #define enc_pins {PIN_14} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
@@ -46,9 +50,6 @@
         #define raspi_outputs {GP_05}
     #endif
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
-
-    #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
-    #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
     
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
@@ -64,29 +65,14 @@
         #define MCP_ALL_RESET   22
         #define encoders        2
         #define in_pins         {12, 13, 15, 28} // Free GPIO pins for inputs (GPIO 22-28)
-        #define in_pins_no      4 // Number of input pins
+        #define in_pullup       {0, 0, 0, 0}
         #define I2C_SDA         26
         #define I2C_SCK         27
-        #undef use_outputs
-        #define use_outputs 0
     #endif // brakeout_board > 0
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
     #define debug_mode 0    // only used in Raspberry PI communications
     #define max_statemachines stepgens + encoders
-
-
-    // general checking
-    #if BOARD == pico2
-        #if max_statemachines > 12
-            #pragma error "Maximum number of state machines > 12"
-        #endif
-    #endif
-    #if BOARD == pico
-        #if max_statemachines > 8
-            #pragma error "Maximum number of state machines > 8"
-        #endif
-    #endif
 
 #endif

@@ -133,7 +133,6 @@ uint32_t old_pwm_frequency[pwm_count];
 
 PIO_def_t stepgen_pio[stepgens];
 
-
 #if encoders > 0
     static uint8_t encoder_indexes[encoders] = enc_index_pins;
     static uint8_t indexes = sizeof(encoder_indexes);
@@ -146,9 +145,6 @@ PIO_def_t stepgen_pio[stepgens];
 // Pulse generation setup
 // -------------------------------------------
 void __time_critical_func(stepgen_update_handler)() {
-    static int32_t cmd[stepgens] = {0, };
-    int j=0;
-
     if (checksum_error){
         return;
     }
@@ -156,17 +152,7 @@ void __time_critical_func(stepgen_update_handler)() {
     for (int i = 0; i < stepgens; i++) {
         command[i] = rx_buffer->stepgen_command[i];
         if (command[i] != 0){
-            if ((command[i] >> 31) & 1) {
-                gpio_put(dir_pin[i], 1);
-            }
-            else {
-                gpio_put(dir_pin[i], 0);
-            }
-        }
-    }
-
-    for (int i = 0; i < stepgens; i++) {
-        if (command[i] != 0){
+            gpio_put(dir_pin[i], (command[i] >> 31));
             pio_sm_put_blocking(stepgen_pio[i].pio, stepgen_pio[i].sm, command[i] & 0x7fffffff);
             }
     }
@@ -221,12 +207,11 @@ void core1_entry() {
     #endif
 
     while(1){
-
         gpio_put(LED_GPIO, !timeout_error);
         time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
-                printf("Timeout error.\n");
+                printf("Disconnected from linuxcnc.\n");
                 #if encoders >0
                     for (int i = 0; i < encoders; i++) {
                         PIO pio = encoder_pio[i].pio;
@@ -242,7 +227,6 @@ void core1_entry() {
                         #endif
                     }
                 #endif
-
                 rx_counter = 0;
                 timeout_error = 1;
                 checksum_index = 1;
@@ -256,88 +240,87 @@ void core1_entry() {
                     }
                 }
             }
+        // terminal handling only when not connected to the linuxcnc
+        handle_serial_input();
         }
         else {
             timeout_error = 0;
-        }
-        
-        // enable disable encoder index interrupts based on the enc_control pins
-        if (indexes > 0){
-            for (int i=0;i<indexes;i++){
-                if (encoder_indexes[i]!=PIN_NULL){
-                    if (rx_buffer->enc_control >> i == 1){
-                        if (enc_index_enabled[i] == 0){
-                            printf("Index-enable %d enabled\n", i);
-                            if (enc_index_lvl[i] == high){
-                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+            // enable disable encoder index interrupts based on the enc_control pins
+            if (indexes > 0){
+                for (int i=0;i<indexes;i++){
+                    if (encoder_indexes[i]!=PIN_NULL){
+                        if (rx_buffer->enc_control >> i == 1){
+                            if (enc_index_enabled[i] == 0){
+                                printf("Index-enable %d enabled\n", i);
+                                if (enc_index_lvl[i] == high){
+                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
+                                }
+                                else{
+                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+                                }
+                                enc_index_enabled[i] = 1;
                             }
-                            else{
-                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+                        }else {
+                            if (enc_index_enabled[i] == 1){
+                                printf("Index-enable %d disabled\n", i);
+                                if (enc_index_lvl[i] == high){
+                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
+                                }
+                                else{
+                                    gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
+                                }
+                                enc_index_enabled[i] = 0;
                             }
-                            enc_index_enabled[i] = 1;
-                        }
-                    }else {
-                        if (enc_index_enabled[i] == 1){
-                            printf("Index-enable %d disabled\n", i);
-                            if (enc_index_lvl[i] == high){
-                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
-                            }
-                            else{
-                                gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
-                            }
-                            enc_index_enabled[i] = 0;
                         }
                     }
                 }
             }
-        }
 
-        sety = pio_settings[rx_buffer->pio_timing].sety & 31;
-        nop = pio_settings[rx_buffer->pio_timing].nop & 31;
+            sety = pio_settings[rx_buffer->pio_timing].sety & 31;
+            nop = pio_settings[rx_buffer->pio_timing].nop & 31;
 
-        if (old_sety != sety || old_nop != nop) {
-            for (int i=0; i<stepgens; i++){
-                pio_sm_exec(stepgen_pio[i].pio, stepgen_pio[i].sm, pio_encode_jmp(1));
-                stepgen_pio[i].pio->instr_mem[4] = pio_encode_set(pio_y, sety);
-                stepgen_pio[i].pio->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
-            }
-            printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
-            old_sety = sety;
-            old_nop = nop;
-        }
-
-        #if brakeout_board > 0
-            #ifdef MCP23008_ADDR
-                if (checksum_error == 0 && timeout_error == 0) {
-                    mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+            if (old_sety != sety || old_nop != nop) {
+                if (rx_buffer->pio_timing < sizeof(pio_settings)){
+                    for (int i=0; i<stepgens; i++){
+                        pio_sm_exec(stepgen_pio[i].pio, stepgen_pio[i].sm, pio_encode_jmp(1));
+                        stepgen_pio[i].pio->instr_mem[4] = pio_encode_set(pio_y, sety);
+                        stepgen_pio[i].pio->instr_mem[5] = pio_encode_nop() | pio_encode_delay(nop);
+                    }
+                    printf("New pulse width set: %d\n", pio_settings[rx_buffer->pio_timing].high_cycles * 8);
+                    old_sety = sety;
+                    old_nop = nop;
                 }
-                else
-                {
-                    mcp_write_register(MCP23008_ADDR, 0x09, 0x00);
-                }
-            #endif
-            #ifdef MCP23017_ADDR
-                input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
-                input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
-            #endif
-        #endif
-
-        #if use_pwm == 1
-        for (int i=0; i<pwm_count; i++){
-            if (old_pwm_frequency[i] != pwm_freq_buffer[i]){
-                old_pwm_frequency[i] = pwm_freq_buffer[i];
-                ninja_pwm_set_frequency(pwm_pins[i], rx_buffer->pwm_frequency[i]);
             }
+            #if brakeout_board > 0
+                #ifdef MCP23008_ADDR
+                    if (checksum_error == 0 && timeout_error == 0) {
+                        mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+                    }
+                    else
+                    {
+                        mcp_write_register(MCP23008_ADDR, 0x09, 0x00);
+                    }
+                #endif
+                #ifdef MCP23017_ADDR
+                    input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
+                    input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
+                #endif
+            #endif
+            #if use_pwm == 1
+            for (int i=0; i<pwm_count; i++){
+                if (old_pwm_frequency[i] != pwm_freq_buffer[i]){
+                    old_pwm_frequency[i] = pwm_freq_buffer[i];
+                    ninja_pwm_set_frequency(pwm_pins[i], rx_buffer->pwm_frequency[i]);
+                }
+            }
+            #endif
         }
-        #endif
-
-        handle_serial_input();
     }
 }
 
 int main() {
 
-    stdio_init_all();
+    // stdio_init_all();
     stdio_usb_init();
     gpio_init(LED_GPIO);
     gpio_set_dir(LED_GPIO, GPIO_OUT);
