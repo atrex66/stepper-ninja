@@ -38,7 +38,7 @@
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
     #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
 
-    #define raspberry_pi_spi 1 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+    #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
 
     // used gpio for SPI on the RPI: 8, 9, 10, 11
     // used gpio for SPI on the PICO: 16, 17, 18, 19
