@@ -115,6 +115,11 @@ This generates `stepper-ninja-picoX-W5100s.uf2` (for flashing the Pico, X-s is d
  - go to __~/stepper-ninja/hal-driver__
  - run the __./install.sh__ or the __./rip_install.sh__ depends on your linuxcnc installation
 
+### 6. Before try to run LinuxCNC
+
+ - edit your __/boot/firmware/config.txt__
+ - make sure to __dtparam=spi=off__ turn off the SPI, because the bcm2835 library conflicts with the kernel driver
+
 ## pico2 Support
 
 For a Pico2, ensure:
