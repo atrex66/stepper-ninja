@@ -78,13 +78,6 @@ transmission_pico_pc_t *tx_buffer;
     uint32_t output_buffer;
 #endif
 
-// Globális változó a kezdő időpont tárolására
-uint64_t start_time = 0;
-// Számláló az interruptokhoz
-uint32_t interrupt_count = 0;
-
-volatile bool spindle_index_enabled = false;
-
 uint8_t first_send = 1;
 volatile bool first_data = true;
 
@@ -544,6 +537,9 @@ int main() {
         #endif
     #endif //encoders>0
 
+    // init the firsat tx_buffer checksum because of the full duplex communication with the pico.
+    tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+
     printf("Pio init done....\n");
 
     handle_udp();
@@ -689,8 +685,9 @@ void handle_data(){
     //printf("%d Received bytes: %d\n", rx_counter, len);
     last_packet_time = get_absolute_time();
 
-    if (rx_buffer->packet_id != rx_counter) {
-        printf("packet loss: %d != %d\n", rx_buffer->packet_id, rx_counter);
+    if (rx_buffer->packet_id != rx_counter ) {
+        printf("packet loss: %d != %d  syncronizing.... \n", rx_buffer->packet_id, rx_counter);
+        // try to syncronize packet counter
         rx_counter = rx_buffer->packet_id;
     }
     if (!rx_checksum_ok(rx_buffer)) {
@@ -705,7 +702,7 @@ void handle_data(){
 
         #if breakout_board > 0
             // update output buffer
-            output_buffer = rx_buffer->outputs;
+            output_buffer = rx_buffer->outputs << 16;
         #endif
 
 #if use_pwm == 1
@@ -751,10 +748,6 @@ void handle_data(){
     #if brakeout_board > 0
         tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
     #endif
-
-    tx_buffer->interrupt_data = 0;
-    tx_buffer->interrupt_data |= spindle_index_enabled;
-    spindle_index_enabled = 0;
 
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
@@ -816,53 +809,47 @@ void __not_in_flash_func(handle_udp)() {
     packet_buffer = malloc(rx_size);
     memset(packet_buffer, 0, rx_size);
     last_packet_time = get_absolute_time();
-
-    #if raspberry_pi_spi == 0
-        last_packet_time = get_absolute_time();
-        while (1){
-            if (!gpio_get(GPIO_INT)){
+    while (1){
+        if (!gpio_get(GPIO_INT)){
+            #if raspberry_pi_spi == 0
                 setSn_IR(0, Sn_IR_RECV);
                 int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
-                if (len == rx_size) {
-                    #if use_timer_interrupt
-                        if (timer_started == 0){
-                            sleep_us(250);
-                            hardware_alarm_claim(alarm_num);
-                            hardware_alarm_set_callback(alarm_num, timer_callback);
-                            first_time = make_timeout_time_us(1000000); // 1 másodperc
-                            timer_hw->alarm[alarm_num] = (uint32_t)(to_us_since_boot(first_time) & 0xFFFFFFFF);
-                            timer_started = 1;
-                        }
-                    #else
-                    handle_data();
-                    if (!checksum_error){
-                    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-                    rx_counter += 1;
-                    }
-                    #endif
-                }
-            }
-            if (multicore_fifo_rvalid()) {
-                uint32_t signal = multicore_fifo_pop_blocking();
-                printf("Core1 signal: %08X\n", signal);
-                if (signal == 0xCAFEBABE) {
-                    core0_wait();
-                }
-            }
-        }
-    #else
-        while(1){
-            time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
-            if (!gpio_get(GPIO_CS)){
+            #else 
                 memset(packet_buffer, 0, rx_size);
                 memcpy(packet_buffer, (uint8_t *)tx_buffer, tx_size);
                 spi_read_fulldup((uint8_t *)rx_buffer, packet_buffer, rx_size);
-                handle_data();
+                int len = rx_size; // for compatibility
+            #endif
+            if (len == rx_size) {
+                #if use_timer_interrupt
+                    if (timer_started == 0){
+                        sleep_us(250);
+                        hardware_alarm_claim(alarm_num);
+                        hardware_alarm_set_callback(alarm_num, timer_callback);
+                        first_time = make_timeout_time_us(1000000); // 1 másodperc
+                        timer_hw->alarm[alarm_num] = (uint32_t)(to_us_since_boot(first_time) & 0xFFFFFFFF);
+                        timer_started = 1;
+                    }
+                #else
+                    handle_data();
+                    #if raspberry_pi_spi == 0
+                        if (!checksum_error){
+                        _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
+                        }
+                    #endif
+                #endif
                 rx_counter += 1;
             }
         }
-    #endif
+        if (multicore_fifo_rvalid()) {
+            uint32_t signal = multicore_fifo_pop_blocking();
+            printf("Core1 signal: %08X\n", signal);
+            if (signal == 0xCAFEBABE) {
+                core0_wait();
+            }
+        }
     }
+}
 
 static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 {
@@ -995,7 +982,6 @@ void network_init() {
     uint8_t sock_num = 0;
     socket(sock_num, Sn_MR_UDP, port, 0);
     }
-
 
 static void spi_read_burst(uint8_t *pBuf, uint16_t len)
 {

@@ -23,7 +23,7 @@
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
-    #define debug_mode 0    // only used in Raspberry PI communications
+    #define debug_mode 0   // only used in Raspberry PI communications
     #define max_statemachines stepgens + encoders
     
     #ifdef PICO_RP2040
@@ -37,6 +37,6 @@
         #endif
     #endif
 
-    #define pico_clock 125000000
+    #define pico_clock 200000000
 
 #endif

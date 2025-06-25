@@ -19,3 +19,5 @@ utility/CMakeLists.txt
 utility/pico_sdk_import.cmake
 utility/pico_spi_test.c
 utility/spi_test_master.c
+utility/osd.c
+utility/osd

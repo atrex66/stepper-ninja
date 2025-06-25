@@ -33,9 +33,10 @@
 #else
     #pragma message "SPI version"
     #define module_name "stepgen-ninja"
-    #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_64 // ~1 MHz (250 MHz / 256)
+    #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_128
     const uint8_t rpi_inputs[] = raspi_inputs;
     const uint8_t rpi_outputs[] = raspi_outputs;
+    const uint8_t rpi_input_pullup[] = raspi_input_pullups;
     const uint8_t rpi_inputs_no = sizeof(rpi_inputs);
     const uint8_t rpi_outputs_no = sizeof(rpi_outputs);
 #endif
@@ -257,6 +258,9 @@ void init_spi(){
     bcm2835_spi_setClockDivider(SPI_SPEED);
     bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
     bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
+
+    bcm2835_gpio_fsel(raspi_int_out, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_set(raspi_int_out);
 }
 #endif
 
@@ -306,10 +310,6 @@ uint16_t nearest(uint16_t period){
     return index;
 }
 
-int _receive(void *arg){
-    // full duplex transmission not need to receive
-    return sizeof(transmission_pico_pc_t);
-}
 
 void printbuf(uint8_t *buf, size_t len){
     size_t i;
@@ -319,17 +319,26 @@ void printbuf(uint8_t *buf, size_t len){
     printf("\n");
 }
 
+
+int _receive(void *arg){
+    // full duplex transmission not need to receive
+    // printbuf((uint8_t *)rx_buffer, sizeof(transmission_pc_pico_t));
+    return sizeof(transmission_pico_pc_t);
+}
+
 int _send(void *arg){
     #if raspberry_pi_spi == 0
         module_data_t *d = arg;
         return sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
     #else
         // working full duplex
+        bcm2835_gpio_clr(raspi_int_out);
         static size_t ssize = sizeof(transmission_pc_pico_t);
         char *readbuff = malloc(ssize);
         memset(readbuff, 0, ssize);
         bcm2835_spi_transfernb((char *)tx_buffer, readbuff, ssize);
-        memcpy(rx_buffer, readbuff + 3, sizeof(transmission_pico_pc_t));
+        memcpy(rx_buffer, readbuff , sizeof(transmission_pico_pc_t));
+        bcm2835_gpio_set(raspi_int_out);
         return sizeof(transmission_pc_pico_t);
     #endif
 }
@@ -347,7 +356,8 @@ void udp_io_process_recv(void *arg, long period) {
         int len = recvfrom(d->sockfd, rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
     #endif
     if (len == rx_size) {
-        if (!tx_checksum_ok(rx_buffer)) {
+        // rtapi_print_msg(RTAPI_MSG_INFO, "%d %d\n", tx_counter, rx_buffer->packet_id);
+        if (!tx_checksum_ok(rx_buffer) && debug_mode == 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: checksum error: %d != %d\n", 
                            d->index, rx_buffer->checksum, calculate_checksum(&rx_buffer, rx_size - 1));
             printbuf((uint8_t*)rx_buffer, rx_size);
@@ -383,7 +393,7 @@ void udp_io_process_recv(void *arg, long period) {
 
         #if raspberry_pi_spi == 1
             for (int i=0; i<rpi_inputs_no;i++){
-                *d->rpi_input[i]=bcm2835_gpio_lev(i);
+                *d->rpi_input[i]=bcm2835_gpio_lev(rpi_inputs[i]);
             }
         #endif
 
@@ -540,9 +550,9 @@ static void udp_io_process_send(void *arg, long period) {
     #if raspberry_pi_spi == 1
         for (int i=0; i<rpi_outputs_no;i++){
             if (*d->rpi_output[i]){
-                bcm2835_gpio_set(i);
+                bcm2835_gpio_set(rpi_outputs[i]);
             } else{
-                bcm2835_gpio_clr(i);
+                bcm2835_gpio_clr(rpi_outputs[i]);
             }
         }
     #endif
@@ -758,7 +768,15 @@ int rtapi_app_main(void) {
 
         #if raspberry_pi_spi == 1
             for (int i = 0; i< rpi_inputs_no; i++){
+
                 bcm2835_gpio_fsel(rpi_inputs[i], BCM2835_GPIO_FSEL_INPT);
+                // enable gpio pullup if need
+                if (rpi_input_pullup[i]){
+                    bcm2835_gpio_set_pud(rpi_inputs[i], BCM2835_GPIO_PUD_UP);
+                }
+                else{
+                    bcm2835_gpio_set_pud(rpi_inputs[i],BCM2835_GPIO_PUD_DOWN);
+                }
                 memset(name, 0, nsize);
                 snprintf(name, nsize, module_name ".%d.rpi-input.gp%d", j, rpi_inputs[i]);
                 r = hal_pin_bit_newf(HAL_OUT, &hal_data[j].rpi_input[i], comp_id, name, j);
