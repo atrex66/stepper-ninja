@@ -61,14 +61,21 @@ cd stepper-ninja
 
 Follow these steps to build Stepper-Ninja using CMake with Unix Makefiles.
 
-### 1. Create a Build Directory
+### 1. Raspberry PI4 configuration copy
+
+```bash
+cd ~/stepper-ninja
+cp configurations/RaspberryPI4/config.h firmware/inc/
+```
+
+### 2. Create a Build Directory
 
 ```bash
 cd firmware/
 mkdir build && cd build
 ```
 
-### 2. Configure CMake
+### 3. Configure CMake
 
 Run CMake to generate Makefiles, do not specify the WIZnet chip type.
 
@@ -84,7 +91,7 @@ Run CMake to generate Makefiles, do not specify the WIZnet chip type.
   cmake -DBOARD=pico2 ..
   ```
 
-### 3. Build the Project
+### 4. Build the Project
 
 Compile the project using `make`:
 
@@ -94,7 +101,7 @@ make
 
 This generates `stepper-ninja-picoX-W5100s.uf2` (for flashing the Pico, X-s is depend of cmake defs).
 
-### 4. Flash the Pico
+### 5. Flash the Pico
 
 - Connect the Pico in BOOTSEL mode (hold BOOTSEL, plug in USB).
 - If you are using the pico with other firmware use flash_nuke to erase previous data from the flash memory
@@ -105,7 +112,7 @@ This generates `stepper-ninja-picoX-W5100s.uf2` (for flashing the Pico, X-s is d
 
 ### 5. Build the hal driver
 
- - go to ~/stepper-ninja/hal-driver
+ - go to __~/stepper-ninja/hal-driver__
  - run the __./install.sh__ or the __./rip_install.sh__ depends on your linuxcnc installation
 
 ## pico2 Support
