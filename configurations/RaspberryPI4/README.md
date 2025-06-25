@@ -48,10 +48,10 @@ Before building, install the following dependencies:
 
 ## Cloning the Repository
 
-Clone the Stepper-Ninja repository:
+Clone the Stepper-Ninja repository (test branch):
 
 ```bash
-git clone https://github.com/atrex66/stepper-ninja
+git clone -b test https://github.com/atrex66/stepper-ninja
 cd stepper-ninja
 ```
 
