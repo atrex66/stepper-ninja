@@ -45,7 +45,7 @@
     // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
     // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
     #define raspi_int_out 25
-    #define raspi_inputs {2, 3, 4, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 27}
+    #define raspi_inputs {4, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 27}
     #define raspi_input_pullups {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
