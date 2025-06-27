@@ -387,7 +387,11 @@ void udp_io_process_recv(void *arg, long period) {
         #endif
         // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < in_pins_no; i++) {
-            *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;
+            if (i<32){
+                *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;
+            } else{
+                *d->input[i] = (rx_buffer->inputs[1] >> ((input_pins[i] - 32) & 31)) & 1;
+            }
             *d->input_not[i] = !(*d->input[i]); // Inverted inputs
         }
 
@@ -399,7 +403,7 @@ void udp_io_process_recv(void *arg, long period) {
 
         #if breakout_board > 0
             for (uint8_t i = 0; i < 16; i++) {
-                *d->input[i + sizeof(input_pins)] = (rx_buffer->inputs[1] >> i) & 1; // MCP23017 inputs
+                *d->input[i + sizeof(input_pins)] = (rx_buffer->inputs[2] >> i) & 1; // MCP23017 inputs
                 *d->input_not[i + sizeof(input_pins)] = !(*d->input[i]); // Inverted inputs
             }
         #endif
