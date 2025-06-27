@@ -543,12 +543,19 @@ static void udp_io_process_send(void *arg, long period) {
             tx_buffer->stepgen_command[i] = cmd[i];
         }
         tx_buffer->pio_timing = nearest(*d->pulse_width);
+
     if (out_pins_no > 0){
-        uint32_t outs=0;
+        uint32_t outs0=0;
+        uint32_t outs1=0;
         for (uint8_t i = 0; i < out_pins_no; i++) {
-            outs |= *d->output[i] == 1 ? 1 << i : 0;
+            if (*d->output[i]<32){
+                outs0 |= *d->output[i] == 1 ? 1 << i : 0;
+            } else {
+                outs1 |= *d->output[i] == 1 ? 1 << (i & 31) : 0;
+            }
         }
-        tx_buffer->outputs = outs;
+        tx_buffer->outputs[0] = outs0;
+        tx_buffer->outputs[1] = outs1;
     }
 
     #if raspberry_pi_spi == 1

@@ -744,7 +744,6 @@ void handle_data(){
             } else {
                 gpio_put(output_pins[i], (rx_buffer->outputs[1] >> (i & 31)) & 1);
             }
-      
         }
     }
     
