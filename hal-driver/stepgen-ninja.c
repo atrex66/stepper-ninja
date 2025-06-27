@@ -389,7 +389,7 @@ void udp_io_process_recv(void *arg, long period) {
         for (uint8_t i = 0; i < in_pins_no; i++) {
             if (input_pins[i] < 32){
                 *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;
-            } else{
+            } else{ // pico2 gpio > 31
                 *d->input[i] = (rx_buffer->inputs[1] >> ((input_pins[i] - 32) & 31)) & 1;
             }
             *d->input_not[i] = !(*d->input[i]); // Inverted inputs

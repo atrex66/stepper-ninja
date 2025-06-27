@@ -739,8 +739,13 @@ void handle_data(){
     if (sizeof(output_pins)>0){
         //set output pins
         for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-            gpio_put(output_pins[i], (rx_buffer->outputs >> i) & 1);
+            if (output_pins[i] < 32){
+                gpio_put(output_pins[i], (rx_buffer->outputs[0] >> i) & 1);
+            } else {
+                gpio_put(output_pins[i], (rx_buffer->outputs[1] >> (i & 31)) & 1);
             }
+      
+        }
     }
     
     tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
