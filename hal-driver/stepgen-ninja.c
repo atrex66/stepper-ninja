@@ -387,7 +387,7 @@ void udp_io_process_recv(void *arg, long period) {
         #endif
         // get the inputs defined in the transmission.c
         for (uint8_t i = 0; i < in_pins_no; i++) {
-            if (i<32){
+            if (input_pins[i] < 32){
                 *d->input[i] = (rx_buffer->inputs[0] >> (input_pins[i] & 31)) & 1;
             } else{
                 *d->input[i] = (rx_buffer->inputs[1] >> ((input_pins[i] - 32) & 31)) & 1;
