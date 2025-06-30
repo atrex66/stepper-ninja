@@ -9,7 +9,6 @@
 #include "hardware/i2c.h"
 #include "pico/stdlib.h"
 #include "pico/sync.h"
-#include "wizchip_conf.h"
 #include <string.h>
 #include <stdio.h>
 #include "main.h"

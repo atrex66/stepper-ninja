@@ -75,12 +75,15 @@ typedef struct {
 } IpPort;
 
 typedef struct {
+    #if stepgens > 0
     hal_float_t *command[stepgens];
     hal_float_t *feedback[stepgens];
     hal_float_t *scale[stepgens];
     hal_bit_t *mode[stepgens];
     hal_bit_t *enable[stepgens];
     hal_u32_t *pulse_width;
+    #endif
+    #if encoders > 0
     // encoder pins
     hal_s32_t *raw_count[encoders];
     hal_s32_t *scaled_count[encoders];
@@ -89,12 +92,16 @@ typedef struct {
     hal_float_t *enc_velocity[encoders];
     hal_bit_t *enc_index[encoders];
     hal_bit_t *enc_reset[encoders];
+    #endif
+    #if use_pwm == 1
     // pwm output
     hal_bit_t *pwm_enable[pwm_count];
     hal_u32_t *pwm_output[pwm_count];
     hal_u32_t *pwm_frequency[pwm_count];
     hal_u32_t *pwm_maxscale[pwm_count];
     hal_u32_t *pwm_min_limit[pwm_count];
+    #endif 
+
     hal_u32_t *jitter;
     // inputs
     hal_bit_t *input[32];
@@ -121,7 +128,6 @@ typedef struct {
     struct sockaddr_in local_addr, remote_addr;
 #endif
 
-    float_t enc_prev_pos[encoders];
     long long last_received_time;
     long long watchdog_timeout;
     int watchdog_expired; 
@@ -130,6 +136,7 @@ typedef struct {
     uint8_t checksum_index;
     uint8_t checksum_index_in;
     uint8_t checksum_error;
+    float_t enc_prev_pos[encoders];
     int32_t enc_offset[encoders];
     int64_t prev_pos[6];
     int64_t curr_pos[6];
@@ -141,8 +148,12 @@ typedef struct {
 static int instances = 1; // Példányok száma
 static int comp_id = -1; // HAL komponens azonosító
 static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adatra
+
+#if stepgens > 0
 static uint32_t timing[1024] = {0, };
 static uint32_t old_pulse_width = 0;
+#endif
+
 static uint8_t tx_counter = 0;
 float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
 transmission_pc_pico_t *tx_buffer;
@@ -287,7 +298,8 @@ void watchdog_process(void *arg, long period) {
     }
 }
 
-
+#if stepgens > 0
+// find the nearest setting for the given pulse width
 uint16_t nearest(uint16_t period){
     uint16_t min_diff = 65535;
     //float value = (float)period * cycle_time_ns; // Period ciklusokból nanoszekundummá
@@ -309,8 +321,9 @@ uint16_t nearest(uint16_t period){
     }
     return index;
 }
+#endif
 
-
+#if debug == 1
 void printbuf(uint8_t *buf, size_t len){
     size_t i;
     for (i=0;i<len;i++){
@@ -318,7 +331,7 @@ void printbuf(uint8_t *buf, size_t len){
     }
     printf("\n");
 }
-
+#endif
 
 int _receive(void *arg){
     // full duplex transmission not need to receive
@@ -426,38 +439,10 @@ void print_binary_to_array(uint32_t num) {
 static void udp_io_process_send(void *arg, long period) {
     module_data_t *d = arg;
     int16_t steps;
-    double f_steps[stepgens] = {0,};
     uint8_t sign = 0;
     total_cycles = (uint32_t)(*d->period * 1000) / 1000;
-    uint32_t max_f = (uint32_t)(1.0 / ((*d->pulse_width * 2) * 1e-9));
-    #if debug == 1
-    *d->debug_freq = (float)max_f / 1000.0;
-    #endif
     memset(tx_buffer, 0, tx_size);
-    // handle control bits (encoder index pulse activation)
-    tx_buffer->enc_control = 0;
-    for (int i=0;i<encoders;i++){
-        tx_buffer->enc_control |= (uint8_t)(1 * *d->enc_index[i])  << (CTRL_SPINDEX + i);
-    }
-    if (old_pulse_width != *d->pulse_width) {
-        old_pulse_width = *d->pulse_width;
-        uint32_t step_counter;
-        uint32_t pio_cmd;
-        total_cycles = (uint32_t)((period * (pico_clock / 1000)) / 1000000UL); // pico = 125MHz
-        uint16_t pio_index = nearest(*d->pulse_width);
-        rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*(int)cycle_time_ns);
-        rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles*(int)cycle_time_ns);
-        rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
-        rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
-        rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
-        memset(timing, 0, sizeof(timing));
-        for (uint16_t i=1; i < 1024; i++){
-            step_counter = (uint32_t)((float)((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
-            pio_cmd = (uint32_t)(step_counter << 10 | (i - 1));
-            timing[i] = pio_cmd;
-        }
-    }
+
     // if watchdog expired, turn off io-ready-out
     if (d->watchdog_expired) {
         *d->io_ready_out = 0;  // turn off io-ready-out (breaking estop-loop)
@@ -470,7 +455,41 @@ static void udp_io_process_send(void *arg, long period) {
         *d->io_ready_out = 0;  // no io-ready-in, no io-ready-out
     }
 
+    // handle control bits (encoder index pulse activation)
+    #if encoders > 0
+    tx_buffer->enc_control = 0;
+    for (int i=0;i<encoders;i++){
+        tx_buffer->enc_control |= (uint8_t)(1 * *d->enc_index[i])  << (CTRL_SPINDEX + i);
+    }
+    #endif
+
     if (d->watchdog_running == 1) {
+        #if stepgens > 0
+        double f_steps[stepgens] = {0,};
+        uint32_t max_f = (uint32_t)(1.0 / ((*d->pulse_width * 2) * 1e-9));
+        #if debug == 1
+        *d->debug_freq = (float)max_f / 1000.0;
+        #endif
+        if (old_pulse_width != *d->pulse_width) {
+            old_pulse_width = *d->pulse_width;
+            uint32_t step_counter;
+            uint32_t pio_cmd;
+            total_cycles = (uint32_t)((period * (pico_clock / 1000)) / 1000000UL); // pico = 125MHz
+            uint16_t pio_index = nearest(*d->pulse_width);
+            rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
+            rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles*(int)cycle_time_ns);
+            rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles*(int)cycle_time_ns);
+            rtapi_print_msg(RTAPI_MSG_INFO, "total_cycles: %d\n", total_cycles);
+            rtapi_print_msg(RTAPI_MSG_INFO, "high_cycles: %d\n", pio_settings[pio_index].high_cycles);
+            rtapi_print_msg(RTAPI_MSG_INFO, "pio_index: %d\n", pio_index);
+            memset(timing, 0, sizeof(timing));
+            for (uint16_t i=1; i < 1024; i++){
+                step_counter = (uint32_t)((float)((total_cycles ) / i) - pio_settings[pio_index].high_cycles) - dormant_cycles;
+                pio_cmd = (uint32_t)(step_counter << 10 | (i - 1));
+                timing[i] = pio_cmd;
+            }
+        }
+
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
             float f_command = *d->command[i] + offset;
@@ -543,12 +562,13 @@ static void udp_io_process_send(void *arg, long period) {
             tx_buffer->stepgen_command[i] = cmd[i];
         }
         tx_buffer->pio_timing = nearest(*d->pulse_width);
+        #endif
 
     if (out_pins_no > 0){
         uint32_t outs0=0;
         uint32_t outs1=0;
         for (uint8_t i = 0; i < out_pins_no; i++) {
-            if (*d->output[i]<32){
+            if (output_pins[i]<32){
                 outs0 |= *d->output[i] == 1 ? 1 << i : 0;
             } else {
                 outs1 |= *d->output[i] == 1 ? 1 << (i & 31) : 0;
@@ -740,6 +760,7 @@ int rtapi_app_main(void) {
             return r;
         }
 
+        #if stepgens > 0
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.stepgen.pulse-width", j);
         r = hal_pin_u32_newf(HAL_IN, &hal_data[j].pulse_width, comp_id, name, j);
@@ -750,15 +771,26 @@ int rtapi_app_main(void) {
         }
         *hal_data[j].pulse_width = default_pulse_width; // Default pulse width in nanoseconds
 
-        #if debug == 1
-        memset(name, 0, nsize);
-        snprintf(name, nsize, module_name ".%d.stepgen.max-freq-khz", j);
-        r = hal_pin_float_newf(HAL_OUT, &hal_data[j].debug_freq, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
+            #if debug == 1
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.max-freq-khz", j);
+            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].debug_freq, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            memset(name, 0, nsize);
+            snprintf(name, nsize, module_name ".%d.stepgen.debug-steps-reset", j);
+            r = hal_pin_bit_newf(HAL_IN, &hal_data[j].debug_steps_reset, comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            #endif
+        #endif
+
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.jitter", j);
         r = hal_pin_u32_newf(HAL_OUT, &hal_data[j].jitter, comp_id, name, j);
@@ -767,15 +799,6 @@ int rtapi_app_main(void) {
             hal_exit(comp_id);
             return r;
         }
-        memset(name, 0, nsize);
-        snprintf(name, nsize, module_name ".%d.stepgen.debug-steps-reset", j);
-        r = hal_pin_bit_newf(HAL_IN, &hal_data[j].debug_steps_reset, comp_id, name, j);
-        if (r < 0) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-            hal_exit(comp_id);
-            return r;
-        }
-        #endif
 
         #if raspberry_pi_spi == 1
             for (int i = 0; i< rpi_inputs_no; i++){
@@ -935,6 +958,7 @@ int rtapi_app_main(void) {
             }
         #endif
 
+        #if stepgens > 0
         for (int i = 0; i<stepgens; i++){
             #if debug == 1
             memset(name, 0, nsize);
@@ -994,7 +1018,8 @@ int rtapi_app_main(void) {
             }
             *hal_data[j].enable[i] = 0;
         }
-
+        #endif
+        #if encoders > 0
         for (int i = 0; i<encoders; i++)
         {
             #if use_stepcounter == 1
@@ -1065,6 +1090,7 @@ int rtapi_app_main(void) {
             hal_data[j].enc_prev_pos[i] = 0;
             #endif
         }
+        #endif
 
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.period", j);

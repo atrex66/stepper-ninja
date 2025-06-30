@@ -86,8 +86,11 @@ uint dma_rx;
 dma_channel_config dma_channel_config_tx;
 dma_channel_config dma_channel_config_rx;
 
+#if stepgens > 0
 uint32_t step_pin[stepgens] = stepgen_steps;
 uint32_t dir_pin[stepgens] = stepgen_dirs;
+uint32_t total_steps[stepgens] = {0,};
+#endif
 
 #if encoders > 0
     uint8_t encoder_base[encoders] = enc_pins;
@@ -100,7 +103,6 @@ int32_t *command;
 uint8_t *src_ip;
 uint16_t src_port;
 uint8_t rx_counter=0;
-uint32_t total_steps[stepgens] = {0,};
 
 uint8_t rx_size = sizeof(transmission_pc_pico_t);
 uint8_t tx_size = sizeof(transmission_pico_pc_t);
@@ -139,6 +141,7 @@ PIO_def_t stepgen_pio[stepgens];
     PIO_def_t encoder_pio[encoders];
 #endif
 
+#if stepgens > 0
 // -------------------------------------------
 // Pulse generation setup
 // -------------------------------------------
@@ -155,6 +158,7 @@ void __time_critical_func(stepgen_update_handler)() {
             }
     }
 }
+#endif
 
 // -------------------------------------------
 // Core 1 Entry Point
@@ -279,6 +283,7 @@ void core1_entry() {
                 }
             #endif
 
+            #if stepgens > 0
             sety = pio_settings[rx_buffer->pio_timing].sety & 31;
             nop = pio_settings[rx_buffer->pio_timing].nop & 31;
 
@@ -295,6 +300,8 @@ void core1_entry() {
                     old_nop = nop;
                 }
             }
+            #endif
+
             #if brakeout_board > 0
                 #ifdef MCP23008_ADDR
                     if (checksum_error == 0 && timeout_error == 0) {
@@ -310,6 +317,7 @@ void core1_entry() {
                     input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
                 #endif
             #endif
+            
             #if use_pwm == 1
             for (int i=0; i<pwm_count; i++){
                 if (old_pwm_frequency[i] != pwm_freq_buffer[i]){
@@ -468,11 +476,14 @@ int main() {
         }
     }
 
+    #if stepgens > 0
+
     uint32_t offset[2] = {0, };
     uint8_t step_inverts[] = step_invert;
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
     
+
     uint32_t sm = 0;
     uint8_t o = 0;
     for (uint32_t i = 0; i < stepgens; i++){
@@ -495,6 +506,7 @@ int main() {
         pio_sm_set_enabled(pio, sm, true);
         printf("stepgen%d. pio:%d sm:%d init done...\n", i, stepgen_pio[i].pio_blk, sm);
     }
+    #endif
 
     #if encoders > 0
         #if use_stepcounter == 0
@@ -696,9 +708,11 @@ void handle_data(){
     }
 
     if (!checksum_error) {
-    
+
+        #if stepgens > 0
         // update stepgens
         stepgen_update_handler();
+        #endif
 
         #if breakout_board > 0
             // update output buffer
