@@ -762,7 +762,7 @@ void handle_data(){
     }
     
     tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
-    tx_buffer->inputs[1] = gpio_get_all64() >> 31;
+    tx_buffer->inputs[1] = gpio_get_all64() >> 32;
 
     #if brakeout_board > 0
         tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
