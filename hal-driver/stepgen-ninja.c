@@ -28,8 +28,8 @@
     #pragma message "Ethernet version"
     #define module_name "stepgen-ninja"
     // to parse the modparam
-    char *ip_address[128] = {0,};
-    RTAPI_MP_ARRAY_STRING(ip_address, 128, "Ip address");
+    char *ip_address;
+    RTAPI_MP_ARRAY_STRING(ip_address, "Ip address");
 #else
     #pragma message "SPI version"
     #define module_name "stepgen-ninja"
@@ -693,7 +693,7 @@ int rtapi_app_main(void) {
     #if raspberry_pi_spi == 0
         IpPort results[MAX_CHAN];
         // parse the IP address and port from the modparam
-        instances = parse_ip_port((char *)ip_address[0], results, 8);
+        instances = parse_ip_port((char *)ip_address, results, 8);
 
         // print parsed IP addresses and ports
         for (int i = 0; i < instances; i++) {
