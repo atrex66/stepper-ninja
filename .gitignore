@@ -12,6 +12,7 @@ hardware/
 firmware.zip
 hal-driver.zip
 buildall.sh
+benchmark_udp
 __pycache__0
 configurations/configure.py
 firmware/tree.txt
