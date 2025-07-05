@@ -9,16 +9,27 @@
         #pragma message("Build for Raspberry PI SPI communication!")
     #endif
 
-    #if brakeout_board > 0
+    #if breakout_board > 0
+        #pragma message "Configured to use BreakoutBoard"
         // if you use the breakout board, you need to change the pin configuration (4 stepgen, 2 encoder, 4 fast input, 1 pwm output,8 output, 16 inputs)
-        #define MCP23017_ADDR   0x21
-        #define MCP23008_ADDR   0x20
-        #define MCP_ALL_RESET   22
+        #define MCP23017_ADDR   0x20
+        #define MCP23008_ADDR   0x21
+        #define MCP_ALL_RESET   GPIO_RESET
+        #undef encoders
         #define encoders        2
-        #define in_pins         {12, 13, 15, 28} // Free GPIO pins for inputs (GPIO 22-28)
+        #undef in_pins          
+        #undef in_pullup
+        #undef out_pins
+        #undef use_pwm
         #define in_pullup       {0, 0, 0, 0}
         #define I2C_SDA         26
         #define I2C_SCK         27
+        #define I2C_PORT        i2c1
+        #define ANALOG_CH       2
+        #define MCP4725_BASE    0x60   // range of 0x60 - 0x67
+        #define MCP4725_PORT    i2c0
+        #define MCP4725_SDA     12
+        #define MCP4725_SCL     13
     #endif // brakeout_board > 0
 
     #define use_stepcounter 0 // Use step counter for the stepgen

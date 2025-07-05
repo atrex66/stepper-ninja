@@ -64,8 +64,6 @@
 extern wiz_NetInfo default_net_info;
 extern uint16_t port;
 extern configuration_t *flash_config;
-const uint8_t input_pins[] = in_pins;
-const uint8_t output_pins[] = out_pins; // Example output pins
 
 wiz_NetInfo net_info;
 wiz_PhyConf *phy_conf;
@@ -76,6 +74,9 @@ transmission_pico_pc_t *tx_buffer;
 #if breakout_board > 0
     uint32_t input_buffer;
     uint32_t output_buffer;
+#else
+    const uint8_t input_pins[] = in_pins;
+    const uint8_t output_pins[] = out_pins; // Example output pins
 #endif
 
 uint8_t first_send = 1;
@@ -181,12 +182,13 @@ void core1_entry() {
         }
     #endif
 
-    #if brakeout_board > 0
+    #if breakout_board > 0
 
         i2c_setup();
+        mcp4725_port_setup();
         #ifdef MCP23008_ADDR
         printf("Detecting MCP23008 (Outputs) on %#x address\n", MCP23008_ADDR);
-        if (i2c_check_address(i2c1, MCP23008_ADDR)) {
+        if (i2c_check_address(I2C_PORT, MCP23008_ADDR)) {
             printf("MCP23008 (Outputs) Init\n");
             mcp_write_register(MCP23008_ADDR, 0x00, 0x00);
         }
@@ -194,10 +196,9 @@ void core1_entry() {
             printf("No MCP23008 (Outputs) found on %#x address.\n", MCP23008_ADDR);
         }
         #endif
-
         #ifdef MCP23017_ADDR
             printf("Detecting MCP23017 (Inputs) on %#x address\n", MCP23017_ADDR);
-            if (i2c_check_address(i2c1, MCP23017_ADDR)) {
+            if (i2c_check_address(I2C_PORT, MCP23017_ADDR)) {
                 printf("MCP23017 (Inputs) Init\n");
                 mcp_write_register(MCP23017_ADDR, 0x00, 0xff);
                 mcp_write_register(MCP23017_ADDR, 0x01, 0xff);
@@ -205,6 +206,24 @@ void core1_entry() {
             else {
                 printf("No MCP23017 (Inputs) found on %#x address.\n", MCP23017_ADDR);
             }
+        #endif
+        #ifdef MCP4725_BASE
+        printf("Detecting MCP4725 (analog) on %#x address\n", MCP4725_BASE);
+        if (i2c_check_address(MCP4725_PORT, MCP4725_BASE)) {
+            printf("MCP4725 (analog) Init\n");
+            mcp4725_write_data(MCP4725_BASE, 0);
+        }
+        else {
+            printf("No MCP4725 (analog) found on %#x address.\n", MCP4725_BASE);
+        }
+        printf("Detecting MCP4725 (analog) on %#x address\n", MCP4725_BASE + 1);
+        if (i2c_check_address(MCP4725_PORT, MCP4725_BASE + 1)) {
+            printf("MCP4725 (analog) Init\n");
+            mcp4725_write_data(MCP4725_BASE + 1, 0);
+        }
+        else {
+            printf("No MCP4725 (analog) found on %#x address.\n", MCP4725_BASE + 1);
+        }
         #endif
     #endif
 
@@ -216,7 +235,7 @@ void core1_entry() {
                 printf("Disconnected from linuxcnc.\n");
                 connected = 0;
                 stop_timer();
-                #if encoders >0
+#if encoders >0
                     for (int i = 0; i < encoders; i++) {
                         PIO pio = encoder_pio[i].pio;
                         uint8_t sm = encoder_pio[i].sm;
@@ -224,13 +243,19 @@ void core1_entry() {
                         pio_sm_restart(pio, sm);
                         pio_sm_exec(pio, sm, pio_encode_set(pio_y, 0));
                         pio_sm_set_enabled(pio, sm, true);
-                        #if use_stepcounter == 0
+    #if use_stepcounter == 0
                         printf("Encoder %d reset\n", i);
-                        #else
+    #else
                         printf("Step counter %d reset\n", i);
-                        #endif
+    #endif
                     }
-                #endif
+#endif
+#if breakout_board > 0
+                    // reset the analog outputs
+                    mcp4725_write_data(MCP4725_BASE, 0);
+                    mcp4725_write_data(MCP4725_BASE + 1, 0);
+                    mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+#endif
                 rx_counter = 0;
                 timeout_error = 1;
                 checksum_index = 1;
@@ -238,11 +263,13 @@ void core1_entry() {
                 checksum_error = 0;
                 first_data = true;
                 first_send = 1;
-                if (sizeof(output_pins) > 0){
-                    for (int i = 0; i < sizeof(output_pins); i++) {
-                        gpio_put(output_pins[i], 0); // reset outputs
+                #ifdef out_pins
+                    if (sizeof(output_pins) > 0){
+                        for (int i = 0; i < sizeof(output_pins); i++) {
+                            gpio_put(output_pins[i], 0); // reset outputs
+                        }
                     }
-                }
+                #endif
             }
         // terminal handling only when not connected to the linuxcnc
         handle_serial_input();
@@ -302,20 +329,12 @@ void core1_entry() {
             }
             #endif
 
-            #if brakeout_board > 0
-                #ifdef MCP23008_ADDR
-                    if (checksum_error == 0 && timeout_error == 0) {
-                        mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
-                    }
-                    else
-                    {
-                        mcp_write_register(MCP23008_ADDR, 0x09, 0x00);
-                    }
-                #endif
-                #ifdef MCP23017_ADDR
-                    input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
-                    input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
-                #endif
+            #if breakout_board > 0
+                mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+                input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
+                input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
+                mcp4725_write_data(MCP4725_BASE + 0, rx_buffer->analog_out & 0xfff);
+                mcp4725_write_data(MCP4725_BASE + 1, (rx_buffer->analog_out >> 16) & 0xfff);
             #endif
             
             #if use_pwm == 1
@@ -433,7 +452,7 @@ int main() {
 
     PIO pio = pio0;
     int p = 0;
-
+    #ifdef out_pins
     printf("Output GPIO: ");
     for (int i = 0; i < sizeof(output_pins); i++) {
         gpio_init(output_pins[i]);
@@ -442,7 +461,9 @@ int main() {
         printf("%d ", output_pins[i]);
     }
     printf("\n");
+    #endif
 
+    #ifdef in_pins
     printf("Input GPIO: ");
     uint8_t pullups[sizeof(input_pins)] = in_pullup;
     for (int i = 0; i < sizeof(input_pins); i++) {
@@ -454,6 +475,7 @@ int main() {
         printf("%d ", input_pins[i]);
     }
     printf("\n");
+    #endif
 
     #if use_pwm == 1
         printf("Pwm GPIO:");
@@ -468,21 +490,12 @@ int main() {
         printf("\n");
     #endif
 
-    if (sizeof(output_pins) > 0){
-        for (int i = 0; i < sizeof(output_pins); i++) {
-            gpio_init(output_pins[i]);
-            gpio_set_dir(output_pins[i], GPIO_OUT);
-            gpio_put(output_pins[i], 0);
-        }
-    }
-
     #if stepgens > 0
 
     uint32_t offset[2] = {0, };
     uint8_t step_inverts[] = step_invert;
 
     offset[0] = pio_add_program_at_offset(pio0, &freq_generator_program, 0);
-    
 
     uint32_t sm = 0;
     uint8_t o = 0;
@@ -608,28 +621,36 @@ int32_t __time_critical_func(_sendto)(uint8_t sn, uint8_t *buf, uint16_t len, ui
     return (int32_t)len;
 }
 
-#if brakeout_board > 0
+#if breakout_board > 0
 void i2c_setup(void) {
-    i2c_init(i2c1, 400 * 1000); // 400 kHz
+    i2c_init(I2C_PORT, 400 * 1000); // 400 kHz
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCK, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA);
     gpio_pull_up(I2C_SCK);
 }
 
+void mcp4725_port_setup(void) {
+    i2c_init(MCP4725_PORT, 400 * 1000); // 400 kHz
+    gpio_set_function(MCP4725_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(MCP4725_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(MCP4725_SCL);
+    gpio_pull_up(MCP4725_SDA);
+}
+
 uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg) {
     uint8_t data;
     int ret;
-    ret = i2c_write_blocking(i2c1, i2c_addr, &reg, 1, true);
+    ret = i2c_write_blocking(I2C_PORT, i2c_addr, &reg, 1, true);
     if (ret < 0) return 0xFF;
-    ret = i2c_read_blocking(i2c1, i2c_addr, &data, 1, false);
+    ret = i2c_read_blocking(I2C_PORT, i2c_addr, &data, 1, false);
     if (ret < 0) return 0xFF;
     return data;
 }
 
 void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value) {
     uint8_t data[2] = {reg, value};
-    int ret = i2c_write_blocking(i2c1, i2c_addr, data, 2, false);
+    int ret = i2c_write_blocking(I2C_PORT, i2c_addr, data, 2, false);
     if (ret < 0) {
         printf("I2C write failed %02X\n", i2c_addr);
         asm("nop");
@@ -645,7 +666,7 @@ bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr) {
         return false;
     }
 }
-#endif // brakeout_board > 0
+#endif // breakout_board > 0
 
 
 void __not_in_flash_func(core0_wait)(void) {
@@ -714,11 +735,6 @@ void handle_data(){
         stepgen_update_handler();
         #endif
 
-        #if breakout_board > 0
-            // update output buffer
-            output_buffer = rx_buffer->outputs << 16;
-        #endif
-
 #if use_pwm == 1
         #if pwm_count < 1
             #pragma error "Defined to use pwm but not defined any PWM pins"
@@ -750,22 +766,22 @@ void handle_data(){
         #endif
     #endif
 
-    if (sizeof(output_pins)>0){
-        //set output pins
-        for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-            if (output_pins[i] < 32){
-                gpio_put(output_pins[i], (rx_buffer->outputs[0] >> i) & 1);
-            } else {
-                gpio_put(output_pins[i], (rx_buffer->outputs[1] >> (i & 31)) & 1);
+    #if breakout_board > 0
+        tx_buffer->inputs[0] = input_buffer; // Read MCP23017 inputs
+        output_buffer = rx_buffer->outputs[0];
+    #else
+        tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
+        tx_buffer->inputs[1] = gpio_get_all64() >> 32;
+        if (sizeof(output_pins)>0){
+            //set output pins
+            for (uint8_t i = 0; i < sizeof(output_pins); i++) {
+                if (output_pins[i] < 32){
+                    gpio_put(output_pins[i], (rx_buffer->outputs[0] >> i) & 1);
+                } else {
+                    gpio_put(output_pins[i], (rx_buffer->outputs[1] >> (i & 31)) & 1);
+                }
             }
         }
-    }
-    
-    tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
-    tx_buffer->inputs[1] = gpio_get_all64() >> 32;
-
-    #if brakeout_board > 0
-        tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
     #endif
 
     tx_buffer->packet_id = rx_counter;

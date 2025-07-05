@@ -21,6 +21,9 @@ typedef struct{
     #if encoders > 0
     uint8_t enc_control;  // enables encoder index 1st bit encoder 0 2nd encoder 1
     #endif
+    #if breakout_board > 0
+    uint32_t analog_out;
+    #endif
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pc_pico_t;

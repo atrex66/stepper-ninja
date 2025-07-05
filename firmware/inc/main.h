@@ -29,14 +29,17 @@
 #include "pwm.h"
 #include "freq_generator.pio.h"
 #include "pio_utils.h"
+#include "config.h"
+
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
 #else
 #include "step_counter.pio.h"
 #endif
 
-#if brakeout_board > 0
+#if breakout_board > 0
 #include "hardware/i2c.h"
+#include "mcp4725.h"
 #endif 
 
 #define core1_running 1
@@ -75,6 +78,12 @@ void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
 void gpio_callback(uint gpio, uint32_t events);
 void stop_timer();
+#if breakout_board > 0
+void mcp4725_port_setup();
+bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr);
+void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value);
+uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg);
+#endif
 
 static void spi_write_burst(uint8_t *pBuf, uint16_t len);
 static void spi_read_burst(uint8_t *pBuf, uint16_t len);

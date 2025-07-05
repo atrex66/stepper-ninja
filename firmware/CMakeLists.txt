@@ -63,6 +63,7 @@ add_executable(stepper-ninja
     modules/transmission.c
     modules/pwm.c
     modules/pio_utils.c
+    modules/mcp4725.c
     ${WIZNET_SOURCES}
 )
 

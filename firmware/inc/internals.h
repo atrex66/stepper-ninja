@@ -1,6 +1,10 @@
 #ifndef INTERNALS_H
 #define INTERNALS_H
 
+#ifndef __linux__
+#include "hardware/i2c.h"
+#endif
+
 #define version "1.1"
 
 #define low 0
