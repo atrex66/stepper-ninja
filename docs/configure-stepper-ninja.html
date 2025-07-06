@@ -72,7 +72,7 @@
         <button onclick="generateConfig()">Generate config.h</button>
         <button onclick="downloadConfig()">Download config.h</button>
     </div>
-    <p class="warning">Note: brakeout_board is not supported and must remain 0.</p>
+    <p class="warning">Note: breakout_board is not supported and must remain 0.</p>
 
     <script>
         // Configuration state
@@ -285,11 +285,11 @@
             configText += `#define default_pwm_min_limit ${config.default_pwm_min_limit}\n`;
             configText += `#define use_outputs ${config.use_outputs}\n`;
             configText += `#define step_invert ((const uint8_t[]){${config.step_invert.slice(0, config.stepgens).join(', ')}})\n`;
-            configText += `#define brakeout_board 0 // Not supported, do not change\n\n`;
+            configText += `#define breakout_board 0 // Not supported, do not change\n\n`;
 
             // Add dynamic pin assignments
-            if (config.brakeout_board) {
-                configText += `#if brakeout_board > 0\n`;
+            if (config.breakout_board) {
+                configText += `#if breakout_board > 0\n`;
                 configText += `    #define MCP23017_ADDR 0x21\n    #define MCP23008_ADDR 0x20\n    #define MCP_ALL_RESET 22\n`;
                 configText += `    #define encoders 2\n    #define in_pins {12, 13, 15, 28}\n    #define in_pins_no 4\n`;
                 configText += `    #define I2C_SDA 26\n    #define I2C_SCK 27\n    #undef use_outputs\n    #define use_outputs 0\n`;
@@ -317,7 +317,7 @@
                 configText += `    #endif\n`;
             }
 
-            if (config.brakeout_board) configText += `#endif\n`;
+            if (config.breakout_board) configText += `#endif\n`;
             configText += `#endif\n`;
 
             document.getElementById('configOutput').value = configText;

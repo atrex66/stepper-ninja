@@ -48,7 +48,7 @@
     #define raspi_outputs {GP_05}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
     
-    #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
+    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
 #include "footer.h"
 #endif
