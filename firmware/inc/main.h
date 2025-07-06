@@ -47,12 +47,12 @@
 // Globális változók a magok közötti kommunikációhoz
 // -------------------------------------------
 // Függvény deklarációk
-#if brakeout_board > 0
+#if breakout_board > 0
     void i2c_setup(void);
     bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr);
     uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg);
     void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value);
-#endif // brakeout_board > 0
+#endif // breakout_board > 0
 void stepgen_update_handler();
 static void alarm_irq(void);
 void jump_table_checksum();
