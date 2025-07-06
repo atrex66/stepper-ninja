@@ -283,7 +283,6 @@ void watchdog_process(void *arg, long period) {
     }
 }
 
-
 uint16_t nearest(uint16_t period){
     uint16_t min_diff = 65535;
     //float value = (float)period * cycle_time_ns; // Period ciklusokból nanoszekundummá
@@ -306,7 +305,7 @@ uint16_t nearest(uint16_t period){
     return index;
 }
 
-int _receive(void *arg){
+int _receive(){
     // full duplex transmission not need to receive
     return sizeof(transmission_pico_pc_t);
 }
@@ -341,7 +340,7 @@ void udp_io_process_recv(void *arg, long period) {
         return;
     }
     #if raspberry_pi_spi == 1
-        int len = _receive(d);
+        int len = _receive();
     #else
         static socklen_t addrlen = sizeof(d->remote_addr);
         int len = recvfrom(d->sockfd, rx_buffer, rx_size, 0, &d->remote_addr, &addrlen);
