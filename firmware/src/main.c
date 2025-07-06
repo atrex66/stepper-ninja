@@ -465,14 +465,16 @@ int main() {
 
     #ifdef in_pins
     printf("Input GPIO: ");
-    uint8_t pullups[sizeof(input_pins)] = in_pullup;
+    int8_t pullups[sizeof(input_pins)] = in_pullup;
     for (int i = 0; i < sizeof(input_pins); i++) {
         gpio_init(input_pins[i]);
         gpio_set_dir(input_pins[i], GPIO_IN);
-        if (pullups[i]){
-            gpio_pull_up(input_pins[i]);
-        }
         printf("%d ", input_pins[i]);
+        if (pullups[i] == -1){
+            gpio_set_pulls(input_pins[i], false, true);
+        } else if (pullups[i] == 1){
+            gpio_set_pulls(input_pins[i], true, false);
+        }
     }
     printf("\n");
     #endif
