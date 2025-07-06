@@ -35,7 +35,7 @@
 #include "step_counter.pio.h"
 #endif
 
-#if brakeout_board > 0
+#if breakout_board > 0
 #include "hardware/i2c.h"
 #endif 
 
