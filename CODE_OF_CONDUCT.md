@@ -12,9 +12,6 @@ We, as contributors and maintainers, pledge to make participation in our project
 - Harassment, discrimination, or offensive comments.
 - Disruptive or disrespectful behavior.
 
-## Reporting Issues
-If you experience or witness unacceptable behavior, please report it by contacting the project maintainers via [insert contact method, e.g., email or issue tracker]. All complaints will be reviewed and addressed promptly.
-
 ## Scope
 This Code of Conduct applies to all project spaces, including the GitHub repository, issues, pull requests, and any related communication channels.
 
