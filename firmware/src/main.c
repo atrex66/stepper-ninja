@@ -184,7 +184,7 @@ void core1_entry() {
         }
     #endif
 
-    #if brakeout_board > 0
+    #if breakout_board > 0
 
         i2c_setup();
         #ifdef MCP23008_ADDR
@@ -302,7 +302,7 @@ void core1_entry() {
                     old_nop = nop;
                 }
             }
-            #if brakeout_board > 0
+            #if breakout_board > 0
                 #ifdef MCP23008_ADDR
                     if (checksum_error == 0 && timeout_error == 0) {
                         mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
@@ -600,7 +600,7 @@ int32_t __time_critical_func(_sendto)(uint8_t sn, uint8_t *buf, uint16_t len, ui
     return (int32_t)len;
 }
 
-#if brakeout_board > 0
+#if breakout_board > 0
 void i2c_setup(void) {
     i2c_init(i2c1, 400 * 1000); // 400 kHz
     gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
@@ -637,7 +637,7 @@ bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr) {
         return false;
     }
 }
-#endif // brakeout_board > 0
+#endif // breakout_board > 0
 
 
 void __not_in_flash_func(core0_wait)(void) {
@@ -748,7 +748,7 @@ void handle_data(){
     
     tx_buffer->inputs[0] = gpio_get_all() & 0xFFFFFFFF; // Read all GPIO inputs
 
-    #if brakeout_board > 0
+    #if breakout_board > 0
         tx_buffer->inputs[1] = input_buffer; // Read MCP23017 inputs
     #endif
 
