@@ -419,7 +419,7 @@ void udp_io_process_recv(void *arg, long period) {
 
         #if breakout_board == 1
             for (uint8_t i = 0; i < 16; i++) {
-                *d->input[i] = (rx_buffer->inputs[0] >> i) & 1; // MCP23017 inputs
+                *d->input[i] = (rx_buffer->inputs[2] >> i) & 1; // MCP23017 inputs
                 *d->input_not[i] = !(*d->input[i]); // Inverted inputs
             }
         #else
