@@ -471,6 +471,7 @@ int main() {
         gpio_set_dir(input_pins[i], GPIO_IN);
         printf("%d ", input_pins[i]);
         if (pullups[i] == -1){
+            // buggy, its an rp2040 and rp2350 bug, the internal pulldown not enough to pull down the pin its latching need and external ~8Kohm resistor if you really need to pull down the pin.
             gpio_set_pulls(input_pins[i], false, true);
         } else if (pullups[i] == 1){
             gpio_set_pulls(input_pins[i], true, false);
@@ -769,7 +770,7 @@ void handle_data(){
     #endif
 
     #if breakout_board > 0
-        tx_buffer->inputs[0] = input_buffer; // Read MCP23017 inputs
+        tx_buffer->inputs[2] = input_buffer; // Read MCP23017 inputs
         output_buffer = rx_buffer->outputs[0];
     #else
         tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
@@ -785,7 +786,7 @@ void handle_data(){
             }
         }
     #endif
-
+    
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
 }

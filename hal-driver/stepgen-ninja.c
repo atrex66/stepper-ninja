@@ -593,6 +593,24 @@ static void udp_io_process_send(void *arg, long period) {
             outs |= *d->output[i] == 1 ? 1 << i : 0; // Set the bit if output is high
         }
         tx_buffer->outputs[0]= outs;
+        uint32_t at0 = 0;
+        for (int i = 0; i < ANALOG_CH; i++) {
+            float val = *d->analog_value[i];
+
+            if (val < *d->analog_min[i]) {
+                val = *d->analog_min[i];
+            }
+
+            if (val > *d->analog_max[i]) {
+                val = *d->analog_max[i];
+            }
+
+            // Skálázás a 0–4095 DAC tartományba
+            uint16_t dac = (uint16_t)((4095.0f / *d->analog_max[i]) * val);
+            at0 |= dac << (16 * i);
+        }
+        *tx_buffer->analog_out = at0;
+
     #else
         if (out_pins_no > 0){
             uint32_t outs0=0;

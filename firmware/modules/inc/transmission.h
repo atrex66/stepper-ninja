@@ -33,7 +33,7 @@ typedef struct{
     #if encoders > 0
     uint32_t encoder_counter[encoders];
     #endif
-    uint32_t inputs[3]; // Two 32-bit inputs
+    uint32_t inputs[3];
     uint32_t jitter;
     uint8_t interrupt_data;
     uint8_t dummy;
