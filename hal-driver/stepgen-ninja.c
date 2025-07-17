@@ -609,7 +609,7 @@ static void udp_io_process_send(void *arg, long period) {
             uint16_t dac = (uint16_t)((4095.0f / *d->analog_max[i]) * val);
             at0 |= dac << (16 * i);
         }
-        *tx_buffer->analog_out = at0;
+        tx_buffer->analog_out = at0;
 
     #else
         if (out_pins_no > 0){
