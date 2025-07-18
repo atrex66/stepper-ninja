@@ -16,15 +16,15 @@
 
 extern void reset_with_watchdog();
 
-configuration_t default_config = {
-    .mac = {0x00, 0x08, 0xDC, 0x12, 0x34, 0x56},
-    .ip = {192, 168, 0, 177},
-    .sn = {255, 255, 255, 0},
-    .gw = {192, 168, 0, 1},
+const configuration_t default_config = {
+    .mac = DEFAULT_MAC,
+    .ip = DEFAULT_IP,
+    .sn = DEFAULT_SUBNET,
+    .gw = DEFAULT_GATEWAY,
     .dns = {8, 8, 8, 8},
     .dhcp = 1,
-    .port = 8888,
-    .timeout = 1000000,
+    .port = DEFAULT_PORT,
+    .timeout = DEFAULT_TIMEOUT,
     .checksum = 0
 };
 

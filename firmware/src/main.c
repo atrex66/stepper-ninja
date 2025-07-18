@@ -72,8 +72,8 @@ transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
 
 #if breakout_board > 0
-    uint32_t input_buffer;
-    uint32_t output_buffer;
+    volatile uint32_t input_buffer;
+    volatile uint32_t output_buffer;
 #else
     const uint8_t input_pins[] = in_pins;
     const uint8_t output_pins[] = out_pins; // Example output pins
@@ -254,7 +254,7 @@ void core1_entry() {
                     // reset the analog outputs
                     mcp4725_write_data(MCP4725_BASE, 0);
                     mcp4725_write_data(MCP4725_BASE + 1, 0);
-                    mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
+                    mcp_write_register(MCP23008_ADDR, 0x09, 0); // Set outputs
 #endif
                 rx_counter = 0;
                 timeout_error = 1;
@@ -331,8 +331,7 @@ void core1_entry() {
 
             #if breakout_board > 0
                 mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
-                input_buffer  = mcp_read_register(MCP23017_ADDR, 0x13) << 8;
-                input_buffer |= mcp_read_register(MCP23017_ADDR, 0x12);
+                input_buffer = mcp_read_register(MCP23017_ADDR, 0x13) << 8 | mcp_read_register(MCP23017_ADDR, 0x12);
                 mcp4725_write_data(MCP4725_BASE + 0, rx_buffer->analog_out & 0xfff);
                 mcp4725_write_data(MCP4725_BASE + 1, (rx_buffer->analog_out >> 16) & 0xfff);
             #endif
