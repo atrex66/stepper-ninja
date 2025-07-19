@@ -331,7 +331,7 @@ void core1_entry() {
 
             #if breakout_board > 0
                 mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
-                input_buffer = mcp_read_register(MCP23017_ADDR, 0x13) << 8 | mcp_read_register(MCP23017_ADDR, 0x12);
+                input_buffer = mcp_read_register(MCP23017_ADDR, 0x13) | mcp_read_register(MCP23017_ADDR, 0x12) << 8;
                 mcp4725_write_data(MCP4725_BASE + 0, rx_buffer->analog_out & 0xfff);
                 mcp4725_write_data(MCP4725_BASE + 1, (rx_buffer->analog_out >> 16) & 0xfff);
             #endif

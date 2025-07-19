@@ -38,7 +38,7 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 ## Contributors
 
-- **code**: atrex66
+- **code**: atrex66, pippin88
 
 - **testing**: Jimfong1, Galetops
 
