@@ -20,6 +20,9 @@ You definietly not need this to work with the ninja, only a cheap printerport br
   - pico2 + Raspberry Pi4 (same as above)
   - pico + PI ZERO2W (Uses SPI connection, linuxcnc runs with linuxcncrsh, tested on Bookworm with patched kernel 6.13.2.5-rt5-v7+)
   - pico2 + PI ZERO2W (same as above, able to use the extra GPIO from the ZERO2W)
+  - Stepper Ninja official breakout board (need pico and a w5500 module)
+
+- **Breakout-board v1.0 - Digital version**:
 
 - **step-generator**: (max 8 with pico 1, max 12 with pico2) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS with 125Mhz pico) (60nS - 4000nS with 200Mhz pico).
 
