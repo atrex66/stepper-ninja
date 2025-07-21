@@ -5,6 +5,17 @@
     // **************************************************************************    
     // **           Chinese printerport breakout board settings                **
     // **************************************************************************
+
+// default network settings after you flash the PICO
+    #define DEFAULT_MAC {0x00, 0x08, 0xDC, 0x12, 0x34, 0x56}
+    #define DEFAULT_IP {192, 168, 0, 177}
+    #define DEFAULT_PORT 8888
+    #define DEFAULT_GATEWAY {192, 168, 0, 1}
+    #define DEFAULT_SUBNET {255, 255, 255, 0}
+    // timeout for detecting disconnection from linuxcnc
+    #define DEFAULT_TIMEOUT 1000000
+
+    
     #define stepgens 4
     
     #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}

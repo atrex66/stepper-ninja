@@ -22,7 +22,7 @@ You definietly not need this to work with the ninja, only a cheap printerport br
   - pico2 + PI ZERO2W (same as above, able to use the extra GPIO from the ZERO2W)
   - Stepper Ninja official breakout board (need pico and a w5500 module)
 
-- **Breakout-board v1.0 - Digital version**:
+- **Breakout-board v1.0 - Digital version**: 16 optical isolated input, 8x optical isolated output, 4x step generator (differential out), 2x high speed encoder input, 2x 12bit DAC output (unipolar).
 
 - **step-generator**: (max 8 with pico 1, max 12 with pico2) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS with 125Mhz pico) (60nS - 4000nS with 200Mhz pico).
 

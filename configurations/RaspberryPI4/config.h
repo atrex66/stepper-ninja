@@ -7,6 +7,15 @@
     // ** if you want to use pins instead of GPIO use PIN_1, PIN_2, PIN_4, ... **
     // **************************************************************************
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
+    
+    // default network settings after you flash the PICO
+    #define DEFAULT_MAC {0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+    #define DEFAULT_IP {0, 0, 0, 0}
+    #define DEFAULT_PORT 0
+    #define DEFAULT_GATEWAY {0, 0, 0, 0}
+    #define DEFAULT_SUBNET {0, 0, 0, 0}
+    // timeout for detecting disconnection from linuxcnc
+    #define DEFAULT_TIMEOUT 1000000
 
     // All GPIO form 0-15 and 22-31 are usable
     #define stepgens 4
