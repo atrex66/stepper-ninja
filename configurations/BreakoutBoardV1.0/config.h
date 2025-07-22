@@ -59,7 +59,7 @@
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
     
-    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board
+    #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
 
 #include "footer.h"
 #endif

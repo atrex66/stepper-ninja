@@ -14,7 +14,6 @@
     #define DEFAULT_SUBNET {255, 255, 255, 0}
     // timeout for detecting disconnection from linuxcnc
     #define DEFAULT_TIMEOUT 1000000
-
     
     #define stepgens 4
     

@@ -1,0 +1,1 @@
+cp config.h ../../firmware/inc/config.h
