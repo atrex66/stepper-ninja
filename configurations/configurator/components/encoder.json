@@ -1,0 +1,62 @@
+{
+  "Name": "Encoder Counter-",
+  "Image": "None",
+  "MaxComponents": 8,
+  "LeftPins": 3,
+  "RightPins": 3,
+  "DeviceType": "SLAVE",
+  "DefaultWidth": 100,
+  "DefaultHeight": 70,
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "A",
+      "type": "USABLE",
+      "function": "A phase of encoder",
+      "ConfigName": "enc_pins"
+    },
+    {
+      "pin": 2,
+      "side": "LEFT",
+      "pinPos": 2,
+      "name": "B",
+      "type": "USABLE",
+      "function": "B phase of encoder"
+    },
+    {
+      "pin": 3,
+      "side": "LEFT",
+      "pinPos": 3,
+      "name": "Z",
+      "type": "USABLE",
+      "function": "Z or Index pulse of the encoder"
+    },
+    { 
+      "pin": 1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "A",
+      "type": "USABLE",
+      "function": "A phase of encoder",
+      "ConfigName": "enc_pins"
+    },
+    {
+      "pin": 2,
+      "side": "RIGHT",
+      "pinPos": 2,
+      "name": "B",
+      "type": "USABLE",
+      "function": "B phase of encoder"
+    },
+    {
+      "pin": 3,
+      "side": "RIGHT",
+      "pinPos": 3,
+      "name": "Z",
+      "type": "USABLE",
+      "function": "Z or Index pulse of the encoder"
+    }
+  ]
+}

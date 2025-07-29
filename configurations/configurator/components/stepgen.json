@@ -1,0 +1,48 @@
+{
+  "Name": "Step Generator-",
+  "Image": "None",
+  "MaxComponents": 8,
+  "LeftPins": 2,
+  "RightPins": 2,
+  "DeviceType": "SLAVE",
+  "DefaultWidth": 100,
+  "DefaultHeight": 50,
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "Step",
+      "type": "USABLE",
+      "function": "Step pin of the stepgenerator",
+      "ConfigName": "stepgen_steps"
+    },
+    {
+      "pin": 2,
+      "side": "LEFT",
+      "pinPos": 2,
+      "name": "Dir",
+      "type": "USABLE",
+      "function": "Dir pin of the stepgenerator",
+      "ConfigName": "stepgen_steps"
+    },
+    { 
+      "pin": 1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "Step",
+      "type": "USABLE",
+      "function": "Step pin of the stepgenerator",
+      "ConfigName": "stepgen_dirs"
+    },
+    {
+      "pin": 2,
+      "side": "RIGHT",
+      "pinPos": 2,
+      "name": "Dir",
+      "type": "USABLE",
+      "function": "Dir pin of the stepgenerator",
+      "ConfigName": "stepgen_dirs"
+    }
+  ]
+}
