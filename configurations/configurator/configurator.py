@@ -6,6 +6,8 @@ screen = pygame.display.set_mode((1280, 1000))
 pygame.display.set_caption("Stepper-Ninja Configurator !ALPHA!")
 clock = pygame.time.Clock()
 
+nodes = []
+
 comp_dir = "components"
 comps = list_json_files(comp_dir)
 components = []
@@ -14,13 +16,22 @@ components.append(ListBox(pygame.Rect(0, 0, 200, 800), comps, "components"))
 components.append(ListBox(pygame.Rect(screen.get_width() - 200, 0, 200, 800), pinek, "connections"))
 components[-1].font = FONT
 
+external = 0
+
 def button_callback(id):
-    global curves
+    global curves, nodes, external
+    if id == "ADDCOMP":
+        nodes.append(load_component(os.path.join(comp_dir, components[0].get_selected())))
     if id == "DELLAST":
         curves.pop()
     if id == "DELCONN":
-        if components[-1].selected != 0:
+        if components[1].selected != 0:
             curves.pop(components[-1].selected)
+    if id == "BUILDINSTALL":
+        external = 1
+        filename = prompt_file()
+        print(filename)
+        external = 0
 
 buttons = []
 buttons.append(Button(pygame.Rect(0, 949, 200, 50), "Add comp", name="ADDCOMP"))
@@ -41,24 +52,18 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-        pico.handle_events(event)
-        for stepgen in stepgens:
-            stepgen.handle_events(event)
-        for encoder in encoders:
-            encoder.handle_events(event)
-        for comp in components:
-            comp.handle_event(event)
-        for button in buttons:
-            button.handle_event(event)
+        if not external:
+            for node in nodes:
+                node.handle_events(event)
+            for comp in components:
+                comp.handle_event(event)
+            for button in buttons:
+                button.handle_event(event)
 
-    
-    for stepgen in stepgens:
-        stepgen.draw(screen)
+    for node in nodes:
+        node.draw(screen)
 
-    for encoder in encoders:
-        encoder.draw(screen)
-
-    pico.draw(screen)
+    # pico.draw(screen)
 
     for button in buttons:
         button.draw(screen)

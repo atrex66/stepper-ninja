@@ -5,6 +5,10 @@
   "LeftPins": 20,
   "RightPins": 20,
   "DeviceType": "MASTER",
+  "PinOffsetY": 3,
+  "DefaultWidth": 100,
+  "DefaultHeight": 20,
+  "ConfigName": "None",
   "Pins": [
     {
       "pin": 0,
@@ -171,6 +175,7 @@
       "side": "RIGHT",
       "pinPos": 20,
       "name": "GP16",
+      "type": "USABLE",
       "function": "GPIO, UART0 TX, I2C0 SDA, SPI0 RX"
     },
     {

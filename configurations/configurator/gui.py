@@ -1,3 +1,5 @@
+import tkinter
+import tkinter.filedialog
 import pygame
 import numpy as np
 import json
@@ -31,16 +33,6 @@ def draw_text(screen, x, y, text):
     screen.blit(text, (x, y))
 
 def list_json_files(directory):
-    """
-    Összegyűjti az összes JSON fájl nevét egy megadott könyvtárból.
-    
-    Args:
-        directory (str): A könyvtár elérési útja
-    
-    Returns:
-        list: A JSON fájlok neveinek listája
-        []: Üres lista, ha nincs JSON fájl vagy a könyvtár nem létezik
-    """
     try:
         # Ellenőrizzük, hogy a könyvtár létezik-e
         dirs = os.path.join(BASE_DIR, directory)
@@ -66,25 +58,12 @@ def list_json_files(directory):
         print(f"Hiba történt a fájlok listázása közben: {str(e)}")
         return []
 
-# Példa használatra:
-# json_files = list_json_files("path/to/your/directory")
-# print(json_files)
 
 def load_component(json_file_path):
-    """
-    Betölti a Raspberry Pi Pico pinek adatait egy JSON fájlból.
-    
-    Args:
-        json_file_path (str): A JSON fájl elérési útja
-        
-    Returns:
-        dict: A pinek adatai szótár formátumban
-        None: Ha hiba történik a fájl betöltése közben
-    """
     try:
         with open(os.path.join(BASE_DIR, json_file_path), 'r') as file:
             data = json.load(file)
-        return data
+        #return data
     except FileNotFoundError:
         print(f"Error: {json_file_path} file not found!")
         return None
@@ -94,7 +73,36 @@ def load_component(json_file_path):
     except Exception as e:
         print(f"Error: error while loading json file {str(e)}")
         return None
+    name = data["Name"]
+    image_path = data["Image"]
+    leftPins = data["LeftPins"]
+    rightPins = data["RightPins"]
+    defwidth = data["DefaultWidth"]
+    defheight = data["DefaultHeight"]
+    pinoffsy = data["PinOffsetY"]
 
+    if image_path != "None":
+        image = pygame.image.load(os.path.join(BASE_DIR, image_path))
+    else:
+        image = pygame.Surface((defwidth, defheight))
+
+    node = Node(200, 350, image.get_width(), image.get_height(), image_path, 5, name, leftPins, rightPins)
+    node.pin_y_offs = pinoffsy
+
+    for pin in data["Pins"]:
+        Pinpos = pin["pinPos"]
+        name = pin["name"]
+        shape = Shape.RECTANGLE
+        if pin["side"] == "LEFT":
+            pinside = Side.LEFT
+        else:
+            pinside = Side.RIGHT
+        if pin["type"] == "USABLE":
+            pintype = PinType.NOT_USED
+        elif pin["type"] == "UNUSABLE":
+            pintype = PinType.UNUSABLE
+        node.add_pin(Pin(Pinpos, name, shape, pinside, pintype))
+    return node
 
 class PinType(Enum):
     NOT_USED = 0
@@ -416,3 +424,12 @@ class Button:
     
     def draw(self, surface:pygame.Surface):
         surface.blit(self.surface, (self.rectangle.x, self.rectangle.y))
+
+
+def prompt_file():
+    """Create a Tk file dialog and cleanup when finished"""
+    top = tkinter.Tk()
+    top.withdraw()  # hide window
+    file_name = tkinter.filedialog.askopenfilename(initialdir=os.path.join(BASE_DIR, ".."),parent=top)
+    top.destroy()
+    return file_name
