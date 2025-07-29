@@ -1,0 +1,29 @@
+{
+  "Name": "Input-",
+  "Image": "None",
+  "MaxComponents": 64,
+  "LeftPins": 1,
+  "RightPins": 1,
+  "DeviceType": "SLAVE",
+  "DefaultWidth": 100,
+  "DefaultHeight": 20,
+  "ConfigName": "in_pins",
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "Input",
+      "type": "USABLE",
+      "function": "Input Pin"
+    },
+    { 
+      "pin": 1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "Input",
+      "type": "USABLE",
+      "function": "Input Pin"
+    }
+  ]
+}

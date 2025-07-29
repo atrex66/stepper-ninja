@@ -1,0 +1,30 @@
+{
+  "Name": "PWM-",
+  "Image": "None",
+  "MaxComponents": 16,
+  "LeftPins": 1,
+  "RightPins": 1,
+  "DeviceType": "SLAVE",
+  "DefaultWidth": 100,
+  "DefaultHeight": 20,
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "PWM",
+      "type": "USABLE",
+      "function": "Input Pin",
+      "ConfigName": "pwm_pin"
+    },
+    { 
+      "pin": 1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "PWM",
+      "type": "USABLE",
+      "function": "Input Pin",
+      "ConfigName": "pwm_pin"
+    }
+  ]
+}

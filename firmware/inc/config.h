@@ -17,7 +17,7 @@
     #define DEFAULT_TIMEOUT 1000000
 
     // switch off this option (breakout_board 0) to use custom configuration
-    #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board
+    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board
 
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
     // All GPIO form 0-15 and 22-31 are usable
@@ -61,6 +61,9 @@
     #define raspi_input_pullups {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
-    
+
+    #define KBMATRIX
+
 #include "footer.h"
+#include "kbmatrix.h"
 #endif

@@ -22,3 +22,6 @@ utility/pico_spi_test.c
 utility/spi_test_master.c
 utility/osd.c
 utility/osd
+configurations/configurator/beziertest.py
+configurations/configurator/__pycache__/predefined.cpython-312.pyc
+configurations/configurator/__pycache__/gui.cpython-312.pyc

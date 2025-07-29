@@ -1,0 +1,329 @@
+{
+  "Name": "Raspberry PI PICO",
+  "Image": "pico.png",
+  "MaxComponents": 1,
+  "LeftPins": 20,
+  "RightPins": 20,
+  "DeviceType": "MASTER",
+  "Pins": [
+    {
+      "pin": 0,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "GP0",
+      "type": "USABLE",
+      "function": "GPIO, UART0 TX, I2C0 SDA, SPI0 RX"
+    },
+    {
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 2,
+      "name": "GP1",
+      "type": "USABLE",
+      "function": "GPIO, UART0 RX, I2C0 SCL, SPI0 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "LEFT",
+      "pinPos": 3,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 2,
+      "side": "LEFT",
+      "pinPos": 4,
+      "name": "GP2",
+      "type": "USABLE",
+      "function": "GPIO, UART1 TX, I2C1 SDA, SPI0 SCK"
+    },
+    {
+      "pin": 3,
+      "side": "LEFT",
+      "pinPos": 5,
+      "name": "GP3",
+      "type": "USABLE",
+      "function": "GPIO, UART1 RX, I2C1 SCL, SPI0 TX"
+    },
+    {
+      "pin": 4,
+      "side": "LEFT",
+      "pinPos": 6,
+      "name": "GP4",
+      "type": "USABLE",
+      "function": "GPIO, UART1 CTS, I2C0 SDA, SPI0 RX"
+    },
+    {
+      "pin": 5,
+      "side": "LEFT",
+      "pinPos": 7,
+      "name": "GP5",
+      "type": "USABLE",
+      "function": "GPIO, UART1 RTS, I2C0 SCL, SPI0 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "LEFT",
+      "pinPos": 8,
+      "name": "GND",
+      "type": "USABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 6,
+      "side": "LEFT",
+      "pinPos": 9,
+      "name": "GP6",
+      "type": "USABLE",
+      "function": "GPIO, I2C1 SDA, SPI0 SCK"
+    },
+    {
+      "pin": 7,
+      "side": "LEFT",
+      "pinPos": 10,
+      "name": "GP7",
+      "type": "USABLE",
+      "function": "GPIO, I2C1 SCL, SPI0 TX"
+    },
+    {
+      "pin": 8,
+      "side": "LEFT",
+      "pinPos": 11,
+      "name": "GP8",
+      "type": "USABLE",
+      "function": "GPIO, UART0 TX, I2C0 SDA, SPI1 RX"
+    },
+    {
+      "pin": 9,
+      "side": "LEFT",
+      "pinPos": 12,
+      "name": "GP9",
+      "type": "USABLE",
+      "function": "GPIO, UART0 RX, I2C0 SCL, SPI1 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "LEFT",
+      "pinPos": 13,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 10,
+      "side": "LEFT",
+      "pinPos": 14,
+      "name": "GP10",
+      "type": "USABLE",
+      "function": "GPIO, UART1 TX, I2C1 SDA, SPI1 SCK"
+    },
+    {
+      "pin": 11,
+      "side": "LEFT",
+      "pinPos": 15,
+      "name": "GP11",
+      "type": "USABLE",
+      "function": "GPIO, UART1 RX, I2C1 SCL, SPI1 TX"
+    },
+    {
+      "pin": 12,
+      "side": "LEFT",
+      "pinPos": 16,
+      "name": "GP12",
+      "type": "USABLE",
+      "function": "GPIO, UART1 CTS, I2C0 SDA, SPI1 RX"
+    },
+    {
+      "pin": 13,
+      "side": "LEFT",
+      "pinPos": 17,
+      "name": "GP13",
+      "type": "USABLE",
+      "function": "GPIO, UART1 RTS, I2C0 SCL, SPI1 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "LEFT",
+      "pinPos": 18,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 14,
+      "side": "LEFT",
+      "pinPos": 19,
+      "name": "GP14",
+      "type": "USABLE",
+      "function": "GPIO, I2C1 SDA, SPI1 SCK"
+    },
+    {
+      "pin": 15,
+      "side": "LEFT",
+      "pinPos": 20,
+      "name": "GP15",
+      "type": "USABLE",
+      "function": "GPIO, I2C1 SCL, SPI1 TX"
+    },
+    {
+      "pin": 16,
+      "side": "RIGHT",
+      "pinPos": 20,
+      "name": "GP16",
+      "function": "GPIO, UART0 TX, I2C0 SDA, SPI0 RX"
+    },
+    {
+      "pin": 17,
+      "side": "RIGHT",
+      "pinPos": 19,
+      "name": "GP17",
+      "type": "UNUSABLE",
+      "function": "GPIO, UART0 RX, I2C0 SCL, SPI0 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 18,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 18,
+      "side": "RIGHT",
+      "pinPos": 17,
+      "name": "GP18",
+      "type": "UNUSABLE",
+      "function": "GPIO, UART1 TX, I2C1 SDA, SPI0 SCK"
+    },
+    {
+      "pin": 19,
+      "side": "RIGHT",
+      "pinPos": 16,
+      "name": "GP19",
+      "type": "UNUSABLE",
+      "function": "GPIO, UART1 RX, I2C1 SCL, SPI0 TX"
+    },
+    {
+      "pin": 20,
+      "side": "RIGHT",
+      "pinPos": 15,
+      "name": "GP20",
+      "type": "UNUSABLE",
+      "function": "GPIO, I2C0 SDA, SPI0 RX"
+    },
+    {
+      "pin": 21,
+      "side": "RIGHT",
+      "pinPos": 14,
+      "name": "GP21",
+      "type": "UNUSABLE",
+      "function": "GPIO, I2C0 SCL, SPI0 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 13,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 22,
+      "side": "RIGHT",
+      "pinPos": 12,
+      "name": "GP22",
+      "type": "USABLE",
+      "function": "GPIO, I2C1 SDA, SPI0 SCK"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 11,
+      "name": "RUN",
+      "type": "UNUSABLE",
+      "function": "Reset pin"
+    },
+    {
+      "pin": 26,
+      "side": "RIGHT",
+      "pinPos": 10,
+      "name": "GP26",
+      "type": "USABLE",
+      "function": "GPIO, ADC0, I2C1 SDA, SPI1 RX"
+    },
+    {
+      "pin": 27,
+      "side": "RIGHT",
+      "pinPos": 9,
+      "name": "GP27",
+      "type": "USABLE",
+      "function": "GPIO, ADC1, I2C1 SCL, SPI1 CSn"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 8,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": 28,
+      "side": "RIGHT",
+      "pinPos": 7,
+      "name": "GP28",
+      "type": "USABLE",      
+      "function": "GPIO, ADC2, I2C0 SDA, SPI1 SCK"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 6,
+      "name": "ADC_VREF",
+      "type": "UNUSABLE",
+      "function": "ADC Reference Voltage"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 5,
+      "name": "3V3_OUT",
+      "type": "UNUSABLE",
+      "function": "3.3V Output"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 4,
+      "name": "3V3_EN",
+      "type": "UNUSABLE",
+      "function": "3.3V Enable"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 3,
+      "name": "GND",
+      "type": "UNUSABLE",
+      "function": "Ground"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 2,
+      "name": "VSYS",
+      "type": "UNUSABLE",
+      "function": "System Voltage Input (1.8V to 5.5V)"
+    },
+    {
+      "pin": -1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "VBUS",
+      "type": "UNUSABLE",
+      "function": "USB Voltage Input (5V)"
+    }
+  ]
+}
