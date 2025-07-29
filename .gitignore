@@ -22,3 +22,4 @@ utility/pico_spi_test.c
 utility/spi_test_master.c
 utility/osd.c
 utility/osd
+configurations/configurator/beziertest.py
