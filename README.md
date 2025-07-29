@@ -4,7 +4,7 @@ An open-source, free, high performance step/generator, quadrature encoder counte
 
 You definietly not need this to work with the ninja, only a cheap printerport breakout board, other configurations are possible!
 
-![official breakout board](docs/images/updated_sm_black_top.png)
+![official breakout board](docs/images/panel.jpg)
 
 ## Features
 
