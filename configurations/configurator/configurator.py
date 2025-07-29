@@ -1,6 +1,5 @@
 import pygame
 from gui import *
-from predefined import *
 
 screen = pygame.display.set_mode((1280, 1000))
 pygame.display.set_caption("Stepper-Ninja Configurator !ALPHA!")
@@ -48,7 +47,7 @@ buttons[-1].callback = button_callback
 running = True
 while running:
     screen.fill(GRAY)
-    
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -62,8 +61,6 @@ while running:
 
     for node in nodes:
         node.draw(screen)
-
-    # pico.draw(screen)
 
     for button in buttons:
         button.draw(screen)

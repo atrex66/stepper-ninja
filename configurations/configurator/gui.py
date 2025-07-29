@@ -11,6 +11,7 @@ pygame.init()
 pygame.font.init()
 
 curves = []
+node_indexes = {}
 
 # Színek
 WHITE = (255, 255, 255)
@@ -60,6 +61,7 @@ def list_json_files(directory):
 
 
 def load_component(json_file_path):
+    global node_indexes
     try:
         with open(os.path.join(BASE_DIR, json_file_path), 'r') as file:
             data = json.load(file)
@@ -86,13 +88,23 @@ def load_component(json_file_path):
     else:
         image = pygame.Surface((defwidth, defheight))
 
+    if name not in node_indexes.keys():
+        node_indexes[name] = 0
     node = Node(200, 350, image.get_width(), image.get_height(), image_path, 5, name, leftPins, rightPins)
     node.pin_y_offs = pinoffsy
+    node_indexes[name] += 1
 
     for pin in data["Pins"]:
         Pinpos = pin["pinPos"]
         name = pin["name"]
         shape = Shape.RECTANGLE
+        if "shape" in pin.keys():
+            if pin["shape"] == "RECTANGLE":
+                shape = Shape.RECTANGLE
+            elif pin["shape"] == "CIRCLE":
+                shape = Shape.CIRCLE
+            elif pin["shape"] == "ELLIPSE":
+                shape = Shape.ELLIPSE
         if pin["side"] == "LEFT":
             pinside = Side.LEFT
         else:
@@ -231,11 +243,13 @@ class Pin:
 
 class Node:
     def __init__(self, x:int, y:int, width:int, height:int, image_path:str, margin:int, label:str, leftpins_max:int, rightpins_max:int):
+        global node_indexes
         self.path = os.path.join(BASE_DIR, image_path)
         self.image_path = image_path
         self.margin = margin
-        self.label = FONT.render(label, 1, "white")
-        self.name = label
+        self.name = f"{label}{node_indexes[label]}"
+        self.label = FONT.render(self.name , 1, "white")
+        self.index = node_indexes[label]
         self.x = x
         self.y = y
         self.pin_y_offs = 0
@@ -354,16 +368,17 @@ class ListBox:
         self.surface.fill(0)
         self.rectangles = []
         pygame.draw.rect(self.surface, "Yellow", self.rectangle, 1, 3)
+        hght = self.font.render("A", True, "White").get_height()
         for index, line in enumerate(self.lines):
             text = self.font.render(line, True, ("white"))
             x = self.padding
-            y = self.margin + (index * (text.get_height() + self.padding))
+            y = self.margin + (index * (hght + self.padding))
             width = self.rectangle.width - self.padding * 2
-            height = text.get_height() + self.padding
+            height = hght + self.padding
             self.rectangles.append(pygame.Rect(x, y, width, height))
             if self.selected == index:
                 pygame.draw.rect(self.surface, "gray", self.rectangles[-1], width=0, border_radius=1)
-            self.surface.blit(text, (self.margin, self.margin + (index * (text.get_height() + self.padding))))
+            self.surface.blit(text, (self.margin, self.margin + (index * (hght + self.padding))))
 
     def get_selected(self):
         return self.lines[self.selected]
@@ -429,7 +444,7 @@ class Button:
 def prompt_file():
     """Create a Tk file dialog and cleanup when finished"""
     top = tkinter.Tk()
-    top.withdraw()  # hide window
+    # top.withdraw()  # hide window
     file_name = tkinter.filedialog.askopenfilename(initialdir=os.path.join(BASE_DIR, ".."),parent=top)
     top.destroy()
     return file_name

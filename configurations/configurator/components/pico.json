@@ -1,5 +1,5 @@
 {
-  "Name": "Raspberry PI PICO",
+  "Name": "Pico",
   "Image": "pico.png",
   "MaxComponents": 1,
   "LeftPins": 20,
@@ -13,6 +13,7 @@
     {
       "pin": 0,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 1,
       "name": "GP0",
       "type": "USABLE",
@@ -21,6 +22,7 @@
     {
       "pin": 1,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 2,
       "name": "GP1",
       "type": "USABLE",
@@ -29,6 +31,7 @@
     {
       "pin": -1,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 3,
       "name": "GND",
       "type": "UNUSABLE",
@@ -37,6 +40,7 @@
     {
       "pin": 2,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 4,
       "name": "GP2",
       "type": "USABLE",
@@ -45,6 +49,7 @@
     {
       "pin": 3,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 5,
       "name": "GP3",
       "type": "USABLE",
@@ -53,6 +58,7 @@
     {
       "pin": 4,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 6,
       "name": "GP4",
       "type": "USABLE",
@@ -61,6 +67,7 @@
     {
       "pin": 5,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 7,
       "name": "GP5",
       "type": "USABLE",
@@ -69,14 +76,16 @@
     {
       "pin": -1,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 8,
       "name": "GND",
-      "type": "USABLE",
+      "type": "UNUSABLE",
       "function": "Ground"
     },
     {
       "pin": 6,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 9,
       "name": "GP6",
       "type": "USABLE",
@@ -85,6 +94,7 @@
     {
       "pin": 7,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 10,
       "name": "GP7",
       "type": "USABLE",
@@ -93,6 +103,7 @@
     {
       "pin": 8,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 11,
       "name": "GP8",
       "type": "USABLE",
@@ -101,6 +112,7 @@
     {
       "pin": 9,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 12,
       "name": "GP9",
       "type": "USABLE",
@@ -109,6 +121,7 @@
     {
       "pin": -1,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 13,
       "name": "GND",
       "type": "UNUSABLE",
@@ -117,6 +130,7 @@
     {
       "pin": 10,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 14,
       "name": "GP10",
       "type": "USABLE",
@@ -125,6 +139,7 @@
     {
       "pin": 11,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 15,
       "name": "GP11",
       "type": "USABLE",
@@ -133,6 +148,7 @@
     {
       "pin": 12,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 16,
       "name": "GP12",
       "type": "USABLE",
@@ -141,6 +157,7 @@
     {
       "pin": 13,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 17,
       "name": "GP13",
       "type": "USABLE",
@@ -149,6 +166,7 @@
     {
       "pin": -1,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 18,
       "name": "GND",
       "type": "UNUSABLE",
@@ -157,6 +175,7 @@
     {
       "pin": 14,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 19,
       "name": "GP14",
       "type": "USABLE",
@@ -165,6 +184,7 @@
     {
       "pin": 15,
       "side": "LEFT",
+      "shape": "RECTANGLE",
       "pinPos": 20,
       "name": "GP15",
       "type": "USABLE",
@@ -173,14 +193,16 @@
     {
       "pin": 16,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 20,
       "name": "GP16",
-      "type": "USABLE",
+      "type": "UNUSABLE",
       "function": "GPIO, UART0 TX, I2C0 SDA, SPI0 RX"
     },
     {
       "pin": 17,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 19,
       "name": "GP17",
       "type": "UNUSABLE",
@@ -189,6 +211,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 18,
       "name": "GND",
       "type": "UNUSABLE",
@@ -197,6 +220,7 @@
     {
       "pin": 18,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 17,
       "name": "GP18",
       "type": "UNUSABLE",
@@ -205,6 +229,7 @@
     {
       "pin": 19,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 16,
       "name": "GP19",
       "type": "UNUSABLE",
@@ -213,6 +238,7 @@
     {
       "pin": 20,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 15,
       "name": "GP20",
       "type": "UNUSABLE",
@@ -221,6 +247,7 @@
     {
       "pin": 21,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 14,
       "name": "GP21",
       "type": "UNUSABLE",
@@ -229,6 +256,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 13,
       "name": "GND",
       "type": "UNUSABLE",
@@ -237,6 +265,7 @@
     {
       "pin": 22,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 12,
       "name": "GP22",
       "type": "USABLE",
@@ -245,6 +274,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 11,
       "name": "RUN",
       "type": "UNUSABLE",
@@ -253,6 +283,7 @@
     {
       "pin": 26,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 10,
       "name": "GP26",
       "type": "USABLE",
@@ -261,6 +292,7 @@
     {
       "pin": 27,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 9,
       "name": "GP27",
       "type": "USABLE",
@@ -269,6 +301,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 8,
       "name": "GND",
       "type": "UNUSABLE",
@@ -277,6 +310,7 @@
     {
       "pin": 28,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 7,
       "name": "GP28",
       "type": "USABLE",      
@@ -285,6 +319,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 6,
       "name": "ADC_VREF",
       "type": "UNUSABLE",
@@ -293,6 +328,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 5,
       "name": "3V3_OUT",
       "type": "UNUSABLE",
@@ -301,6 +337,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 4,
       "name": "3V3_EN",
       "type": "UNUSABLE",
@@ -309,6 +346,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 3,
       "name": "GND",
       "type": "UNUSABLE",
@@ -317,6 +355,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 2,
       "name": "VSYS",
       "type": "UNUSABLE",
@@ -325,6 +364,7 @@
     {
       "pin": -1,
       "side": "RIGHT",
+      "shape": "RECTANGLE",
       "pinPos": 1,
       "name": "VBUS",
       "type": "UNUSABLE",
