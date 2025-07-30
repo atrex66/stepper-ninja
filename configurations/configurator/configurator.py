@@ -45,17 +45,24 @@ external = 0
 def button_callback(id):
     global curves, nodes, external
     if id == "ADDCOMP":
-        nodes.append(load_component(os.path.join(comp_dir, components['components'].get_selected())))
+        nodename = components['components'].get_selected()
+        if nodename:
+            nodes.append(load_component(os.path.join(comp_dir, nodename)))
     if id == "DELLAST":
         curves.pop()
     if id == "DELCONN":
-        if components['connections'].selected != 0:
+        if len(components['connections'].lines) > 0:
             curves.pop(components['connections'].selected)
     if id == "BUILDINSTALL":
         external = 1
         filename = prompt_file()
         print(filename)
         external = 0
+    if id == "SAVE":
+        objects = []
+        objects.append(nodes)
+        objects.append(curves)
+        save_objects("save.pck",objects)
 
 buttons = {}
 buttons['add_comp'] = Button(pygame.Rect(0, 949, 200, 50), "Add comp", name="ADDCOMP")
@@ -66,8 +73,15 @@ buttons['build_install'] = Button(pygame.Rect(410, 949, 200, 50), "Build+Install
 buttons['build_install'].callback = button_callback
 buttons['del_conn'] = Button(pygame.Rect(615, 949, 200, 50), "Del conn", name="DELCONN")
 buttons['del_conn'].callback = button_callback
+buttons['save'] = Button(pygame.Rect(820, 949, 200, 50), "Save work", name="SAVE")
+buttons['save'].callback = button_callback
 
 forms = Form(pygame.Rect(250,250,200,200),"test form", FONT, ["yellow","darkgray"], "black")
+
+objects = load_objects("save.pck")
+if objects:
+    nodes = objects[0]
+    curves = objects[1]
 
 # Fő ciklus
 running = True
@@ -103,12 +117,18 @@ while running:
             k[-1].color = color_pairs[i]
         else:
             k.append(BezierCurve(curve.Pin0.curveStart, curve.Pin1.curveStart, offset=20, thickness=t, color=(255, 255, 0)))
-            pinek.append(f"{curve.Pin0.parent.name}-{curve.Pin0.name} -> {curve.Pin1.parent.name}-{curve.Pin1.name}")
+            slave = f"{curve.Pin0.parent.name}-{curve.Pin0.name}"
+            master = f"{curve.Pin1.parent.name}-{curve.Pin1.name}"
+            if curve.Pin0.parent.master:
+                master = f"{curve.Pin0.parent.name}-{curve.Pin0.name}"
+                slave = f"{curve.Pin1.parent.name}-{curve.Pin1.name}"
+            pinek.append(f"{master} -> {slave}")
             k[-1].color = color_pairs[i]
         
         k[-1].set_dynamic_offset()
         k[-1].draw(screen)
 
+    print(len(curves))
     components["connections"].lines = pinek
     components["connections"].update()
 

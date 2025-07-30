@@ -1,13 +1,16 @@
 {
   "Name": "PWM",
   "Image": "None",
+  "bgcolor": "white",
+  "textColor": "black",
   "MaxComponents": 16,
   "LeftPins": 1,
   "RightPins": 1,
   "DeviceType": "SLAVE",
-  "PinOffsetY": 3,
+  "PinOffsetY": 5,
   "DefaultWidth": 100,
   "DefaultHeight": 20,
+  "ConfigName": "pwm_pin",
   "Pins": [
     { 
       "pin": 1,

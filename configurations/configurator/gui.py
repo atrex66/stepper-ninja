@@ -1,7 +1,9 @@
 import tkinter
+import pickle
 import tkinter.filedialog
 import pygame
 import numpy as np
+from base64 import b64encode, b64decode
 import json
 import os
 from enum import Enum
@@ -27,7 +29,6 @@ YELLOW = (239, 242, 29)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FONT = pygame.font.SysFont("comicsans", 16)
 BIG_FONT = pygame.font.SysFont("comicsans", 32)
-
 
 def draw_text(screen, x, y, text):
     text = FONT.render(text, True, "white")
@@ -82,6 +83,7 @@ def load_component(json_file_path):
     defwidth = data["DefaultWidth"]
     defheight = data["DefaultHeight"]
     pinoffsy = data["PinOffsetY"]
+    master = True if data["DeviceType"] == "MASTER" else False
 
     if image_path != "None":
         image = pygame.image.load(os.path.join(BASE_DIR, image_path))
@@ -95,6 +97,8 @@ def load_component(json_file_path):
         node.name_background = data["bgcolor"]
     if "textColor" in data.keys():
         node.text_color = data["textColor"]
+    
+    node.master = master
     node.pin_y_offs = pinoffsy
     node_indexes[name] += 1
     node.refresh()
@@ -253,6 +257,29 @@ class BezierCurve:
                     pygame.draw.line(surface, color, l2[0], l2[1], self.thickness)
                     l2.pop(0)
 
+    def __getstate__(self):
+        state = self.__dict__.copy()  # Másolat a __dict__-ből
+        for key, value in state.items():
+            if isinstance(value, pygame.Surface):
+                # Surface-t nyers pixeladatokká konvertálunk
+                pixel_data = pygame.image.tostring(value, "RGBA")  # RGBA formátum használata
+                state[key] = {
+                    "type": "pygame.Surface",
+                    "size": value.get_size(),
+                    "pixel_format": "RGBA",
+                    "pixel_data": b64encode(pixel_data).decode('ascii')
+                }
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)  # Alap attribútumok visszaállítása
+        for key, value in self.__dict__.items():
+            if isinstance(value, dict) and value.get("type") == "pygame.Surface":
+                # Pixeladatokból Surface visszaállítása
+                pixel_data = b64decode(value["pixel_data"])
+                surface = pygame.image.fromstring(pixel_data, value["size"], value["pixel_format"])
+                self.__dict__[key] = surface
+
 
 class Pin:
     def __init__(self, pinNo:int, pinName:str, shape:int, pinSide:int, typus:int):
@@ -268,6 +295,29 @@ class Pin:
         self.curveStart = None
         self.parent = None
     
+    def __getstate__(self):
+        state = self.__dict__.copy()  # Másolat a __dict__-ből
+        for key, value in state.items():
+            if isinstance(value, pygame.Surface):
+                # Surface-t nyers pixeladatokká konvertálunk
+                pixel_data = pygame.image.tostring(value, "RGBA")  # RGBA formátum használata
+                state[key] = {
+                    "type": "pygame.Surface",
+                    "size": value.get_size(),
+                    "pixel_format": "RGBA",
+                    "pixel_data": b64encode(pixel_data).decode('ascii')
+                }
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)  # Alap attribútumok visszaállítása
+        for key, value in self.__dict__.items():
+            if isinstance(value, dict) and value.get("type") == "pygame.Surface":
+                # Pixeladatokból Surface visszaállítása
+                pixel_data = b64decode(value["pixel_data"])
+                surface = pygame.image.fromstring(pixel_data, value["size"], value["pixel_format"])
+                self.__dict__[key] = surface
+
     def __str__(self):
         return f"{self.name}:{self.pinNo}"
 
@@ -322,6 +372,7 @@ class Node:
         self.index = node_indexes[label]
         self.x = x
         self.y = y
+        self.master = False
         self.width = width
         self.height = height
         self.name_background = "white"
@@ -337,9 +388,37 @@ class Node:
         self.lastkkom = 0
         self.main_rectangle = pygame.Rect(0,0,0,0)
         self.dragging = False
+        self.image = None
+        if os.path.exists(self.path):
+            self.image = pygame.image.load(os.path.join(BASE_DIR, self.image_path))
+            self.width = self.image.get_width()
+            self.height = self.image.get_height()
         self.refresh(self.width, self.height)
         self.offsetx = 0
         self.offsety = 0
+
+    def __getstate__(self):
+        state = self.__dict__.copy()  # Másolat a __dict__-ből
+        for key, value in state.items():
+            if isinstance(value, pygame.Surface):
+                # Surface-t nyers pixeladatokká konvertálunk
+                pixel_data = pygame.image.tostring(value, "RGBA")  # RGBA formátum használata
+                state[key] = {
+                    "type": "pygame.Surface",
+                    "size": value.get_size(),
+                    "pixel_format": "RGBA",
+                    "pixel_data": b64encode(pixel_data).decode('ascii')
+                }
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)  # Alap attribútumok visszaállítása
+        for key, value in self.__dict__.items():
+            if isinstance(value, dict) and value.get("type") == "pygame.Surface":
+                # Pixeladatokból Surface visszaállítása
+                pixel_data = b64decode(value["pixel_data"])
+                surface = pygame.image.fromstring(pixel_data, value["size"], value["pixel_format"])
+                self.__dict__[key] = surface
 
     def set_pin_y_offset(self, offs:int):
         self.pin_y_offs = offs
@@ -364,40 +443,21 @@ class Node:
             self.rigthpins.append(pin)
 
     def refresh(self, width=0, height=0):
-        if os.path.exists(self.path):
-            self.image = pygame.image.load(os.path.join(BASE_DIR, self.image_path))
-            self.width = self.image.get_width()
-            self.height = self.image.get_height() + self.label.get_height()
-            self.surface = pygame.Surface((self.width , self.height), pygame.SRCALPHA)
-            self.noimage = 0
-        else:
-            self.image = pygame.Surface((self.width - self.margin, self.height - self.margin), pygame.SRCALPHA)
-            self.width = self.width
-            self.height = self.height
-            self.surface = pygame.Surface((self.width, self.height + self.label.get_height()), pygame.SRCALPHA)
-            self.surface.fill((0,0,0,255))
-            self.noimage = 1
-        
-        self.surface.blit(self.image, (0, self.label.get_height()))
+        self.surface = pygame.Surface((self.width , self.height + self.label.get_height()), pygame.SRCALPHA)
+        self.surface.fill("black")
+        self.noimage = 0
+
+        if self.image:        
+            self.surface.blit(self.image, (0, self.label.get_height()))
         self.label = FONT.render(self.name , 1, self.text_color)
         pygame.draw.rect(self.surface, self.name_background, pygame.Rect(0, 0, self.main_rectangle.width, self.label.get_height()), width=0)
         self.surface.blit(self.label, (0, 0))
         if not self.dragging:
-            self.main_rectangle = pygame.Rect(self.x, self.y, self.width, self.height)
+            self.main_rectangle = pygame.Rect(self.x, self.y, self.surface.get_width(), self.surface.get_height())
 
     def handle_events(self, e:pygame.event.Event):
         global curves
         x, y = pygame.mouse.get_pos()
-
-        if e.type == pygame.KEYDOWN:
-            self.lastkkom = e.type
-            if e.key == pygame.K_ESCAPE:
-                if len(curves) > 0:
-                    if curves[-1].Pin1 == None:
-                        curves = curves[:-1]
-            if e.key == pygame.K_DELETE:
-                if len(curves) > 0:
-                    curves.pop()
         if e.type == pygame.MOUSEMOTION:
             if self.dragging:
                 self.main_rectangle.x = e.pos[0] - self.offsx
@@ -407,8 +467,11 @@ class Node:
                     pin.set_curveStart(self.main_rectangle)
                 for pin in self.rigthpins:
                     pin.set_curveStart(self.main_rectangle)
+                return
+
         if not self.main_rectangle.collidepoint(x, y):
             return
+
         if e.type == pygame.MOUSEBUTTONDOWN:
             if e.button != 1:
                 return
@@ -421,10 +484,13 @@ class Node:
                         if len(curves) > 0:
                             if curves[-1].Pin1 == None:
                                 curves[-1].Pin1 = pin
+                                return
                             else:
                                 curves.append(Curves(pin, None))
+                                return
                         else:
                             curves.append(Curves(pin, None))
+                            return
                     self.selectedPin = pin
             if self.selectedPin == None:
                 self.dragging = True
@@ -439,7 +505,7 @@ class Node:
                 pin.parent = self
             pin.draw(self.surface)
         surface.blit(self.surface, (self.main_rectangle.x, self.main_rectangle.y))
-
+        pygame.draw.rect(surface, "red", self.main_rectangle, 1)
 
 class ListBox:
     def __init__(self, r:pygame.Rect, lines:list, name):
@@ -474,6 +540,8 @@ class ListBox:
         return self.lines[self.selected]
 
     def handle_event(self, event:pygame.event.Event):
+        if not self.rectangle.collidepoint(pygame.mouse.get_pos()):
+            return
         if event.type == pygame.MOUSEBUTTONDOWN:
             if not pygame.mouse.get_pressed(3)[0]:
                 return
@@ -481,6 +549,10 @@ class ListBox:
                 crect = pygame.Rect(self.rectangle.x + rect.x, self.rectangle.y + rect.y, rect.width, rect.height)
                 if crect.collidepoint(pygame.mouse.get_pos()):
                     self.selected = ind
+                    self.update()
+                    return
+                else:
+                    self.selected = None
                     self.update()
 
     def draw(self, surf:pygame.Surface):
@@ -538,3 +610,15 @@ def prompt_file():
     file_name = tkinter.filedialog.askopenfilename(initialdir=os.path.join(BASE_DIR, ".."),parent=top)
     top.destroy()
     return file_name
+
+
+def save_objects(filename, objects):
+    with open(os.path.join(BASE_DIR, filename), "wb") as f:
+        pickle.dump(objects, f)
+
+
+def load_objects(filename):
+    pathname = os.path.join(BASE_DIR, filename)
+    if os.path.exists(pathname):
+        with open(pathname, "rb") as f:
+            return pickle.load(f)

@@ -5,7 +5,7 @@
   "LeftPins": 3,
   "RightPins": 3,
   "DeviceType": "SLAVE",
-  "PinOffsetY": 3,
+  "PinOffsetY": 5,
   "DefaultWidth": 100,
   "DefaultHeight": 70,
   "Pins": [
