@@ -148,8 +148,30 @@ class Form:
         self.font = font
         self.titlefontheight = self.font.render("A", False, (0,0,0)).get_height()
         self.surface = pygame.Surface((r.width, r.height))
+        self.client_rect = pygame.Rect(r.x + 1, r.y + self.titlefontheight + 2, 0, 0)
         self.refresh()
-        self.client_surface = pygame.Surface((self.surface.get_width()-2, self.title.get_height() - 2))
+        self.client_surface = pygame.Surface((self.surface.get_width()-2, self.rectangle.height - self.title.get_height() - 3))
+        self.client_rect.width = self.client_surface.get_width()
+        self.client_rect.height = self.client_surface.get_width()
+        self.draggign = False
+        self.offsx = 0
+        self.offsy = 0
+
+    def handle_events(self, event:pygame.event.Event):
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if self.rectangle.collidepoint(event.pos):
+                self.draggign = True
+                self.offsx = event.pos[0] - self.rectangle.x
+                self.offsy = event.pos[1] - self.rectangle.y
+        if event.type == pygame.MOUSEBUTTONUP:
+                self.draggign = False
+                self.offsx = 0
+                self.offsy = 0
+        if event.type == pygame.MOUSEMOTION:
+            if self.draggign:
+                self.rectangle.x = event.pos[0] - self.offsx
+                self.rectangle.y = event.pos[1] - self.offsy
+                self.refresh()
 
     def refresh(self):
         text = self.font.render(self.caption, True, self.font_fg)
@@ -160,11 +182,12 @@ class Form:
         self.title = pygame.transform.smoothscale(gradient, (self.title.get_width(), self.title.get_height()))
         self.title.blit(text, (1,1))
         self.surface.blit(self.title, (1,1))
+        self.client_rect.x = self.rectangle.x + 1
+        self.client_rect.y = self.rectangle.y + self.title.get_height() + 2
 
     def draw(self, surface:pygame.surface.Surface):
-        self.surface.blit(self.client_surface, (1, self.title.get_height()))
+        self.surface.blit(self.client_surface, (1, self.title.get_height() + 2))
         surface.blit(self.surface, (self.rectangle.x, self.rectangle.y))
-
 
 class Curves:
     def __init__(self, p0, p1):
@@ -313,7 +336,10 @@ class Node:
         self.selectedPin = None
         self.lastkkom = 0
         self.main_rectangle = pygame.Rect(0,0,0,0)
+        self.dragging = False
         self.refresh(self.width, self.height)
+        self.offsetx = 0
+        self.offsety = 0
 
     def set_pin_y_offset(self, offs:int):
         self.pin_y_offs = offs
@@ -356,7 +382,8 @@ class Node:
         self.label = FONT.render(self.name , 1, self.text_color)
         pygame.draw.rect(self.surface, self.name_background, pygame.Rect(0, 0, self.main_rectangle.width, self.label.get_height()), width=0)
         self.surface.blit(self.label, (0, 0))
-        self.main_rectangle = pygame.Rect(self.x, self.y, self.width, self.height)
+        if not self.dragging:
+            self.main_rectangle = pygame.Rect(self.x, self.y, self.width, self.height)
 
     def handle_events(self, e:pygame.event.Event):
         global curves
@@ -371,19 +398,19 @@ class Node:
             if e.key == pygame.K_DELETE:
                 if len(curves) > 0:
                     curves.pop()
-
-        if not self.main_rectangle.collidepoint(x, y):
-            return
         if e.type == pygame.MOUSEMOTION:
-            xr, yr = pygame.mouse.get_rel()
-            if pygame.mouse.get_pressed(3)[0]:
-                self.main_rectangle.move_ip(xr, yr)
+            if self.dragging:
+                self.main_rectangle.x = e.pos[0] - self.offsx
+                self.main_rectangle.y = e.pos[1] - self.offsy
+                self.refresh()
                 for pin in self.leftpins:
                     pin.set_curveStart(self.main_rectangle)
                 for pin in self.rigthpins:
                     pin.set_curveStart(self.main_rectangle)
+        if not self.main_rectangle.collidepoint(x, y):
+            return
         if e.type == pygame.MOUSEBUTTONDOWN:
-            if not pygame.mouse.get_pressed(3)[0]:
+            if e.button != 1:
                 return
             self.selectedPin = None
             for pin in self.leftpins + self.rigthpins:
@@ -399,6 +426,12 @@ class Node:
                         else:
                             curves.append(Curves(pin, None))
                     self.selectedPin = pin
+            if self.selectedPin == None:
+                self.dragging = True
+                self.offsx = e.pos[0] - self.main_rectangle.x
+                self.offsy = e.pos[1] - self.main_rectangle.y
+        if e.type == pygame.MOUSEBUTTONUP:
+            self.dragging = False
 
     def draw(self, surface:pygame.Surface):
         for pin in self.leftpins + self.rigthpins:
