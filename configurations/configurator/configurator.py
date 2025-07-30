@@ -2,7 +2,6 @@ import pygame
 import itertools
 from gui import *
 
-screen = pygame.display.set_mode((1280, 1000))
 pygame.display.set_caption("Stepper-Ninja Configurator !ALPHA!")
 clock = pygame.time.Clock()
 
@@ -10,13 +9,12 @@ nodes = []
 
 # 16 VGA szín neve és RGB értékei
 vga_colors = {
-    "black": (0, 0, 0),
-    "navy": (0, 0, 128),
     "green": (0, 128, 0),
     "teal": (0, 128, 128),
     "maroon": (128, 0, 0),
     "purple": (128, 0, 128),
     "olive": (128, 128, 0),
+    "navy": (0, 0, 128),
     "violet": "violet",
     "goldenrod": "goldenrod",
     "blue": (0, 0, 255),
@@ -25,6 +23,7 @@ vga_colors = {
     "red": (255, 0, 0),
     "fuchsia": (255, 0, 255),
     "yellow": (255, 255, 0),
+    "black": (0, 0, 0),
     "white": (255, 255, 255)
 }
 
@@ -80,8 +79,10 @@ forms = Form(pygame.Rect(250,250,200,200),"test form", FONT, ["yellow","darkgray
 
 objects = load_objects("save.pck")
 if objects:
-    nodes = objects[0]
-    curves = objects[1]
+    for obj in objects[0]:
+        nodes.append(obj)
+    for obj in objects[1]:
+        curves.append(obj)
 
 # Fő ciklus
 running = True
@@ -118,9 +119,9 @@ while running:
         else:
             k.append(BezierCurve(curve.Pin0.curveStart, curve.Pin1.curveStart, offset=20, thickness=t, color=(255, 255, 0)))
             slave = f"{curve.Pin0.parent.name}-{curve.Pin0.name}"
-            master = f"{curve.Pin1.parent.name}-{curve.Pin1.name}"
+            master = f"{curve.Pin1.name}"
             if curve.Pin0.parent.master:
-                master = f"{curve.Pin0.parent.name}-{curve.Pin0.name}"
+                master = f"{curve.Pin0.name}"
                 slave = f"{curve.Pin1.parent.name}-{curve.Pin1.name}"
             pinek.append(f"{master} -> {slave}")
             k[-1].color = color_pairs[i]
@@ -128,14 +129,11 @@ while running:
         k[-1].set_dynamic_offset()
         k[-1].draw(screen)
 
-    print(len(curves))
     components["connections"].lines = pinek
     components["connections"].update()
 
     for comp in components.keys():
         components[comp].draw(screen)
-
-    #forms.draw(screen)
 
     pygame.display.flip()
     clock.tick(60)
