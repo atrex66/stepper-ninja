@@ -1,6 +1,7 @@
 {
   "Name": "Pico",
   "Image": "pico.png",
+  "color": "green",
   "MaxComponents": 1,
   "LeftPins": 20,
   "RightPins": 20,

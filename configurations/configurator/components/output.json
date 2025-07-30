@@ -1,6 +1,8 @@
 {
   "Name": "Output",
   "Image": "None",
+  "bgcolor": "red",
+  "textColor": "black",
   "MaxComponents": 64,
   "LeftPins": 1,
   "RightPins": 1,
@@ -14,7 +16,7 @@
       "pin": 1,
       "side": "LEFT",
       "pinPos": 1,
-      "name": "Output",
+      "name": "Out",
       "type": "USABLE",
       "function": "Output Pin"
     },
@@ -22,7 +24,7 @@
       "pin": 1,
       "side": "RIGHT",
       "pinPos": 1,
-      "name": "Output",
+      "name": "Out",
       "type": "USABLE",
       "function": "Output Pin"
     }
