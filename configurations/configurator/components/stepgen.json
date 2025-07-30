@@ -1,10 +1,11 @@
 {
-  "Name": "Step Generator-",
+  "Name": "StepGen",
   "Image": "None",
   "MaxComponents": 8,
   "LeftPins": 2,
   "RightPins": 2,
   "DeviceType": "SLAVE",
+  "PinOffsetY": 5,
   "DefaultWidth": 100,
   "DefaultHeight": 50,
   "Pins": [
