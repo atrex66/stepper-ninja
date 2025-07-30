@@ -14,6 +14,7 @@ hal-driver.zip
 buildall.sh
 benchmark_udp
 __pycache__0
+__pycache__
 configurations/configure.py
 firmware/tree.txt
 utility/CMakeLists.txt
@@ -25,3 +26,4 @@ utility/osd
 configurations/configurator/beziertest.py
 configurations/configurator/__pycache__/predefined.cpython-312.pyc
 configurations/configurator/__pycache__/gui.cpython-312.pyc
+configurations/configurator/save.pck
