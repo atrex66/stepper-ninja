@@ -405,9 +405,9 @@ void udp_io_process_recv(void *arg, long period) {
                     }
                 #endif
                 *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-                *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] * *d->enc_scale[i]);
-                *d->enc_velocity[i] = d->enc_prev_pos[i] - *d->enc_position[i];
+                *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i] * *d->enc_scale[i]);
+                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i] * *d->enc_scale[i]);
+                *d->enc_velocity[i] = (float)(rx_buffer->encoder_velocity[i] / 100000.0);
                 d->enc_prev_pos[i] = *d->enc_position[i];
             }
         #endif
