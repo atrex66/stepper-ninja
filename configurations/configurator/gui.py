@@ -12,8 +12,11 @@ from enum import Enum
 pygame.init()
 pygame.font.init()
 
+screen = pygame.display.set_mode((1280, 1000))
+
 curves = []
 node_indexes = {}
+hint = None
 
 # Színek
 WHITE = (255, 255, 255)
@@ -49,7 +52,7 @@ def list_json_files(directory):
         for file in os.listdir(dirs):
             # Csak a .json kiterjesztésű fájlokat vesszük fel
             if file.endswith('.json'):
-                json_files.append(file)
+                json_files.append(file.split('.')[0])
         
         if not json_files:
             print(f"Nincs JSON fájl a {directory} könyvtárban!")
@@ -64,7 +67,7 @@ def list_json_files(directory):
 def load_component(json_file_path):
     global node_indexes
     try:
-        with open(os.path.join(BASE_DIR, json_file_path), 'r') as file:
+        with open(os.path.join(BASE_DIR, json_file_path + ".json"), 'r') as file:
             data = json.load(file)
         #return data
     except FileNotFoundError:
@@ -83,6 +86,9 @@ def load_component(json_file_path):
     defwidth = data["DefaultWidth"]
     defheight = data["DefaultHeight"]
     pinoffsy = data["PinOffsetY"]
+    hide_pin_names = False
+    if "HidePinNames" in data.keys():
+        hide_pin_names = True if data["HidePinNames"] == 1 else False
     master = True if data["DeviceType"] == "MASTER" else False
 
     if image_path != "None":
@@ -93,6 +99,8 @@ def load_component(json_file_path):
     if name not in node_indexes.keys():
         node_indexes[name] = 0
     node = Node(200, 350, image.get_width(), image.get_height(), image_path, 5, name, leftPins, rightPins)
+
+    node.hide_pin_names = hide_pin_names
     if "bgcolor" in data.keys():
         node.name_background = data["bgcolor"]
     if "textColor" in data.keys():
@@ -107,11 +115,17 @@ def load_component(json_file_path):
         Pinpos = pin["pinPos"]
         name = pin["name"]
         shape = Shape.RECTANGLE
+        abs_x = None
+        abs_y = None
+        if "AbsX" in pin:
+            abs_x = pin["AbsX"]
+            abs_y = pin["AbsY"]
+        shape = Shape.RECTANGLE
+        size = None
         if "shape" in pin.keys():
-            if pin["shape"] == "RECTANGLE":
-                shape = Shape.RECTANGLE
-            elif pin["shape"] == "CIRCLE":
+            if pin["shape"] == "CIRCLE":
                 shape = Shape.CIRCLE
+                size = pin["size"]
             elif pin["shape"] == "ELLIPSE":
                 shape = Shape.ELLIPSE
         if pin["side"] == "LEFT":
@@ -122,7 +136,9 @@ def load_component(json_file_path):
             pintype = PinType.NOT_USED
         elif pin["type"] == "UNUSABLE":
             pintype = PinType.UNUSABLE
-        node.add_pin(Pin(Pinpos, name, shape, pinside, pintype))
+        newpin = Pin(Pinpos, name, shape, pinside, pintype, abs_x, abs_y, size)
+        newpin.function = pin['function']
+        node.add_pin(newpin)
     return node
 
 class PinType(Enum):
@@ -142,6 +158,58 @@ class Side(Enum):
     LEFT = 0
     RIGHT = 1
 
+
+class Orientation(Enum):
+    HORIZONTAL = 0
+    VERTICAL = 1
+
+
+class GradientSurface(pygame.Surface):
+    def __init__(self, size, start_color, end_color):
+        super().__init__(size, flags = pygame.SRCALPHA)
+        self.fill(0)
+        self.size = size
+        self.start_color = start_color
+        self.end_color = end_color
+
+    def gradientFill(self, color1:pygame.Color, color2:pygame.Color, orient):
+        if orient == Orientation.HORIZONTAL:
+            b = pygame.Surface((2,1))
+            pygame.draw.line(b, color1, (0,0), (0,0), 1)
+            pygame.draw.line(b, color2, (1,0), (1,0), 1)
+            b = pygame.transform.smoothscale(b, (self.size[0], self.size[1]))
+        elif orient == Orientation.VERTICAL:
+            b = pygame.Surface((1,2))
+            pygame.draw.line(b, color1, (0,0), (0,0), 1)
+            pygame.draw.line(b, color2, (0,1), (0,1), 1)
+            b = pygame.transform.smoothscale(b, (self.size[0], self.size[1]))
+        else:
+            self.fill(0)
+            return
+        self.blit(b,(0, 0))
+
+    def __getstate__(self):
+        state = self.__dict__.copy()  # Másolat a __dict__-ből
+        for key, value in state.items():
+            if isinstance(value, pygame.Surface):
+                # Surface-t nyers pixeladatokká konvertálunk
+                pixel_data = pygame.image.tostring(value, "RGBA")  # RGBA formátum használata
+                state[key] = {
+                    "type": "pygame.Surface",
+                    "size": value.get_size(),
+                    "pixel_format": "RGBA",
+                    "pixel_data": b64encode(pixel_data).decode('ascii')
+                }
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)  # Alap attribútumok visszaállítása
+        for key, value in self.__dict__.items():
+            if isinstance(value, dict) and value.get("type") == "pygame.Surface":
+                # Pixeladatokból Surface visszaállítása
+                pixel_data = b64decode(value["pixel_data"])
+                surface = pygame.image.fromstring(pixel_data, value["size"], value["pixel_format"])
+                self.__dict__[key] = surface
 
 class Form:
     def __init__(self, r:pygame.Rect, caption:str, font:pygame.font.Font, gradient:list, font_fg:pygame.color.Color = (0, 0, 0)):
@@ -197,6 +265,8 @@ class Curves:
     def __init__(self, p0, p1):
         self.Pin0 = p0
         self.Pin1 = p1
+        self.nodes = []
+        self.color = None
 
     def __str__(self):
         if self.Pin1:
@@ -282,7 +352,7 @@ class BezierCurve:
 
 
 class Pin:
-    def __init__(self, pinNo:int, pinName:str, shape:int, pinSide:int, typus:int):
+    def __init__(self, pinNo:int, pinName:str, shape:int, pinSide:int, typus:int, abs_x=None, abs_y=None, size=None):
         self.pinNo = pinNo
         self.name = pinName
         self.pinSide = pinSide
@@ -294,6 +364,14 @@ class Pin:
         self.text = FONT.render(self.name, True, pygame.Color("white"), pygame.Color("black"))
         self.curveStart = None
         self.parent = None
+        self.abs_x = abs_x
+        self.abs_y = abs_y
+        self.size = size
+        self.hide_name = False
+        self.function = ""
+        self.hint_timer = 0
+        self.hint_object = None
+        self.hint_showed = False
     
     def __getstate__(self):
         state = self.__dict__.copy()  # Másolat a __dict__-ből
@@ -326,7 +404,10 @@ class Pin:
         self.rect.height = height
 
     def set_curveStart(self, rect:pygame.Rect):
-        self.curveStart = (rect.x + self.rect.x + (self.rect.width / 2), rect.y + self.rect.y + (self.rect.height / 2))
+        if self.shape != Shape.CIRCLE:
+            self.curveStart = (rect.x + self.rect.x + (self.rect.width / 2), rect.y + self.rect.y + (self.rect.height / 2))
+        else:
+            self.curveStart = (rect.x + self.rect.x + (self.rect.width / 2) - self.size, rect.y + self.rect.y + (self.rect.height / 2) - self.size)
 
     def generate_pin(self, color = None):
         self.surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
@@ -344,22 +425,30 @@ class Pin:
         if self.shape == Shape.RECTANGLE:
             self.surface.fill(self.color)
         elif self.shape == Shape.CIRCLE:
-            pygame.draw.circle(self.surface, self.color, (self.rect.width / 2, self.rect.height / 2), self.rect.width / 2, width=0)
+            pygame.draw.circle(self.surface, self.color, (self.rect.width / 2, self.rect.height / 2), self.size, width=0)
         elif self.shape == Shape.ELLIPSE:
             pygame.draw.ellipse(self.surface, self.color, pygame.Rect(0, 0, self.rect.width, self.rect.height), width=0)
 
     def draw(self, surface:pygame.Surface):
-        r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x, self.parent.main_rectangle.y + self.rect.y, self.rect.width, self.rect.height)
+        global hint
+        if self.shape != Shape.CIRCLE:
+            r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x, self.parent.main_rectangle.y + self.rect.y, self.rect.width, self.rect.height)
+        else:
+            r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x - self.size, self.parent.main_rectangle.y + self.rect.y - self.size, self.size * 2, self.size * 2)
         if r.collidepoint(pygame.mouse.get_pos()):
             if self.typus != PinType.UNUSABLE:
                 self.generate_pin("green")
-        else:
+        else: 
             self.generate_pin()
-        if self.pinSide == Side.RIGHT:
-            surface.blit(self.text, (self.rect.x - self.text.get_width(), self.rect.y))
-        if self.pinSide == Side.LEFT:
-            surface.blit(self.text, (self.rect.x + self.rect.width, self.rect.y))
-        surface.blit(self.surface, (self.rect.x, self.rect.y))
+        if not self.hide_name:
+            if self.pinSide == Side.RIGHT:
+                surface.blit(self.text, (self.rect.x - self.text.get_width(), self.rect.y))
+            if self.pinSide == Side.LEFT:
+                surface.blit(self.text, (self.rect.x + self.rect.width, self.rect.y))
+        if self.shape != Shape.CIRCLE:
+            surface.blit(self.surface, (self.rect.x, self.rect.y))
+        else:
+            surface.blit(self.surface, (self.rect.x - self.size, self.rect.y - self.size))
 
 
 class Node:
@@ -396,6 +485,10 @@ class Node:
         self.refresh(self.width, self.height)
         self.offsetx = 0
         self.offsety = 0
+        self.hint_timer = 0
+        self.hint_object = None
+        self.hint_showed = False
+        self.hide_pin_names = False
 
     def __getstate__(self):
         state = self.__dict__.copy()  # Másolat a __dict__-ből
@@ -424,39 +517,60 @@ class Node:
         self.pin_y_offs = offs
 
     def add_pin(self, pin:Pin):
-        pin.set_metrics(15, 10)
+        pin.hide_name = self.hide_pin_names
+        if pin.shape != Shape.CIRCLE:
+            pin.set_metrics(15, 10)
+        else:
+            pin.set_metrics(pin.size * 2, pin.size * 2)
         pin.generate_pin()
         pin.parent = self
         dormantspace = self.label.get_height()
         clientheight = self.main_rectangle.height - dormantspace
         if pin.pinSide == Side.LEFT:
-            if self.max_leftpins < pin.pinNo:
-                return
-            pin.rect.y = ((clientheight / self.max_leftpins) * (pin.pinNo - 1)) + self.pin_y_offs + dormantspace
-            pin.rect.x = 0
-            self.leftpins.append(pin)
+            if pin.abs_x == None:
+                if self.max_leftpins < pin.pinNo:
+                    return
+                pin.rect.y = ((clientheight / self.max_leftpins) * (pin.pinNo - 1)) + self.pin_y_offs + dormantspace
+                pin.rect.x = 0
+                self.leftpins.append(pin)
+            else:
+                pin.rect.x = pin.abs_x
+                pin.rect.y = pin.abs_y + dormantspace
+                self.leftpins.append(pin)
         if pin.pinSide == Side.RIGHT:
-            if self.max_rightpins < pin.pinNo:
-                return
-            pin.rect.y = ((clientheight / self.max_rightpins) * (pin.pinNo - 1)) + self.pin_y_offs + dormantspace
-            pin.rect.x = self.main_rectangle.width - pin.rect.width
-            self.rigthpins.append(pin)
+            if pin.abs_x == None:
+                if self.max_rightpins < pin.pinNo:
+                    return
+                pin.rect.y = ((clientheight / self.max_rightpins) * (pin.pinNo - 1)) + self.pin_y_offs + dormantspace
+                pin.rect.x = self.main_rectangle.width - pin.rect.width
+                self.rigthpins.append(pin)
+            else:
+                pin.rect.x = self.main_rectangle.width - pin.abs_x
+                pin.rect.y = pin.abs_y + dormantspace
+                self.leftpins.append(pin)
 
     def refresh(self, width=0, height=0):
         self.surface = pygame.Surface((self.width , self.height + self.label.get_height()), pygame.SRCALPHA)
         self.surface.fill("black")
         self.noimage = 0
-
         if self.image:        
             self.surface.blit(self.image, (0, self.label.get_height()))
         self.label = FONT.render(self.name , 1, self.text_color)
         pygame.draw.rect(self.surface, self.name_background, pygame.Rect(0, 0, self.main_rectangle.width, self.label.get_height()), width=0)
-        self.surface.blit(self.label, (0, 0))
+        self.surface.blit(self.label, (1, 1))
         if not self.dragging:
             self.main_rectangle = pygame.Rect(self.x, self.y, self.surface.get_width(), self.surface.get_height())
 
     def handle_events(self, e:pygame.event.Event):
         global curves
+
+        if e.type == pygame.KEYDOWN:
+            if e.key == pygame.K_ESCAPE:
+                if self.selectedPin != None:
+                    self.selectedPin = None
+                    if curves[-1].Pin1 == None:
+                        curves.pop()
+
         x, y = pygame.mouse.get_pos()
         if e.type == pygame.MOUSEMOTION:
             if self.dragging:
@@ -470,6 +584,8 @@ class Node:
                 return
 
         if not self.main_rectangle.collidepoint(x, y):
+            self.hint_timer = 0
+            self.hint_showed = False
             return
 
         if e.type == pygame.MOUSEBUTTONDOWN:
@@ -477,21 +593,26 @@ class Node:
                 return
             self.selectedPin = None
             for pin in self.leftpins + self.rigthpins:
-                evrect = pygame.Rect(self.main_rectangle.x + pin.rect.x, self.main_rectangle.y + pin.rect.y, pin.rect.width, pin.rect.height)
+                if pin.shape != Shape.CIRCLE:
+                    evrect = pygame.Rect(self.main_rectangle.x + pin.rect.x, self.main_rectangle.y + pin.rect.y, pin.rect.width, pin.rect.height)
+                else:
+                    evrect = pygame.Rect(self.main_rectangle.x + pin.rect.x - pin.size, self.main_rectangle.y + pin.rect.y - pin.size, pin.rect.width, pin.rect.height)
                 if evrect.collidepoint(x, y):
                     pin.set_curveStart(self.main_rectangle)
                     if pin != self.selectedPin:
                         if len(curves) > 0:
                             if curves[-1].Pin1 == None:
                                 curves[-1].Pin1 = pin
-                                return
+                                curves[-1].nodes.append(self)
                             else:
                                 curves.append(Curves(pin, None))
-                                return
+                                curves[-1].nodes.append(self)
+                            self.selectedPin = pin
                         else:
                             curves.append(Curves(pin, None))
-                            return
+                            curves[-1].nodes.append(self)
                     self.selectedPin = pin
+
             if self.selectedPin == None:
                 self.dragging = True
                 self.offsx = e.pos[0] - self.main_rectangle.x
@@ -564,7 +685,7 @@ class Button:
         self.text = text
         self.id = name
         self.pressed = False
-        self.surface = pygame.Surface((r.width, r.height))
+        self.surface = GradientSurface((r.width, r.height), "lightblue", "darkgray")
         self.callback = self.handle
         self.update()
 
@@ -590,18 +711,18 @@ class Button:
 
     def update(self):
         if self.pressed:
-            self.surface.fill("azure3")
+            self.surface.gradientFill("blue", "lightgray", orient=Orientation.VERTICAL)
         else:
-            self.surface.fill("azure4")
-        pygame.draw.rect(self.surface, "darkolivegreen2", self.rectangle, width=1, border_radius=3)
+            self.surface.gradientFill("lightblue", "darkgray", orient=Orientation.VERTICAL)
         text = BIG_FONT.render(self.text, True, pygame.Color("black"))
         x = (self.rectangle.width / 2) - (text.get_width() / 2)
         y = (self.rectangle.height / 2) - (text.get_height() / 2)
+        pygame.draw.rect(self.surface, "black", (0, 0, self.rectangle.width, self.rectangle.height), width=1, border_radius=3)
         self.surface.blit(text, (x, y))
-    
+
+
     def draw(self, surface:pygame.Surface):
         surface.blit(self.surface, (self.rectangle.x, self.rectangle.y))
-
 
 def prompt_file():
     """Create a Tk file dialog and cleanup when finished"""

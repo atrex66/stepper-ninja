@@ -37,19 +37,19 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **Open-Source**: code and docs under MIT License.
 
-- **ready-to-ride**: w5100s-evb-pico and w5500 + pico version prebuilt uf2 in the binary directory. To install the hal driver you need to run the install.sh in the hal-driver directory.
+- **ready-to-ride**: breakout board version prebuilt uf2 and hal driver in the binary directory. To install the hal driver you need to copy the stepgen-ninja.so to your local hal-driver directory.
 
 ## Contributors
 
 - **code**: atrex66, pippin88
 
-- **testing**: Jimfong1, Galetops
+- **testing**: Jimfong1, @Griletos
 
 ## Contact
 
 - **Discord**:
 
-  - [stepper-ninja Discord](https://discord.gg/tKBEQGqw)
+  - [stepper-ninja Discord](https://discord.gg/K3CukMJ5)
 
 ## License
 
