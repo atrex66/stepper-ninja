@@ -14,6 +14,9 @@ typedef struct{
     #if stepgens > 0
     uint32_t stepgen_command[stepgens];
     #endif
+    #if encoders > 0
+    uint32_t encoder_scale[encoders];
+    #endif
     uint32_t outputs[2];
     uint32_t pwm_duty[pwm_count];
     uint32_t pwm_frequency[pwm_count];
@@ -32,6 +35,8 @@ typedef struct{
 typedef struct{
     #if encoders > 0
     uint32_t encoder_counter[encoders];
+    uint32_t encoder_velocity[encoders];
+    uint32_t encoder_latched[encoders];
     #endif
     uint32_t inputs[3];
     uint32_t jitter;

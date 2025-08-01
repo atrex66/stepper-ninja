@@ -141,6 +141,15 @@ def load_component(json_file_path):
         node.add_pin(newpin)
     return node
 
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+
+offset = Point(0, 0)
+
+
 class PinType(Enum):
     NOT_USED = 0
     INPUT = 1
@@ -228,6 +237,7 @@ class Form:
         self.draggign = False
         self.offsx = 0
         self.offsy = 0
+        self.objects = []
 
     def handle_events(self, event:pygame.event.Event):
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -244,6 +254,9 @@ class Form:
                 self.rectangle.x = event.pos[0] - self.offsx
                 self.rectangle.y = event.pos[1] - self.offsy
                 self.refresh()
+        for obj in self.objects:
+            if hasattr(obj, "handle_events"):
+                obj.handle_events(event)
 
     def refresh(self):
         text = self.font.render(self.caption, True, self.font_fg)
@@ -259,7 +272,24 @@ class Form:
 
     def draw(self, surface:pygame.surface.Surface):
         self.surface.blit(self.client_surface, (1, self.title.get_height() + 2))
-        surface.blit(self.surface, (self.rectangle.x, self.rectangle.y))
+        for obj in self.objects:
+            obj.draw(self.client_surface)
+        surface.blit(self.surface, (self.rectangle.x + offset.x, self.rectangle.y + offset.y))
+
+
+class TextBox:
+    def __init__(self, r:pygame.Rect, text:str, default_value:str, colors:list):
+        self.rectangle = r
+        self.text = text
+        self.colors = ["black", "white"]
+        self.default_value = default_value
+        self.surface = pygame.Surface((r.width, r.height))
+        self.refresh()
+
+    def refresh(self):
+        self.surface.fill(self.colors[2])
+        self.label = FONT.render()
+
 
 class Curves:
     def __init__(self, p0, p1):
@@ -285,23 +315,25 @@ class BezierCurve:
         self.control_point_color = (255, 255, 255)  # Vezérlőpontok színe
 
     def calculate_cubic_bezier(self, steps=100):
+        global offset
         """Köbös Bézier-görbe pontjainak kiszámítása."""
         p1, p2 = self.calculate_control_points()
         points = []
         for t in np.arange(0, 1.01, 1.0 / steps):
-            x = (1-t)**3 * self.p0[0] + 3*(1-t)**2*t * p1[0] + 3*(1-t)*t**2 * p2[0] + t**3 * self.p3[0]
-            y = (1-t)**3 * self.p0[1] + 3*(1-t)**2*t * p1[1] + 3*(1-t)*t**2 * p2[1] + t**3 * self.p3[1]
+            x = (1-t)**3 * self.p0[0] + 3*(1-t)**2*t * p1[0] + 3*(1-t)*t**2 * p2[0] + t**3 * self.p3[0] + offset.x
+            y = (1-t)**3 * self.p0[1] + 3*(1-t)**2*t * p1[1] + 3*(1-t)*t**2 * p2[1] + t**3 * self.p3[1] + offset.y
             points.append((int(x), int(y)))
         return points
 
     def calculate_control_points(self):
+        global offset
         """Vezérlőpontok kiszámítása vízszintes induláshoz és érkezéshez."""
         if self.p3[0] >= self.p0[0]:
-            p1 = (self.p0[0] + self.offset, self.p0[1])  # P1 jobbra P0-tól
+            p1 = (self.p0[0] + self.offset, self.p0[1]) # P1 jobbra P0-tól
             p2 = (self.p3[0] - self.offset, self.p3[1])  # P2 balra P3-tól
         else:
-            p1 = (self.p0[0] - self.offset, self.p0[1])  # P1 balra P0-tól
-            p2 = (self.p3[0] + self.offset, self.p3[1])  # P2 jobbra P3-tól
+            p1 = (self.p0[0] - self.offset, self.p0[1]) # P1 balra P0-tól
+            p2 = (self.p3[0] + self.offset, self.p3[1]) # P2 jobbra P3-tól
         return p1, p2
 
     def set_dynamic_offset(self):
@@ -430,9 +462,9 @@ class Pin:
             pygame.draw.ellipse(self.surface, self.color, pygame.Rect(0, 0, self.rect.width, self.rect.height), width=0)
 
     def draw(self, surface:pygame.Surface):
-        global hint
+        global hint, offset
         if self.shape != Shape.CIRCLE:
-            r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x, self.parent.main_rectangle.y + self.rect.y, self.rect.width, self.rect.height)
+            r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x , self.parent.main_rectangle.y + self.rect.y, self.rect.width, self.rect.height)
         else:
             r = pygame.Rect(self.parent.main_rectangle.x + self.rect.x - self.size, self.parent.main_rectangle.y + self.rect.y - self.size, self.size * 2, self.size * 2)
         if r.collidepoint(pygame.mouse.get_pos()):
@@ -562,7 +594,7 @@ class Node:
             self.main_rectangle = pygame.Rect(self.x, self.y, self.surface.get_width(), self.surface.get_height())
 
     def handle_events(self, e:pygame.event.Event):
-        global curves
+        global curves, offset
 
         if e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
@@ -574,8 +606,8 @@ class Node:
         x, y = pygame.mouse.get_pos()
         if e.type == pygame.MOUSEMOTION:
             if self.dragging:
-                self.main_rectangle.x = e.pos[0] - self.offsx
-                self.main_rectangle.y = e.pos[1] - self.offsy
+                self.main_rectangle.x = e.pos[0] + offset.x - self.offsx
+                self.main_rectangle.y = e.pos[1] + offset.y - self.offsy
                 self.refresh()
                 for pin in self.leftpins:
                     pin.set_curveStart(self.main_rectangle)
@@ -621,12 +653,14 @@ class Node:
             self.dragging = False
 
     def draw(self, surface:pygame.Surface):
+        global offset
         for pin in self.leftpins + self.rigthpins:
             if pin.parent == None:
                 pin.parent = self
             pin.draw(self.surface)
-        surface.blit(self.surface, (self.main_rectangle.x, self.main_rectangle.y))
-        pygame.draw.rect(surface, "red", self.main_rectangle, 1)
+        surface.blit(self.surface, (self.main_rectangle.x + offset.x, self.main_rectangle.y + offset.y))
+        orect = pygame.Rect(self.main_rectangle.x + offset.x, self.main_rectangle.y + offset.y, self.main_rectangle.width, self.main_rectangle.height)
+        pygame.draw.rect(surface, "red", orect, 1)
 
 class ListBox:
     def __init__(self, r:pygame.Rect, lines:list, name):
@@ -677,6 +711,7 @@ class ListBox:
                     self.update()
 
     def draw(self, surf:pygame.Surface):
+        global offset
         surf.blit(self.surface, (self.rectangle.x, self.rectangle.y))
 
 class Button:
