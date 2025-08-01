@@ -93,19 +93,30 @@ if objects:
         curves.append(obj)
 
 leftclick = False
+middlebutton = False
 # Fő ciklus
 running = True
+pygame.mouse.get_rel()
 while running:
     screen.fill("gray70")
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.MOUSEMOTION:
+            xo, yo = pygame.mouse.get_rel()
+            if event.buttons[1]:
+                offset.x += xo
+                offset.y += yo
+                pygame.display.set_caption(f"{offset.x}:{offset.y}")
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 leftclick = True
+            if event.button == 2:
+                middlebutton == True
         if event.type == pygame.MOUSEBUTTONUP:
             leftclick = False
+            middlebutton = False
         if not external:
             for node in nodes:
                 node.handle_events(event)

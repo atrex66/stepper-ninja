@@ -93,11 +93,6 @@ uint32_t dir_pin[stepgens] = stepgen_dirs;
 uint32_t total_steps[stepgens] = {0,};
 #endif
 
-#if encoders > 0
-    uint8_t encoder_base[encoders] = enc_pins;
-    int32_t encoder[encoders] = {0,};
-#endif
-
 uint8_t buffer_index = 0;
 
 int32_t *command;
@@ -135,11 +130,34 @@ uint32_t old_pwm_frequency[pwm_count];
 PIO_def_t stepgen_pio[stepgens];
 
 #if encoders > 0
+
+    uint8_t encoder_base[encoders] = enc_pins;
+    uint32_t encoder[encoders] = {0,};
+    uint32_t encoder_latched[encoders] = {0, };
+    SpeedEstimator *speed_est[encoders];
+
     static uint8_t encoder_indexes[encoders] = enc_index_pins;
     static uint8_t indexes = sizeof(encoder_indexes);
     static uint8_t enc_index_lvl[encoders] = enc_index_active_level;
     static uint8_t enc_index_enabled[encoders] = {0,};
     PIO_def_t encoder_pio[encoders];
+
+    void update_speed(SpeedEstimator* est, uint32_t new_position, uint64_t current_time_us, uint8_t enc_index) {
+        int32_t delta_pos = new_position - est->last_position;
+
+        if (delta_pos != 0) {
+            uint64_t delta_time_us = current_time_us - est->last_time_us;
+
+            if (delta_time_us > 0) {
+                float revolutions = (float)delta_pos / (float)(rx_buffer->encoder_scale[enc_index] / 100000.0);
+                float seconds = (float)delta_time_us / 1000000.0f;
+                est->rps = (int32_t)((revolutions / seconds) * 100000);
+                est->last_position = new_position;
+                est->last_time_us = current_time_us;
+            }
+        }
+    }
+
 #endif
 
 #if stepgens > 0
@@ -754,11 +772,15 @@ void handle_data(){
 
     #if encoders > 0
         #if use_stepcounter == 0
-            // update encoders
+        uint64_t timestamp = time_us_64();
+        // update encoders
             for (int i = 0; i < encoders; i++) {
                 encoder[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                update_speed(speed_est[i], encoder[i], timestamp, i);
+                tx_buffer->encoder_velocity[i] = speed_est[i]->rps;
                 tx_buffer->encoder_counter[i] = encoder[i];
             }
+
         #else
             // update step counters
             for (int i = 0; i < encoders; i++) {
@@ -803,7 +825,8 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
     for (int i=0;i<indexes;i++){
         if (gpio == encoder_indexes[i]) {
             if (events & GPIO_IRQ_EDGE_RISE) {
-                pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
+                tx_buffer->encoder_latched[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                // pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
             }
         }
     }
