@@ -1,0 +1,30 @@
+{
+  "Name": "Invert",
+  "Image": "None",
+  "MaxComponents": 64,
+  "LeftPins": 1,
+  "RightPins": 1,
+  "DeviceType": "SLAVE",
+  "PinOffsetY": 5,
+  "DefaultWidth": 100,
+  "DefaultHeight": 20,
+  "ConfigName": "invert",
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "Invert",
+      "type": "USABLE",
+      "function": "Input I/O"
+    },
+    { 
+      "pin": 1,
+      "side": "RIGHT",
+      "pinPos": 1,
+      "name": "Invert",
+      "type": "USABLE",
+      "function": "Invert I/O"
+    }
+  ]
+}

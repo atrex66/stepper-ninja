@@ -265,6 +265,8 @@ class Curves:
     def __init__(self, p0, p1):
         self.Pin0 = p0
         self.Pin1 = p1
+        self.nodes = []
+        self.color = None
 
     def __str__(self):
         if self.Pin1:
@@ -601,11 +603,14 @@ class Node:
                         if len(curves) > 0:
                             if curves[-1].Pin1 == None:
                                 curves[-1].Pin1 = pin
+                                curves[-1].nodes.append(self)
                             else:
                                 curves.append(Curves(pin, None))
+                                curves[-1].nodes.append(self)
                             self.selectedPin = pin
                         else:
                             curves.append(Curves(pin, None))
+                            curves[-1].nodes.append(self)
                     self.selectedPin = pin
 
             if self.selectedPin == None:
@@ -680,7 +685,6 @@ class Button:
         self.text = text
         self.id = name
         self.pressed = False
-        #self.surface = pygame.Surface((r.width, r.height))
         self.surface = GradientSurface((r.width, r.height), "lightblue", "darkgray")
         self.callback = self.handle
         self.update()

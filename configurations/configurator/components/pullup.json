@@ -1,0 +1,24 @@
+{
+  "Name": "PullUp",
+  "Image": "None",
+  "MaxComponents": 64,
+  "LeftPins": 1,
+  "RightPins": 1,
+  "DeviceType": "SLAVE",
+  "PinOffsetY": 5,
+  "DefaultWidth": 100,
+  "DefaultHeight": 20,
+  "ConfigName": "pullup",
+  "Pins": [
+    { 
+      "pin": 1,
+      "side": "LEFT",
+      "pinPos": 1,
+      "name": "PullUp",
+      "type": "USABLE",
+      "function": "Pullup to VCC",
+      "AbsX": 50,
+      "AbsY": 10
+    }
+  ]
+}
