@@ -134,29 +134,12 @@ PIO_def_t stepgen_pio[stepgens];
     uint8_t encoder_base[encoders] = enc_pins;
     uint32_t encoder[encoders] = {0,};
     uint32_t encoder_latched[encoders] = {0, };
-    SpeedEstimator *speed_est[encoders];
 
     static uint8_t encoder_indexes[encoders] = enc_index_pins;
     static uint8_t indexes = sizeof(encoder_indexes);
     static uint8_t enc_index_lvl[encoders] = enc_index_active_level;
     static uint8_t enc_index_enabled[encoders] = {0,};
     PIO_def_t encoder_pio[encoders];
-
-    void update_speed(SpeedEstimator* est, uint32_t new_position, uint64_t current_time_us, uint8_t enc_index) {
-        int32_t delta_pos = new_position - est->last_position;
-
-        if (delta_pos != 0) {
-            uint64_t delta_time_us = current_time_us - est->last_time_us;
-
-            if (delta_time_us > 0) {
-                float revolutions = (float)delta_pos / (float)(rx_buffer->encoder_scale[enc_index] / 100000.0);
-                float seconds = (float)delta_time_us / 1000000.0f;
-                est->rps = (int32_t)((revolutions / seconds) * 100000);
-                est->last_position = new_position;
-                est->last_time_us = current_time_us;
-            }
-        }
-    }
 
 #endif
 
@@ -255,12 +238,8 @@ void core1_entry() {
                 stop_timer();
 #if encoders >0
                     for (int i = 0; i < encoders; i++) {
-                        PIO pio = encoder_pio[i].pio;
-                        uint8_t sm = encoder_pio[i].sm;
-                        pio_sm_set_enabled(pio, sm, false);
-                        pio_sm_restart(pio, sm);
-                        pio_sm_exec(pio, sm, pio_encode_set(pio_y, 0));
-                        pio_sm_set_enabled(pio, sm, true);
+                        pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
+                        // pio_sm_set_enabled(encoder_pio[i].pio, encoder_pio[i].sm, true);
     #if use_stepcounter == 0
                         printf("Encoder %d reset\n", i);
     #else
@@ -543,6 +522,7 @@ int main() {
 
     #if encoders > 0
         #if use_stepcounter == 0
+            uint8_t fpio = 0;
             for (int i = 0; i < encoders; i++) {
                 gpio_init(encoder_base[i]);
                 gpio_init(encoder_base[i]+1);
@@ -550,9 +530,7 @@ int main() {
                 gpio_set_dir(encoder_base[i]+1, GPIO_IN);
                 gpio_pull_up(encoder_base[i]);
                 gpio_pull_up(encoder_base[i]+1);
-            }
-            uint8_t fpio = 0;
-            for (int i = 0; i < encoders; i++) {
+                tx_buffer->encoder_latched[i] = 0;
                 encoder_pio[i] = get_next_pio(encoder_len);
                 if (encoder_pio[i].sm == 255){
                     printf("Not enough pio state machines, check the config.h \n");
@@ -772,15 +750,11 @@ void handle_data(){
 
     #if encoders > 0
         #if use_stepcounter == 0
-        uint64_t timestamp = time_us_64();
         // update encoders
             for (int i = 0; i < encoders; i++) {
-                encoder[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
-                update_speed(speed_est[i], encoder[i], timestamp, i);
-                tx_buffer->encoder_velocity[i] = speed_est[i]->rps;
-                tx_buffer->encoder_counter[i] = encoder[i];
+                tx_buffer->encoder_counter[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                tx_buffer->encoder_timestamp[i] = time_us_32();
             }
-
         #else
             // update step counters
             for (int i = 0; i < encoders; i++) {
