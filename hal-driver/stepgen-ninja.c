@@ -81,6 +81,11 @@ typedef struct {
 } IpPort;
 
 typedef struct {
+    float y;         // Szűrt érték
+    float alpha;     // Előre kiszámolt súlyzó (T / (tau + T))
+} LowPassFilter;
+
+typedef struct {
     #if stepgens > 0
     hal_float_t *command[stepgens];
     hal_float_t *feedback[stepgens];
@@ -91,10 +96,11 @@ typedef struct {
     #endif
     #if encoders > 0
     // encoder pins
-    hal_s32_t *raw_count[encoders];
-    hal_s32_t *scaled_count[encoders];
+    hal_u32_t *raw_count[encoders];
+    hal_s32_t *count_latched[encoders];
     hal_float_t *enc_scale[encoders];
     hal_float_t *enc_position[encoders];
+    hal_float_t *enc_position_latched[encoders];
     hal_float_t *enc_velocity[encoders];
     hal_bit_t *enc_index[encoders];
     hal_bit_t *enc_reset[encoders];
@@ -149,13 +155,17 @@ typedef struct {
     uint8_t checksum_index;
     uint8_t checksum_index_in;
     uint8_t checksum_error;
-    float_t enc_prev_pos[encoders];
+    float enc_prev_pos[encoders];
+    uint32_t enc_timestamp[encoders];
     int32_t enc_offset[encoders];
+    uint32_t delta_time[encoders];
     int64_t prev_pos[6];
     int64_t curr_pos[6];
     bool watchdog_running;
     bool error_triggered;
     bool first_data;
+    float delta_pos[encoders];
+    int32_t delta_count[encoders];
 } module_data_t;
 
 static int instances = 1; // Példányok száma
@@ -171,6 +181,8 @@ static uint8_t tx_counter = 0;
 float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszekundumban
 transmission_pc_pico_t *tx_buffer;
 transmission_pico_pc_t *rx_buffer;
+
+LowPassFilter *filter;
 
 uint64_t get_time_ns() {
     struct timespec ts;
@@ -191,6 +203,16 @@ uint16_t pwm_calculate_wrap(uint32_t freq) {
     return (uint16_t)wrap;
 }
 
+void lpf_init(LowPassFilter* f, float tau, float dt) {
+    f->alpha = dt / (tau + dt);
+    f->y = 0.0f;
+}
+
+float lpf_update(LowPassFilter* f, float x) {
+    f->y += f->alpha * (x - f->y);
+    return f->y;
+}
+
 void module_init(void) {
     rtapi_print_msg(RTAPI_MSG_INFO, module_name ": module_init\n");
     tx_size = sizeof(transmission_pc_pico_t);
@@ -208,6 +230,7 @@ void module_init(void) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": tx_buffer allocation failed\n");
         return ;
     }
+    lpf_init(&filter, 0.1f, 0.01f);
 }
 
 #if raspberry_pi_spi == 0
@@ -404,10 +427,23 @@ void udp_io_process_recv(void *arg, long period) {
                         *d->enc_reset[i] = 0; // reset the encoder
                     }
                 #endif
-                *d->raw_count[i] = rx_buffer->encoder_counter[i] - d->enc_offset[i]; // raw encoder count
-                *d->enc_position[i] = (float)(rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i] * *d->enc_scale[i]);
-                *d->scaled_count[i] = (int32_t)(rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i] * *d->enc_scale[i]);
-                *d->enc_velocity[i] = (float)(rx_buffer->encoder_velocity[i] / 100000.0);
+                d->delta_count[i] = *d->raw_count[i] - rx_buffer->encoder_counter[i];
+                *d->raw_count[i] = rx_buffer->encoder_counter[i]; // raw encoder count
+                *d->count_latched[i] = rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i];
+                *d->enc_position[i] = (float)*d->count_latched[i] / *d->enc_scale[i];;
+                *d->enc_position_latched[i] = (float)((rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i]) / *d->enc_scale[i]);
+                d->delta_pos[i] = d->enc_prev_pos[i] - *d->enc_position[i];
+                if (d->delta_count[i] == 0){
+                    d->delta_time[i] += rx_buffer->encoder_timestamp[i] - d->enc_timestamp[i];
+                } else {
+                    d->delta_time[i] = rx_buffer->encoder_timestamp[i] - d->enc_timestamp[i];
+                }
+                if (d->delta_time[i]>100000){
+                    *d->enc_velocity[i] = 0;
+                } else {
+                    *d->enc_velocity[i] = lpf_update(&filter, d->delta_pos[i] * ((float)d->delta_time[i]));
+                }
+                d->enc_timestamp[i] = rx_buffer->encoder_timestamp[i];
                 d->enc_prev_pos[i] = *d->enc_position[i];
             }
         #endif
@@ -1094,6 +1130,7 @@ int rtapi_app_main(void) {
         #if encoders > 0
         for (int i = 0; i<encoders; i++)
         {
+            hal_data[j].delta_time[i] = 0;
             #if use_stepcounter == 1
                 #define e_name module_name ".%d.stepcounter"
             #else
@@ -1102,15 +1139,30 @@ int rtapi_app_main(void) {
             hal_data[j].enc_offset[i] = 0; // Initialize encoder offset to 0
             memset(name, 0, nsize);
             snprintf(name, nsize, e_name ".%d.raw-count", j, i);
-            r = hal_pin_s32_newf(HAL_IN, &hal_data[j].raw_count[i], comp_id, name, j);
+            r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].raw_count[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            snprintf(name, nsize, e_name ".%d.count-latched", j, i);
+            r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].count_latched[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
                 return r;
             }
             memset(name, 0, nsize);
-            snprintf(name, nsize, e_name ".%d.scaled-count", j, i);
-            r = hal_pin_s32_newf(HAL_OUT, &hal_data[j].scaled_count[i], comp_id, name, j);
+            snprintf(name, nsize, e_name ".%d.position", j, i);
+            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_position[i], comp_id, name, j);
+            if (r < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
+                hal_exit(comp_id);
+                return r;
+            }
+            memset(name, 0, nsize);
+            snprintf(name, nsize, e_name ".%d.position-latched", j, i);
+            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_position_latched[i], comp_id, name, j);
             if (r < 0) {
                 rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
                 hal_exit(comp_id);
@@ -1125,14 +1177,6 @@ int rtapi_app_main(void) {
                 return r;
             }
             *hal_data[j].scale[i] = 1;
-            memset(name, 0, nsize);
-            snprintf(name, nsize, e_name ".%d.position", j, i);
-            r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_position[i], comp_id, name, j);
-            if (r < 0) {
-                rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: ERROR: pin connected export failed with err=%i\n", j, r);
-                hal_exit(comp_id);
-                return r;
-            }
             memset(name, 0, nsize);
             snprintf(name, nsize, e_name ".%d.velocity", j, i);
             r = hal_pin_float_newf(HAL_OUT, &hal_data[j].enc_velocity[i], comp_id, name, j);

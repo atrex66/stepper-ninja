@@ -27,6 +27,7 @@
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "pwm.h"
+#include "math.h"
 #include "freq_generator.pio.h"
 #include "pio_utils.h"
 #include "config.h"
@@ -45,12 +46,6 @@
 #define core1_running 1
 // Low-pass filter parameters
 #define ALPHA 0.25f // Smoothing factor (0.0 to 1.0, lower = more smoothing)
-
-typedef struct {
-    uint32_t last_position;
-    uint64_t last_time_us;
-    int32_t rps; // fordulat / másodperc
-} SpeedEstimator;
 
 #define RPS_SCALE 100000  // 5 tizedesjegy
 
@@ -76,7 +71,7 @@ void reset_with_watchdog();
 void spi_write(uint8_t data);
 int32_t _sendto(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t port);
 int32_t _recvfrom(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port);
-void update_speed(SpeedEstimator* est, uint32_t new_position, uint64_t current_time_us, uint8_t enc_index);
+void update_speed(uint8_t enc_index);
 void handle_udp();
 void w5100s_interrupt_init();
 void w5500_interrupt_init();
