@@ -26,7 +26,7 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **step-generator**: (max 8 with pico 1, max 12 with pico2) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS with 125Mhz pico) (60nS - 4000nS with 200Mhz pico).
 
-- **quadrature-encoder**: (max 8 with pico1, max 12 with pico2) high speed, zero pulse(index) handling.
+- **quadrature-encoder**: (max 8 with pico1, max 12 with pico2) high speed, zero pulse handling, velocity estimation for low resolution encoders.
 
 - **digital IO**: you can configure the free pins of the pico to inputs and outputs.
 
@@ -38,6 +38,8 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 - **Open-Source**: code and docs under MIT License.
 
 - **ready-to-ride**: breakout board version prebuilt uf2 and hal driver in the binary directory. To install the hal driver you need to copy the stepgen-ninja.so to your local hal-driver directory.
+
+- **supporters**: all active sponsors, equals or above 15$ get access to the breakout board private repository for private use (production files:grbl, bom, position), all extras go here.
 
 ## Contributors
 
