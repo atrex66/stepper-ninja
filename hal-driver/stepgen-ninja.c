@@ -96,7 +96,7 @@ typedef struct {
     #endif
     #if encoders > 0
     // encoder pins
-    hal_u32_t *raw_count[encoders];
+    hal_s32_t *raw_count[encoders];
     hal_s32_t *count_latched[encoders];
     hal_float_t *enc_scale[encoders];
     hal_float_t *enc_position[encoders];
@@ -175,6 +175,7 @@ static module_data_t *hal_data; // Pointer a megosztott memóriában lévő adat
 #if stepgens > 0
 static uint32_t timing[1024] = {0, };
 static uint32_t old_pulse_width = 0;
+
 #endif
 
 static uint8_t tx_counter = 0;
@@ -182,7 +183,10 @@ float cycle_time_ns = 1.0f / pico_clock * 1000000000.0f; // Ciklusidő nanoszeku
 transmission_pc_pico_t *tx_buffer;
 transmission_pico_pc_t *rx_buffer;
 
-LowPassFilter *filter;
+#if encoders > 0
+LowPassFilter filter[encoders];
+float error_estimate = 0.1;
+#endif
 
 uint64_t get_time_ns() {
     struct timespec ts;
@@ -230,7 +234,11 @@ void module_init(void) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": tx_buffer allocation failed\n");
         return ;
     }
-    lpf_init(&filter, 0.1f, 0.01f);
+    #if encoders > 0
+        for (int i = 0; i<encoders; i++){
+        lpf_init(&filter[i], 0.1f, 0.0005f);
+        }
+    #endif
 }
 
 #if raspberry_pi_spi == 0
@@ -430,7 +438,7 @@ void udp_io_process_recv(void *arg, long period) {
                 d->delta_count[i] = *d->raw_count[i] - rx_buffer->encoder_counter[i];
                 *d->raw_count[i] = rx_buffer->encoder_counter[i]; // raw encoder count
                 *d->count_latched[i] = rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i];
-                *d->enc_position[i] = (float)*d->count_latched[i] / *d->enc_scale[i];;
+                *d->enc_position[i] = (float)rx_buffer->encoder_counter[i] / *d->enc_scale[i];
                 *d->enc_position_latched[i] = (float)((rx_buffer->encoder_counter[i] - rx_buffer->encoder_latched[i]) / *d->enc_scale[i]);
                 d->delta_pos[i] = d->enc_prev_pos[i] - *d->enc_position[i];
                 if (d->delta_count[i] == 0){
@@ -438,10 +446,11 @@ void udp_io_process_recv(void *arg, long period) {
                 } else {
                     d->delta_time[i] = rx_buffer->encoder_timestamp[i] - d->enc_timestamp[i];
                 }
-                if (d->delta_time[i]>100000){
+                if (d->delta_time[i]>250000){
                     *d->enc_velocity[i] = 0;
                 } else {
-                    *d->enc_velocity[i] = lpf_update(&filter, d->delta_pos[i] * ((float)d->delta_time[i]));
+                    *d->enc_velocity[i] = lpf_update(&filter[i], d->delta_pos[i] * ((float)d->delta_time[i]));
+                    //*d->enc_velocity[i] = kalman_filter(d->delta_pos[i] * ((float)d->delta_time[i]), *d->enc_velocity[i], &error_estimate);
                 }
                 d->enc_timestamp[i] = rx_buffer->encoder_timestamp[i];
                 d->enc_prev_pos[i] = *d->enc_position[i];
