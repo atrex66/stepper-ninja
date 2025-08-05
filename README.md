@@ -41,6 +41,8 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **supporters**: all active sponsors, equals or above 15$ get access to the breakout board private repository for private use (production files:grbl, bom, position), all extras go here.
 
+- **extra i/o**: The io expander for the breakout board, supporting up to total 64 inputs and 32 outputs (with 3 expanders, 24v optical isolated).
+
 ## Contributors
 
 - **code**: atrex66, pippin88
