@@ -35,7 +35,7 @@ typedef struct{
     uint32_t encoder_timestamp[encoders];
     int32_t encoder_latched[encoders];
     #endif
-    uint32_t inputs[3];
+    uint32_t inputs[4];
     uint32_t jitter;
     uint8_t interrupt_data;
     uint8_t dummy;

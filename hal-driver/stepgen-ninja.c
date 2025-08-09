@@ -71,8 +71,19 @@ const uint8_t output_pins[] = out_pins;
 const uint8_t in_pins_no = sizeof(input_pins);
 const uint8_t out_pins_no = sizeof(output_pins);
 #else
-const uint8_t in_pins_no = 16;
-const uint8_t out_pins_no = 8;
+    #if io_expanders + 1 > 0
+    const uint8_t in_pins_no = 16;
+    const uint8_t out_pins_no = 8;
+    #elif io_expanders + 1 > 1
+    const uint8_t in_pins_no = 32;
+    const uint8_t out_pins_no = 16;
+    #elif io_expanders + 1 > 2
+    const uint8_t in_pins_no = 48;
+    const uint8_t out_pins_no = 24;
+    #elif io_expanders + 1 > 3
+    const uint8_t in_pins_no = 64;
+    const uint8_t out_pins_no = 32;
+    #endif
 #endif
 
 typedef struct {
@@ -463,8 +474,12 @@ void udp_io_process_recv(void *arg, long period) {
         #endif
 
         #if breakout_board == 1
-            for (uint8_t i = 0; i < 16; i++) {
-                *d->input[i] = (rx_buffer->inputs[2] >> i) & 1; // MCP23017 inputs
+            for (uint8_t i = 0; i < in_pins_no; i++) {
+                if (i < 32){
+                    *d->input[i] = (rx_buffer->inputs[2] >> i) & 1; // MCP23017 inputs
+                } else {
+                    *d->input[i] = (rx_buffer->inputs[3] >> (i - 32)) & 1; // MCP23017 inputs
+                }
                 *d->input_not[i] = !(*d->input[i]); // Inverted inputs
             }
         #else
@@ -634,7 +649,7 @@ static void udp_io_process_send(void *arg, long period) {
 
     #if breakout_board > 0
         uint8_t outs=0;
-        for (uint8_t i = 0; i < 8; i++) {
+        for (uint8_t i = 0; i < out_pins_no; i++) {
             outs |= *d->output[i] == 1 ? 1 << i : 0; // Set the bit if output is high
         }
         tx_buffer->outputs[0]= outs;

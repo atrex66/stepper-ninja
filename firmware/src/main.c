@@ -72,7 +72,7 @@ transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
 
 #if breakout_board > 0
-    volatile uint32_t input_buffer;
+    volatile uint32_t input_buffer[2];
     volatile uint32_t output_buffer;
 #else
     const uint8_t input_pins[] = in_pins;
@@ -183,31 +183,38 @@ void core1_entry() {
         }
     #endif
 
+    // initialization routine with breakout board
     #if breakout_board > 0
 
         i2c_setup();
         mcp4725_port_setup();
-        #ifdef MCP23008_ADDR
-        printf("Detecting MCP23008 (Outputs) on %#x address\n", MCP23008_ADDR);
-        if (i2c_check_address(I2C_PORT, MCP23008_ADDR)) {
-            printf("MCP23008 (Outputs) Init\n");
-            mcp_write_register(MCP23008_ADDR, 0x00, 0x00);
-        }
-        else {
-            printf("No MCP23008 (Outputs) found on %#x address.\n", MCP23008_ADDR);
-        }
-        #endif
-        #ifdef MCP23017_ADDR
-            printf("Detecting MCP23017 (Inputs) on %#x address\n", MCP23017_ADDR);
-            if (i2c_check_address(I2C_PORT, MCP23017_ADDR)) {
-                printf("MCP23017 (Inputs) Init\n");
-                mcp_write_register(MCP23017_ADDR, 0x00, 0xff);
-                mcp_write_register(MCP23017_ADDR, 0x01, 0xff);
+        printf("Detecting MCP23008 (Outputs) starting on %#x address\n", MCP23008_ADDR);
+        
+        // output base + expanders initialization 
+        uint8_t io_base_output = MCP23008_ADDR;
+        for (int i = 0; i < io_expanders + 1; i+=2) {
+            if (i2c_check_address(I2C_PORT, io_base_output + i)) {
+                printf("MCP23008:%d (Outputs) Init\n", i);
+                mcp_write_register(io_base_output + i, 0x00, 0x00);
             }
             else {
-                printf("No MCP23017 (Inputs) found on %#x address.\n", MCP23017_ADDR);
+                printf("No MCP23008:%d (Outputs) found on %#x address.\n", io_base_output + i, i);
             }
-        #endif
+        }
+        // input base + expanders initialization 
+        printf("Detecting MCP23017 (Inputs) starting on %#x address\n", MCP23017_ADDR);
+        uint8_t io_base_input = MCP23017_ADDR;
+        for (int i = 0; i < io_expanders + 1; i+=2){
+            if (i2c_check_address(I2C_PORT, io_base_input + i)) {
+                printf("MCP23017:%d (Inputs) Init\n", i);
+                mcp_write_register(io_base_input + i, 0x00, 0xff);
+                mcp_write_register(io_base_input + i, 0x01, 0xff);
+            }
+            else {
+                printf("No MCP23017:%d (Inputs) found on %#x address.\n", i, io_base_input + i);
+            }
+        }
+
         #ifdef MCP4725_BASE
         printf("Detecting MCP4725 (analog) on %#x address\n", MCP4725_BASE);
         if (i2c_check_address(MCP4725_PORT, MCP4725_BASE)) {
@@ -326,13 +333,29 @@ void core1_entry() {
             }
             #endif
 
+            // read the inputs in the breakout board and write the outputs
             #if breakout_board > 0
-                mcp_write_register(MCP23008_ADDR, 0x09, output_buffer & 0xFF); // Set outputs
-                input_buffer = mcp_read_register(MCP23017_ADDR, 0x13) | mcp_read_register(MCP23017_ADDR, 0x12) << 8;
+                #if io_expanders + 1 > 0  // always true just for the code readability
+                    input_buffer[0] = mcp_read_register(MCP23017_ADDR + 0, 0x13) | mcp_read_register(MCP23017_ADDR + 0, 0x12) << 8;
+                    mcp_write_register(MCP23008_ADDR + 0, 0x09, (output_buffer >> 0) & 0xff);
+                #endif
+                #if io_expanders + 1 > 1
+                    input_buffer[0] |= (mcp_read_register(MCP23017_ADDR + 2, 0x13) | mcp_read_register(MCP23017_ADDR + 2, 0x12) << 8) << 16;
+                    mcp_write_register(MCP23008_ADDR + 2, 0x09, (output_buffer >> 8) & 0xff);
+                #endif
+                #if io_expanders + 1 > 2
+                    input_buffer[1] = mcp_read_register(MCP23017_ADDR + 4, 0x13) | mcp_read_register(MCP23017_ADDR + 4, 0x12) << 8;
+                    mcp_write_register(MCP23008_ADDR + 4, 0x09, (output_buffer >> 16) & 0xff);
+                #endif
+                #if io_expanders + 1 > 3
+                    input_buffer[1] |= (mcp_read_register(MCP23017_ADDR + 6, 0x13) | mcp_read_register(MCP23017_ADDR + 6, 0x12) << 8) << 16;
+                    mcp_write_register(MCP23008_ADDR + 6, 0x09, (output_buffer >> 24) & 0xff);
+                #endif
+                // write the analog outputs
                 mcp4725_write_data(MCP4725_BASE + 0, rx_buffer->analog_out & 0xfff);
                 mcp4725_write_data(MCP4725_BASE + 1, (rx_buffer->analog_out >> 16) & 0xfff);
             #endif
-            
+
             #if use_pwm == 1
             for (int i=0; i<pwm_count; i++){
                 if (old_pwm_frequency[i] != pwm_freq_buffer[i]){
@@ -765,7 +788,8 @@ void handle_data(){
     #endif
 
     #if breakout_board > 0
-        tx_buffer->inputs[2] = input_buffer; // Read MCP23017 inputs
+        tx_buffer->inputs[2] = input_buffer[0]; // Read MCP23017 inputs
+        tx_buffer->inputs[3] = input_buffer[1];
         output_buffer = rx_buffer->outputs[0];
     #else
         tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs

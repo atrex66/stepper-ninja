@@ -17,7 +17,8 @@
     #define DEFAULT_TIMEOUT 1000000
 
     // switch off this option (breakout_board 0) to use custom configuration
-    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board
+    #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board
+    #define io_expanders 3 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
 
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
     // All GPIO form 0-15 and 22-31 are usable
@@ -28,7 +29,7 @@
     #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
     
-    #define default_pulse_width 2000 // default pulse width in nanoseconds (1us) for the stepgen if not specified in the HAL configuration
+    #define default_pulse_width 2000 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
 
     #define encoders 1
