@@ -66,7 +66,6 @@ add_executable(stepper-ninja
     modules/mcp4725.c
     ${WIZNET_SOURCES}
 )
-
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_encoder.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/freq_generator.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/step_counter.pio)

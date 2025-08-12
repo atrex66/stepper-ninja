@@ -44,6 +44,7 @@
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     #define brakeout_board 0 // 1 = stepper-ninia v1.0 breakout board do not change this value the beakout board has not ready
+    #define io_expanders 0 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
