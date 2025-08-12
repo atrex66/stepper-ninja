@@ -47,7 +47,9 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **code**: atrex66, pippin88
 
-- **testing**: Jimfong1, @Griletos
+- **testing**: Jimfong1, Griletos
+
+- **supporters**: Griletos, Cofhal, Sunhapas
 
 ## Contact
 
