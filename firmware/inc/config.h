@@ -18,7 +18,7 @@
 
     // switch off this option (breakout_board 0) to use custom configuration
     #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board
-    #define io_expanders 3 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
+    #define io_expanders 0 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
 
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
     // All GPIO form 0-15 and 22-31 are usable

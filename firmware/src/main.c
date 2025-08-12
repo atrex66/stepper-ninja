@@ -209,6 +209,8 @@ void core1_entry() {
                 printf("MCP23017:%d (Inputs) Init\n", i);
                 mcp_write_register(io_base_input + i, 0x00, 0xff);
                 mcp_write_register(io_base_input + i, 0x01, 0xff);
+                mcp_write_register(io_base_input + i, 0x02, 0xff);
+                mcp_write_register(io_base_input + i, 0x03, 0xff);
             }
             else {
                 printf("No MCP23017:%d (Inputs) found on %#x address.\n", i, io_base_input + i);
