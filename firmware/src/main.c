@@ -179,6 +179,7 @@ void core1_entry() {
             if (encoder_indexes[i]!=PIN_NULL){
                 gpio_init(encoder_indexes[i]);
                 gpio_set_dir(encoder_indexes[i], false);
+                printf("Encoder index %d pin %d initialized\n", i, encoder_indexes[i]);
             }
         }
     #endif

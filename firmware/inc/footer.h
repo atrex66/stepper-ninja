@@ -15,8 +15,30 @@
         #define MCP23017_ADDR   0x20
         #define MCP23008_ADDR   0x21
         #define MCP_ALL_RESET   GPIO_RESET
+        
         #undef encoders
-        #define encoders        2
+        #undef enc_pins
+        #undef enc_index_pins
+        #undef enc_index_active_level
+        #undef stepgens
+        #undef stepgen_steps
+        #undef stepgen_dirs
+        #undef step_invert
+
+        // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
+        // All GPIO form 0-15 and 22-31 are usable
+        #define stepgens 4
+    
+        // defined with PINS
+        #define stepgen_steps {PIN_1, PIN_4, PIN_6, PIN_9}
+        #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
+        #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
+
+        #define encoders 2
+        #define enc_pins {8, 14} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
+        #define enc_index_pins {10, 11}  // pin the encoder index is connected (interrupt driven)
+        #define enc_index_active_level {high, high}
+
         #undef in_pins          
         #undef in_pullup
         #undef out_pins
