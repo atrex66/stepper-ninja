@@ -774,6 +774,92 @@ int parse_ip_port(const char *input, IpPort *output, int max_count) {
     return count;
 }
 
+#if raspberry_pi_spi == 0
+/*
+ * discover_pico - Discovers a Pico device via multicast auto-detection.
+ *
+ * Joins the multicast group DISCOVERY_MULTICAST_IP:DISCOVERY_PORT and waits
+ * for a discovery announcement packet from a Pico. On success, fills *result
+ * with the discovered IP and port. Returns 0 on success, -1 on failure.
+ */
+static int discover_pico(IpPort *result) {
+    int sockfd;
+    struct sockaddr_in local_addr;
+    struct ip_mreq mreq;
+    discovery_packet_t pkt;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": discovery socket creation failed: %s\n",
+                       strerror(errno));
+        return -1;
+    }
+
+    int reuse = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+
+    memset(&local_addr, 0, sizeof(local_addr));
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_port = htons(DISCOVERY_PORT);
+    local_addr.sin_addr.s_addr = INADDR_ANY;
+
+    if (bind(sockfd, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
+        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": discovery bind failed: %s\n",
+                       strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+
+    memset(&mreq, 0, sizeof(mreq));
+    inet_pton(AF_INET, DISCOVERY_MULTICAST_IP, &mreq.imr_multiaddr);
+    mreq.imr_interface.s_addr = INADDR_ANY;
+    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+        rtapi_print_msg(RTAPI_MSG_ERR, module_name ": join multicast group failed: %s\n",
+                       strerror(errno));
+        close(sockfd);
+        return -1;
+    }
+
+    struct timeval tv;
+    tv.tv_sec = DISCOVERY_TIMEOUT_SEC;
+    tv.tv_usec = 0;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+    rtapi_print_msg(RTAPI_MSG_INFO, module_name ": waiting for Pico discovery (timeout: %ds)...\n",
+                   DISCOVERY_TIMEOUT_SEC);
+
+    int found = 0;
+    while (!found) {
+        struct sockaddr_in sender;
+        socklen_t senderlen = sizeof(sender);
+        int len = recvfrom(sockfd, &pkt, sizeof(pkt), 0,
+                          (struct sockaddr *)&sender, &senderlen);
+        if (len < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR, module_name ": auto-discovery timeout, no Pico found\n");
+            setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+            close(sockfd);
+            return -1;
+        }
+        if (len == (int)sizeof(discovery_packet_t) && pkt.magic == DISCOVERY_MAGIC) {
+            uint8_t chk = 0;
+            for (int i = 0; i < (int)sizeof(discovery_packet_t) - 1; i++)
+                chk += ((uint8_t *)&pkt)[i];
+            if (chk == pkt.checksum) {
+                snprintf(result->ip, sizeof(result->ip), "%d.%d.%d.%d",
+                        pkt.ip[0], pkt.ip[1], pkt.ip[2], pkt.ip[3]);
+                result->port = pkt.port;
+                rtapi_print_msg(RTAPI_MSG_INFO, module_name ": discovered Pico at %s:%d\n",
+                               result->ip, result->port);
+                found = 1;
+            }
+        }
+    }
+
+    setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+    close(sockfd);
+    return 0;
+}
+#endif
+
 int rtapi_app_main(void) {
     int r;
 
@@ -783,18 +869,29 @@ int rtapi_app_main(void) {
 
     #if raspberry_pi_spi == 0
         IpPort results[MAX_CHAN];
-        // parse the IP address and port from the modparam
-        instances = parse_ip_port((char *)ip_address, results, 8);
+        if (ip_address == NULL || strcmp(ip_address, "auto") == 0) {
+            // Auto-discovery mode: find Pico via multicast
+            instances = 1;
+            if (discover_pico(&results[0]) < 0) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ": auto-discovery failed\n");
+                return -EINVAL;
+            }
+            rtapi_print_msg(RTAPI_MSG_INFO, "Auto-discovered Pico: %s:%d\n",
+                           results[0].ip, results[0].port);
+        } else {
+            // Manual IP configuration
+            instances = parse_ip_port((char *)ip_address, results, 8);
 
-        // print parsed IP addresses and ports
-        for (int i = 0; i < instances; i++) {
-            rtapi_print_msg(RTAPI_MSG_INFO, "Parsed IP: %s, Port: %d\n", results[i].ip, results[i].port);
-        }
+            // print parsed IP addresses and ports
+            for (int i = 0; i < instances; i++) {
+                rtapi_print_msg(RTAPI_MSG_INFO, "Parsed IP: %s, Port: %d\n", results[i].ip, results[i].port);
+            }
 
-        // Check if instances is greater than MAX_CHAN
-        if (instances > MAX_CHAN) {
-            rtapi_print_msg(RTAPI_MSG_ERR, module_name ": Too many channels, max %d allowed\n", MAX_CHAN);
-            return -1;
+            // Check if instances is greater than MAX_CHAN
+            if (instances > MAX_CHAN) {
+                rtapi_print_msg(RTAPI_MSG_ERR, module_name ": Too many channels, max %d allowed\n", MAX_CHAN);
+                return -1;
+            }
         }
     #endif
 

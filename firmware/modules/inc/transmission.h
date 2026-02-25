@@ -7,6 +7,23 @@
 // first encoder index
 #define CTRL_SPINDEX 0
 
+// Auto-discovery protocol constants
+#define DISCOVERY_MAGIC        0x4E494E4A  // "NINJ"
+#define DISCOVERY_MULTICAST_IP "239.192.1.100"
+#define DISCOVERY_PORT         5007
+#define DISCOVERY_TIMEOUT_SEC  10
+
+#pragma pack(push, 1)
+// Discovery/announcement packet sent by Pico via multicast
+typedef struct {
+    uint32_t magic;    // DISCOVERY_MAGIC
+    uint8_t  ip[4];    // Pico's IP address
+    uint16_t port;     // Pico's UDP data port
+    uint8_t  mac[6];   // Pico's MAC address
+    uint8_t  checksum; // Simple sum checksum
+} discovery_packet_t;
+#pragma pack(pop)
+
 
 #pragma pack(push, 1)
 // transmission structure from PC to Pico

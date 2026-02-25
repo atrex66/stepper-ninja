@@ -862,6 +862,53 @@ void stop_timer() {
 }
 
 // -------------------------------------------
+// Multicast auto-discovery
+// -------------------------------------------
+#if raspberry_pi_spi == 0
+static void init_discovery_socket(void) {
+    uint8_t multicast_ip[] = DISCOVERY_MULTICAST_BYTES;
+    uint8_t multicast_mac[] = DISCOVERY_MULTICAST_MAC;
+    setSn_DHAR(DISCOVERY_SOCKET, multicast_mac);
+    setSn_DIPR(DISCOVERY_SOCKET, multicast_ip);
+    setSn_DPORT(DISCOVERY_SOCKET, DISCOVERY_PORT);
+    socket(DISCOVERY_SOCKET, Sn_MR_UDP, DISCOVERY_PORT, SF_MULTI_ENABLE);
+}
+
+static void send_discovery_packet(void) {
+    static absolute_time_t last_disc_time = {0};
+    absolute_time_t now = get_absolute_time();
+    if (absolute_time_diff_us(last_disc_time, now) < 1000000LL) {
+        return;
+    }
+    last_disc_time = now;
+
+    discovery_packet_t pkt;
+    pkt.magic = DISCOVERY_MAGIC;
+    memcpy(pkt.ip, net_info.ip, 4);
+    pkt.port = port;
+    memcpy(pkt.mac, net_info.mac, 6);
+    pkt.checksum = 0;
+    for (uint8_t i = 0; i < sizeof(discovery_packet_t) - 1; i++)
+        pkt.checksum += ((uint8_t *)&pkt)[i];
+
+    wiz_send_data(DISCOVERY_SOCKET, (uint8_t *)&pkt, sizeof(pkt));
+    setSn_CR(DISCOVERY_SOCKET, Sn_CR_SEND);
+    while (getSn_CR(DISCOVERY_SOCKET));
+    uint16_t timeout = 10000;
+    uint8_t tmp;
+    do {
+        tmp = getSn_IR(DISCOVERY_SOCKET);
+        if (tmp & (Sn_IR_SENDOK | Sn_IR_TIMEOUT)) {
+            setSn_IR(DISCOVERY_SOCKET, tmp);
+            break;
+        }
+    } while (--timeout);
+    printf("Discovery: %d.%d.%d.%d:%d\n",
+           net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3], port);
+}
+#endif
+
+// -------------------------------------------
 // UDP handler
 // -------------------------------------------
 void __not_in_flash_func(handle_udp)() {
@@ -871,6 +918,9 @@ void __not_in_flash_func(handle_udp)() {
     memset(packet_buffer, 0, rx_size);
     last_packet_time = get_absolute_time();
     while (1){
+        #if raspberry_pi_spi == 0
+        send_discovery_packet();
+        #endif
         if (!gpio_get(GPIO_INT)){
             #if raspberry_pi_spi == 0
                 setSn_IR(0, Sn_IR_RECV);
@@ -1042,6 +1092,9 @@ void network_init() {
     setSn_CR(0, Sn_CR_OPEN);
     uint8_t sock_num = 0;
     socket(sock_num, Sn_MR_UDP, port, 0);
+    #if raspberry_pi_spi == 0
+    init_discovery_socket();
+    #endif
     }
 
 static void spi_read_burst(uint8_t *pBuf, uint16_t len)
