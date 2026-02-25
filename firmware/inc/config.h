@@ -15,6 +15,8 @@
     #define DEFAULT_SUBNET {255, 255, 255, 0}
     // timeout for detecting disconnection from linuxcnc
     #define DEFAULT_TIMEOUT 1000000
+    // device name for auto-discovery (max 15 chars)
+    #define DEVICE_NAME "stepper-ninja"
 
     // switch off this option (breakout_board 0) to use custom configuration
     #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board

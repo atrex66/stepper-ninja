@@ -20,6 +20,12 @@ typedef struct {
     uint8_t  ip[4];    // Pico's IP address
     uint16_t port;     // Pico's UDP data port
     uint8_t  mac[6];   // Pico's MAC address
+    char     name[16]; // device name (null-terminated)
+    uint8_t  n_stepgens; // number of step generators
+    uint8_t  n_encoders; // number of encoders
+    uint8_t  n_inputs;   // number of digital inputs
+    uint8_t  n_outputs;  // number of digital outputs
+    uint8_t  n_pwm;      // number of PWM channels
     uint8_t  checksum; // Simple sum checksum
 } discovery_packet_t;
 #pragma pack(pop)

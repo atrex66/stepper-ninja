@@ -887,6 +887,18 @@ static void send_discovery_packet(void) {
     memcpy(pkt.ip, net_info.ip, 4);
     pkt.port = port;
     memcpy(pkt.mac, net_info.mac, 6);
+    memset(pkt.name, 0, sizeof(pkt.name));
+    strncpy(pkt.name, DEVICE_NAME, sizeof(pkt.name) - 1);
+    pkt.n_stepgens = (uint8_t)stepgens;
+    pkt.n_encoders = (uint8_t)encoders;
+    #if breakout_board > 0
+    pkt.n_inputs  = (uint8_t)(16 * (io_expanders + 1));
+    pkt.n_outputs = (uint8_t)(8  * (io_expanders + 1));
+    #else
+    pkt.n_inputs  = (uint8_t)sizeof(input_pins);
+    pkt.n_outputs = (uint8_t)sizeof(output_pins);
+    #endif
+    pkt.n_pwm = (uint8_t)pwm_count;
     pkt.checksum = 0;
     for (uint8_t i = 0; i < sizeof(discovery_packet_t) - 1; i++)
         pkt.checksum += ((uint8_t *)&pkt)[i];
@@ -903,8 +915,10 @@ static void send_discovery_packet(void) {
             break;
         }
     } while (--timeout);
-    printf("Discovery: %d.%d.%d.%d:%d\n",
-           net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3], port);
+    printf("Discovery: %s %d.%d.%d.%d:%d sg=%d enc=%d in=%d out=%d pwm=%d\n",
+           pkt.name,
+           net_info.ip[0], net_info.ip[1], net_info.ip[2], net_info.ip[3], port,
+           pkt.n_stepgens, pkt.n_encoders, pkt.n_inputs, pkt.n_outputs, pkt.n_pwm);
 }
 #endif
 
