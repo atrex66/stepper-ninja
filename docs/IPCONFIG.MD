@@ -2,7 +2,16 @@
 
 ## Overview
 
-The `ipconfig` functionality in `serial_terminal.c` provides a serial terminal interface for configuring the stepper-ninja device. It allows users to set network parameters (IP, MAC, port, etc.), manage timeouts, save configurations to flash, and reset the device. Commands are entered via a serial connection, processed in real-time, and validated for correct formatting.
+The `ipconfig` functionality in `main.c` provides a serial terminal interface for
+configuring the stepper-ninja device. It allows users to set network parameters
+(IP, MAC, port, device name, etc.), manage timeouts, save configurations to flash, and
+reset the device. Commands are entered via a serial connection, processed in real-time,
+and validated for correct formatting.
+
+The **device name** configured here is broadcast in the multicast auto-discovery packet,
+allowing the LinuxCNC HAL driver to identify the Pico and name its HAL pins accordingly
+(e.g. `stepgen-ninja.my-pico.stepgen.0.command`). See [INSTALL.md](INSTALL.md) for
+details on auto-discovery.
 
 ## Prerequisites
 
@@ -39,13 +48,15 @@ The serial terminal accepts commands typed into the terminal, terminated by a ca
 | Command | Description | Example | Output/Effect |
 |---------|-------------|---------|---------------|
 | `help` | Displays a list of available commands and their descriptions. | `help` | Prints the help menu. |
-| `check` | Shows the current configuration, including MAC, IP, subnet, gateway, DNS, DHCP status, port, PHY status (duplex/speed), and timeout. | `check` | Prints detailed configuration details, e.g., `IP: 192.168.1.100`. |
+| `check` | Shows the current configuration, including MAC, IP, subnet, gateway, DNS, DHCP status, port, device name, PHY status (duplex/speed), and timeout. | `check` | Prints detailed configuration details, e.g., `IP: 192.168.1.100`. |
 | `ip <x.x.x.x>` | Sets the device's IP address to the specified value. | `ip 192.168.1.100` | Updates IP and saves to configuration. Prints `IP changed to 192.168.1.100`. |
 | `ip` | Displays the current IP address. | `ip` | Prints `IP: 192.168.1.100`. |
 | `port <port>` | Sets the device's port number. | `port 5000` | Updates port and saves to configuration. Prints `Port changed to 5000`. |
 | `port` | Displays the current port number. | `port` | Prints `Port: 5000`. |
 | `mac <xx:xx:xx:xx:xx:xx>` | Sets the device's MAC address (hexadecimal, colon-separated). | `mac 00:1A:2B:3C:4D:5E` | Updates MAC and saves to configuration. Prints `MAC changed to 00:1A:2B:3C:4D:5E`. |
 | `mac` | Displays the current MAC address. | `mac` | Prints `MAC: 00:1A:2B:3C:4D:5E`. |
+| `name <string>` | Sets the device name broadcast in auto-discovery (max 15 chars). Used as the HAL pin name prefix. | `name my-pico` | Updates device name and saves to configuration. Prints `Name changed to my-pico`. |
+| `name` | Displays the current device name. | `name` | Prints `Name: my-pico`. |
 | `timeout <value>` | Sets the timeout value in microseconds. | `timeout 1000000` | Updates timeout and saves to configuration. Prints `Timeout changed to 1000000`. |
 | `timeout` | Displays the current timeout value. | `timeout` | Prints `Timeout: 1000000`. |
 | `tim <value>` | Sets the time constant value. | `tim 500` | Updates time constant and saves to configuration. Prints `Time const changed to 500`. |

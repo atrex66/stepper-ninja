@@ -34,6 +34,8 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **Software**:
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks).
+  - **Auto-discovery**: the HAL driver can automatically find Pico devices on the local network via multicast (`ip_address="auto"`). The Pico broadcasts its IP address, port, device name, and full feature set (stepgens, encoders, inputs, outputs, PWM channels). HAL pins are created automatically — no driver recompilation needed when the firmware configuration changes.
+  - **Device naming**: each Pico can be given a unique name (set via `DEVICE_NAME` in `config.h` or the serial terminal `name` command). The name is used as the HAL pin prefix, e.g. `stepgen-ninja.my-pico.stepgen.0.command`.
 
 - **Open-Source**: code and docs under MIT License.
 

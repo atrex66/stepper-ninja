@@ -129,6 +129,28 @@ For a Pico2 with a W5500 module, ensure:
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` in the CMake step.
 
+## Setting the Device Name
+
+Each Pico can be given a unique name that is broadcast in the auto-discovery packet and
+used as the instance identifier in all HAL pin names.
+
+Edit `firmware/inc/config.h` before building the firmware:
+
+```c
+// device name for auto-discovery (max 15 chars)
+#define DEVICE_NAME "my-pico"
+```
+
+After flashing, the HAL driver will create pins like:
+
+```
+stepgen-ninja.my-pico.stepgen.0.command
+stepgen-ninja.my-pico.encoder.0.position
+stepgen-ninja.my-pico.input.0
+```
+
+When running multiple Picos on the same network, give each a different `DEVICE_NAME` so
+that their HAL pins do not conflict.
 
 ## Installing the LinuxCNC HAL Driver
 
@@ -141,7 +163,32 @@ To integrate Stepper-Ninja with LinuxCNC:
    ./install.sh
    ```
 
-2. **Create a HAL File** (e.g., `stepper-ninja.hal`):
+2. **Create a HAL File** — two modes are supported:
+
+   ### Option A — Auto-discovery (recommended)
+
+   The HAL driver multicasts a discovery request; the Pico responds with its IP address,
+   port, device name, and full feature set (stepgens, encoders, inputs, outputs, PWM).
+   HAL pins are created automatically based on the reported feature set. The pin names
+   use the device name configured in the firmware (default: `stepper-ninja`).
+
+   ```hal
+   loadrt stepgen-ninja ip_address="auto"
+
+   addf stepgen-ninja.stepper-ninja.watchdog-process servo-thread
+   addf stepgen-ninja.stepper-ninja.process-send servo-thread
+   addf stepgen-ninja.stepper-ninja.process-recv servo-thread
+
+   net x-pos-cmd joint.0.motor-pos-cmd => stepgen-ninja.stepper-ninja.stepgen.0.command
+   net x-pos-fb stepgen-ninja.stepper-ninja.stepgen.0.feedback => joint.0.motor-pos-fb
+   net x-enable axis.0.amp-enable-out => stepgen-ninja.stepper-ninja.stepgen.0.enable
+   ```
+
+   ### Option B — Manual IP address
+
+   Specify the Pico's IP address and port directly. Pin names use the device name from
+   the last discovery, or the instance index (`0`, `1`, …) if the Pico has never been
+   discovered.
 
    ```hal
    loadrt stepgen-ninja ip_address="192.168.0.177:8888"
@@ -153,6 +200,12 @@ To integrate Stepper-Ninja with LinuxCNC:
    net x-pos-cmd joint.0.motor-pos-cmd => stepgen-ninja.0.stepgen.0.command
    net x-pos-fb stepgen-ninja.0.stepgen.0.feedback => joint.0.motor-pos-fb
    net x-enable axis.0.amp-enable-out => stepgen-ninja.0.stepgen.0.enable
+   ```
+
+   For multiple Pico instances, separate each address with a semicolon:
+
+   ```hal
+   loadrt stepgen-ninja ip_address="192.168.0.177:8888;192.168.0.178:8888"
    ```
 
 3. **Update the INI File** (e.g., `your_config.ini`):
