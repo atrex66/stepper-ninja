@@ -12,6 +12,7 @@ typedef struct {
     uint8_t dhcp;   // DHCP mode (0: Static, 1: DHCP)
     uint16_t port; // UDP port
     uint32_t timeout; // Timeout in microseconds
+    char name[16];   // Device name for auto-discovery (null-terminated, max 15 chars)
     uint8_t checksum;
 } configuration_t;
 #pragma pack(pop)

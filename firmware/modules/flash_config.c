@@ -25,6 +25,7 @@ const configuration_t default_config = {
     .dhcp = 1,
     .port = DEFAULT_PORT,
     .timeout = DEFAULT_TIMEOUT,
+    .name = DEVICE_NAME,
     .checksum = 0
 };
 

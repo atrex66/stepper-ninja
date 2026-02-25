@@ -66,6 +66,7 @@ void process_command(char* command) {
         printf("gateway <x.x.x.x> - Set the gateway address\n");
         printf("port <port> - Set port\n");
         printf("mac <xx:xx:xx:xx:xx:xx> - Set MAC address\n");
+        printf("name <string> - Set device name for auto-discovery (max 15 chars)\n");
         printf("timeout <value> - Set timeout in microseconds\n");
         printf("defaults - Restore default configuration\n");
         printf("reset - Reset the device\n");
@@ -88,6 +89,7 @@ void process_command(char* command) {
         printf("DNS: %d.%d.%d.%d\n", net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]);
         printf("DHCP: %d   (1-Static, 2-Dinamic)\n", net_info.dhcp);
         printf("PORT: %d\n", port);
+        printf("Name: %s\n", flash_config->name);
     #if _WIZCHIP_ == W5100S
         printf("*******************PHY status**************\n");
         uint8_t phyconf = getPHYSR();
@@ -123,6 +125,20 @@ void process_command(char* command) {
     }
     else if (strcmp(command, "mac") == 0) {
         printf("MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", net_info.mac[0], net_info.mac[1], net_info.mac[2], net_info.mac[3], net_info.mac[4], net_info.mac[5]);
+    }
+    else if (strcmp(command, "name") == 0) {
+        printf("Name: %s\n", flash_config->name);
+    }
+    else if (strncmp(command, "name ", 5) == 0) {
+        const char *new_name = command + 5;
+        if (strlen(new_name) == 0 || strlen(new_name) > 15) {
+            printf("Invalid name: must be 1-15 characters\n");
+        } else {
+            memset(flash_config->name, 0, sizeof(flash_config->name));
+            strncpy(flash_config->name, new_name, sizeof(flash_config->name) - 1);
+            save_configuration();
+            printf("Name changed to %s\n", flash_config->name);
+        }
     }
     else if (strncmp(command, "timeout ", 8) == 0) {
         int timeout;

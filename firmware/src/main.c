@@ -888,7 +888,7 @@ static void send_discovery_packet(void) {
     pkt.port = port;
     memcpy(pkt.mac, net_info.mac, 6);
     memset(pkt.name, 0, sizeof(pkt.name));
-    strncpy(pkt.name, DEVICE_NAME, sizeof(pkt.name) - 1);
+    strncpy(pkt.name, flash_config->name, sizeof(pkt.name) - 1);
     pkt.n_stepgens = (uint8_t)stepgens;
     pkt.n_encoders = (uint8_t)encoders;
     #if breakout_board > 0
