@@ -21,9 +21,9 @@
  *
  *   OUTPUT PINS
  *     polygon-ninja.eoffset-counts       s32   OUT — external offset counts (scaled x1000)
- *     polygon-ninja.enable-out           bit   OUT — eoffset enable handshake output
+ *     polygon-ninja.enable-out           bit   OUT — goes high after index handshake completes
  *     polygon-ninja.clear-out            bit   OUT — eoffset clear handshake output
- *     polygon-ninja.index-enable         bit   OUT — high while module is enabled
+ *     polygon-ninja.index-enable         bit   OUT — pulse/request for encoder index reset handshake
  *     polygon-ninja.debug-r-abs-mm       float OUT — instantaneous absolute radius
  *     polygon-ninja.debug-r-min-mm       float OUT — minimum radius for current shape
  *     polygon-ninja.debug-r-max-mm       float OUT — maximum radius for current shape
@@ -81,9 +81,9 @@ typedef struct {
 
     /* ----- Output pins --------------------------------------------------- */
     hal_s32_t   *eoffset_counts;        /* external offset counts (x1000)     */
-    hal_bit_t   *enable_out;            /* enable after first output movement */
+    hal_bit_t   *enable_out;            /* enable after index handshake       */
     hal_bit_t   *clear_out;             /* inverse of input enable            */
-    hal_bit_t   *index_enable;          /* high while enabled                 */
+    hal_bit_t   *index_enable;          /* asserted, then cleared externally  */
     hal_float_t *debug_r_abs_mm;        /* instantaneous absolute radius (mm) */
     hal_float_t *debug_r_min_mm;        /* minimum radius for current shape   */
     hal_float_t *debug_r_max_mm;        /* maximum radius for current shape   */
@@ -94,9 +94,12 @@ typedef struct {
     int    lut_size;        /* configured LUT size (must be power of 2)        */
     int    lut_mask;        /* lut_size - 1 for bitmask indexing               */
 
-    /* ----- Polygon vertex scratch (only used during LUT regeneration) ----- */
-    float vx[MAX_SIDES];
-    float vy[MAX_SIDES];
+    /* ----- Polygon memory ------------------------------------------------- */
+    float poly_x[MAX_SIDES + 1];
+    float poly_y[MAX_SIDES + 1];
+    int   poly_vertices;
+    hal_bit_t polygon_error_latched;
+    hal_bit_t polygon_valid;
 
     /* ----- Change detection (trigger LUT rebuild on shape change) --------- */
     int   prev_sides;
@@ -105,8 +108,8 @@ typedef struct {
     float lut_min_norm;
     float lut_max_norm;
     float lut_mean_norm;
-    hal_s32_t armed_eoffset_counts;
-    hal_bit_t eoffset_started;
+    hal_bit_t waiting_for_index_clear;
+    hal_bit_t output_started;
     hal_bit_t prev_enable;
 
 } polygon_data_t;
@@ -118,7 +121,14 @@ static polygon_data_t *hal_data = NULL;
  * Forward declarations
  * ========================================================================= */
 static void polygon_process(void *arg, long period);
-static void build_lut(polygon_data_t *d, int sides, float ex_x, float circ_radius);
+static int  build_lut(polygon_data_t *d, int sides, float ex_x, float circ_radius);
+static void build_regular_polygon_memory(polygon_data_t *d, int sides);
+static int  build_lut_from_polygon_memory(polygon_data_t *d, float ex_x, float circ_radius);
+static int  validate_polygon_memory(polygon_data_t *d);
+static int  intersect_ray_segment(float dx, float dy,
+                                  float x1, float y1,
+                                  float x2, float y2,
+                                  float *t_hit);
 static int  is_power_of_2(int n);
 
 /* =========================================================================
@@ -127,6 +137,178 @@ static int  is_power_of_2(int n);
 static int is_power_of_2(int n)
 {
     return n > 0 && (n & (n - 1)) == 0;
+}
+
+/* =========================================================================
+ * Geometry helper: intersection between a ray from origin and a line segment
+ *
+ * Ray:     P = t * (dx, dy), t >= 0
+ * Segment: Q = (x1, y1) + u * ((x2-x1), (y2-y1)), 0 <= u <= 1
+ *
+ * Returns 1 on valid hit and writes the ray distance to *t_hit.
+ * Returns 0 for parallel/no-hit cases.
+ * ========================================================================= */
+static int intersect_ray_segment(float dx, float dy,
+                                 float x1, float y1,
+                                 float x2, float y2,
+                                 float *t_hit)
+{
+    float sx = x2 - x1;
+    float sy = y2 - y1;
+    float det = dx * sy - dy * sx;
+
+    if (fabsf(det) < EPS) {
+        return 0;
+    }
+
+    float t = (x1 * sy - y1 * sx) / det;
+    float u = (x1 * dy - y1 * dx) / det;
+
+    if (t > EPS && u >= -EPS && u <= 1.0f + EPS) {
+        *t_hit = t;
+        return 1;
+    }
+
+    return 0;
+}
+
+/* =========================================================================
+ * Polygon memory builder
+ *
+ * Fills the persistent polygon coordinate memory with a regular N-gon on the
+ * unit circle. The LUT builder then works only from this coordinate memory,
+ * which makes it straightforward to support custom polygon sources later.
+ * ========================================================================= */
+static void build_regular_polygon_memory(polygon_data_t *d, int sides)
+{
+    int k;
+    float a;
+
+    if (sides < 3) {
+        sides = 3;
+    }
+    if (sides > MAX_SIDES) {
+        sides = MAX_SIDES;
+    }
+
+    d->poly_vertices = sides + 1;
+
+    for (k = 0; k < sides; k++) {
+        a = 2.0f * (float)M_PI * k / (float)sides;
+        d->poly_x[k] = cosf(a);
+        d->poly_y[k] = sinf(a);
+    }
+
+    d->poly_x[sides] = d->poly_x[0];
+    d->poly_y[sides] = d->poly_y[0];
+}
+
+/* =========================================================================
+ * Polygon validation
+ *
+ * A valid polygon memory must contain at least 3 unique vertices plus the
+ * closing point, and the final point must match the first point.
+ * ========================================================================= */
+static int validate_polygon_memory(polygon_data_t *d)
+{
+    int k;
+    float dx, dy;
+
+    if (d->poly_vertices < 4) {
+        return 0;
+    }
+
+    dx = d->poly_x[d->poly_vertices - 1] - d->poly_x[0];
+    dy = d->poly_y[d->poly_vertices - 1] - d->poly_y[0];
+    if ((dx * dx + dy * dy) > (EPS * EPS)) {
+        return 0;
+    }
+
+    for (k = 0; k < d->poly_vertices - 1; k++) {
+        dx = d->poly_x[k + 1] - d->poly_x[k];
+        dy = d->poly_y[k + 1] - d->poly_y[k];
+        if ((dx * dx + dy * dy) <= (EPS * EPS)) {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+/* =========================================================================
+ * LUT generation from polygon memory
+ *
+ * Uses the currently stored polygon coordinate memory and computes the radial
+ * intersection by explicit ray/segment line-line intersection.
+ * ========================================================================= */
+static int build_lut_from_polygon_memory(polygon_data_t *d, float ex_x, float circ_radius)
+{
+    int i, k;
+    float theta, dx, dy;
+    float x1, y1, x2, y2;
+    float t_hit, t_min;
+    float r, px, py, ex_x_norm;
+    float r_min = 1e30f;
+    float r_max = -1e30f;
+    double r_sum = 0.0;
+
+    if (!validate_polygon_memory(d)) {
+        if (!d->polygon_error_latched) {
+            rtapi_print_msg(RTAPI_MSG_ERR,
+                module_name ": polygon memory is not closed or contains degenerate edges\n");
+            d->polygon_error_latched = 1;
+        }
+        d->polygon_valid = 0;
+        return -EINVAL;
+    }
+
+    d->polygon_error_latched = 0;
+    d->polygon_valid = 1;
+
+    if (fabsf(circ_radius) > EPS) {
+        ex_x_norm = ex_x / circ_radius;
+    } else {
+        ex_x_norm = 0.0f;
+    }
+
+    for (i = 0; i < d->lut_size; i++) {
+        theta = 2.0f * (float)M_PI * i / (float)d->lut_size;
+        dx = cosf(theta);
+        dy = sinf(theta);
+        t_min = 1e30f;
+
+        for (k = 0; k < d->poly_vertices - 1; k++) {
+            x1 = d->poly_x[k];
+            y1 = d->poly_y[k];
+            x2 = d->poly_x[k + 1];
+            y2 = d->poly_y[k + 1];
+
+            if (intersect_ray_segment(dx, dy, x1, y1, x2, y2, &t_hit)) {
+                if (t_hit < t_min) {
+                    t_min = t_hit;
+                }
+            }
+        }
+
+        r = (t_min < 1e29f) ? t_min : 1.0f;
+
+        px = r * dx + ex_x_norm;
+        py = r * dy;
+        d->lut[i] = sqrtf(px * px + py * py);
+
+        if (d->lut[i] < r_min) {
+            r_min = d->lut[i];
+        }
+        if (d->lut[i] > r_max) {
+            r_max = d->lut[i];
+        }
+        r_sum += (double)d->lut[i];
+    }
+
+    d->lut_min_norm = r_min;
+    d->lut_max_norm = r_max;
+    d->lut_mean_norm = (float)(r_sum / (double)d->lut_size);
+    return 0;
 }
 
 /* =========================================================================
@@ -149,80 +331,24 @@ static int is_power_of_2(int n)
  * LUT rebuilds are rare (only on shape-parameter change) so any brief
  * latency spike is acceptable during a parameter transition.
  * ========================================================================= */
-static void build_lut(polygon_data_t *d, int sides, float ex_x, float circ_radius)
+static int build_lut(polygon_data_t *d, int sides, float ex_x, float circ_radius)
 {
-    int   i, k, kn;
-    float a, theta, dx, dy;
-    float x1, y1, x2, y2;
-    float det, t, u, t_min;
-    float r, px, py, ex_x_norm;
-    float r_min = 1e30f;
-    float r_max = -1e30f;
-    double r_sum = 0.0;
-
     if (sides < 3)        sides = 3;
     if (sides > MAX_SIDES) sides = MAX_SIDES;
 
-    /* excenter-x is in mm, LUT is unit space: normalize by circle radius. */
-    if (fabsf(circ_radius) > EPS) {
-        ex_x_norm = ex_x / circ_radius;
-    } else {
-        ex_x_norm = 0.0f;
-    }
-
-    /* ---- Build unit polygon: vertices on unit circle -------------------- */
-    for (k = 0; k < sides; k++) {
-        a       = 2.0f * (float)M_PI * k / (float)sides;
-        d->vx[k] = cosf(a);
-        d->vy[k] = sinf(a);
-    }
-
-    /* ---- Ray-cast each LUT entry ---------------------------------------- */
-    for (i = 0; i < d->lut_size; i++) {
-        theta = 2.0f * (float)M_PI * i / (float)d->lut_size;
-        dx    = cosf(theta);
-        dy    = sinf(theta);
-        t_min = 1e30f;
-
-        /* Find closest edge intersection */
-        for (k = 0; k < sides; k++) {
-            kn = (k + 1) % sides;
-            x1 = d->vx[k];   y1 = d->vy[k];
-            x2 = d->vx[kn];  y2 = d->vy[kn];
-
-            det = dx * (y2 - y1) - dy * (x2 - x1);
-            if (fabsf(det) < EPS)
-                continue;
-
-            t = (x1 * (y2 - y1) - y1 * (x2 - x1)) / det;
-            u = (x1 * dy        - y1 * dx)          / det;
-
-            if (t > EPS && u >= -EPS && u <= 1.0f + EPS) {
-                if (t < t_min)
-                    t_min = t;
-            }
-        }
-
-        /* t_min is the unit radius at this angle */
-        r = (t_min < 1e29f) ? t_min : 1.0f;
-
-        /* Geometric X-axis shift of polygon center before radial projection. */
-        px = r * dx + ex_x_norm;
-        py = r * dy;
-        d->lut[i] = sqrtf(px * px + py * py);
-
-        if (d->lut[i] < r_min) r_min = d->lut[i];
-        if (d->lut[i] > r_max) r_max = d->lut[i];
-        r_sum += (double)d->lut[i];
+    build_regular_polygon_memory(d, sides);
+    if (build_lut_from_polygon_memory(d, ex_x, circ_radius) < 0) {
+        d->prev_sides = sides;
+        d->prev_ex_x = ex_x;
+        d->prev_circ_radius = circ_radius;
+        return -EINVAL;
     }
 
     /* Save for change detection */
     d->prev_sides = sides;
     d->prev_ex_x  = ex_x;
     d->prev_circ_radius = circ_radius;
-    d->lut_min_norm = r_min;
-    d->lut_max_norm = r_max;
-    d->lut_mean_norm = (float)(r_sum / (double)d->lut_size);
+    return 0;
 }
 
 /* =========================================================================
@@ -249,6 +375,19 @@ static void polygon_process(void *arg, long period)
         build_lut(d, sides, ex_x, circ_radius);
     }
 
+    if (!d->polygon_valid) {
+        *d->eoffset_counts = 0;
+        *d->enable_out = 0;
+        *d->clear_out = 1;
+        *d->index_enable = 0;
+        *d->debug_r_abs_mm = 0.0;
+        *d->debug_x_target_mm = 0.0;
+        d->waiting_for_index_clear = 0;
+        d->output_started = 0;
+        d->prev_enable = 0;
+        return;
+    }
+
     /* Disabled path — zero output and reset handshake */
     if (!*d->enable) {
         *d->eoffset_counts = 0;
@@ -259,14 +398,36 @@ static void polygon_process(void *arg, long period)
         *d->debug_x_target_mm = 0.0;
         *d->debug_r_min_mm = d->lut_min_norm * circ_radius;
         *d->debug_r_max_mm = d->lut_max_norm * circ_radius;
-        d->eoffset_started = 0;
-        d->armed_eoffset_counts = 0;
+        d->waiting_for_index_clear = 0;
+        d->output_started = 0;
         d->prev_enable = 0;
         return;
     }
 
     *d->clear_out = 0;
-    *d->index_enable = 1;
+
+    /* On enable edge: request index handshake first, but do not start output yet. */
+    if (!d->prev_enable) {
+        *d->index_enable = 1;
+        *d->enable_out = 0;
+        *d->eoffset_counts = 0;
+        d->waiting_for_index_clear = 1;
+        d->output_started = 0;
+    }
+
+    /* Another component is expected to clear index-enable after servicing it. */
+    if (d->waiting_for_index_clear) {
+        if (!*d->index_enable) {
+            d->waiting_for_index_clear = 0;
+            d->output_started = 1;
+            *d->enable_out = 1;
+        } else {
+            *d->enable_out = 0;
+            *d->eoffset_counts = 0;
+            d->prev_enable = 1;
+            return;
+        }
+    }
 
     /* Encoder count → LUT index (bitmask wrap, no modulo) */
     int idx = ((int)*d->encoder_count + (int)*d->phase_offset) & d->lut_mask;
@@ -291,20 +452,10 @@ static void polygon_process(void *arg, long period)
     *d->debug_r_max_mm = r_max_mm;
     *d->debug_x_target_mm = x_target_mm;
 
-    *d->eoffset_counts = (hal_s32_t)lroundf(x_target_mm * 1000.0f);
+    *d->eoffset_counts = d->output_started ?
+        (hal_s32_t)lroundf(x_target_mm * 1000.0f) : 0;
 
-    /* Arm at enable edge, then assert after first movement from armed value. */
-    if (!d->prev_enable) {
-        d->armed_eoffset_counts = *d->eoffset_counts;
-        d->eoffset_started = 0;
-    }
-
-    if (!d->eoffset_started &&
-        *d->eoffset_counts != d->armed_eoffset_counts) {
-        d->eoffset_started = 1;
-    }
-
-    *d->enable_out = d->eoffset_started ? 1 : 0;
+    *d->enable_out = d->output_started ? 1 : 0;
     d->prev_enable = 1;
 }
 
@@ -402,12 +553,15 @@ int rtapi_app_main(void)
     *hal_data->eoffset_counts       = 0;
     *hal_data->enable_out           = 0;
     *hal_data->clear_out            = 1;
+    *hal_data->index_enable         = 0;
     *hal_data->debug_r_abs_mm       = 0.0;
     *hal_data->debug_r_min_mm       = 0.0;
     *hal_data->debug_r_max_mm       = 0.0;
     *hal_data->debug_x_target_mm    = 0.0;
-    hal_data->eoffset_started       = 0;
-    hal_data->armed_eoffset_counts  = 0;
+    hal_data->polygon_error_latched = 0;
+    hal_data->polygon_valid         = 1;
+    hal_data->waiting_for_index_clear = 0;
+    hal_data->output_started          = 0;
     hal_data->prev_enable           = 0;
 
     build_lut(hal_data, 4, 0.0f, *hal_data->circumscribed_radius);

@@ -43,9 +43,9 @@ All pins are prefixed with `polygon-ninja.`
 | Pin | Type | Meaning |
 |---|---|---|
 | `eoffset-counts` | `s32` | External offset output in counts, scaled as `mm * 1000` |
-| `enable-out` | `bit` | Goes high after the first real offset change after enable |
+| `enable-out` | `bit` | Goes high after `index-enable` has been cleared by the connected encoder/reset logic |
 | `clear-out` | `bit` | High while disabled |
-| `index-enable` | `bit` | High while enabled |
+| `index-enable` | `bit` | Asserted on enable request, then expected to be cleared by the connected encoder/reset logic |
 | `debug-r-abs-mm` | `float` | Instantaneous absolute radius |
 | `debug-r-min-mm` | `float` | Minimum radius for current shape |
 | `debug-r-max-mm` | `float` | Maximum radius for current shape |
@@ -70,24 +70,33 @@ idx = (encoder_count + phase_offset) & (encoder_scale - 1);
 
 ## Enable handshake
 
-The current implementation does not assert `enable-out` immediately when `enable` goes high.
-Instead it:
+The component now performs a startup index handshake before it enables output motion:
 
-1. Arms the current `eoffset-counts` value on the enable edge.
-2. Waits until the computed offset changes from that armed value.
-3. Sets `enable-out = 1` only after motion has effectively started.
+1. On the rising edge of `enable`, it sets `index-enable = 1`.
+2. While `index-enable` remains high, `enable-out = 0` and `eoffset-counts = 0`.
+3. Another connected component is expected to clear `index-enable` after handling the index reset / alignment.
+4. Once `index-enable` is observed low, `polygon-ninja` sets `enable-out = 1` and starts outputting the polygon offset.
 
-This matches the current code and avoids enabling the external offset before the polygon output
-has actually moved away from its armed position.
+This makes startup deterministic and lets the polygon offset begin only after the spindle index handshake is complete.
 
 ## LUT generation summary
 
-The LUT is rebuilt by ray-casting against a unit polygon:
+The LUT generation is now split into a reusable geometry pipeline:
 
-- polygon vertices are placed on the unit circle
-- each LUT index represents one spindle angle
-- the nearest edge intersection gives the normalized radius
-- `excenter-x` is applied in normalized space before storing the final radius
+1. Polygon memory is populated with vertex coordinate arrays.
+2. Regular polygons are currently generated into that memory on the unit circle.
+3. The polygon memory is stored as an explicitly closed loop: the last point repeats the first point.
+4. The builder validates that the polygon is closed and that no edge is degenerate.
+5. Each LUT index represents one spindle angle.
+6. A ray is cast from the origin for that angle.
+7. A dedicated line/segment intersection helper finds the nearest edge hit.
+8. `excenter-x` is applied in normalized space before storing the final radius.
+
+This structure is more reusable than the old inline generator because future code can populate the
+polygon memory from arbitrary coordinates, then reuse the same LUT builder unchanged.
+
+If polygon memory is not closed, or contains zero-length edges, the component prints a runtime
+error message and suppresses output until valid polygon memory is rebuilt.
 
 Only `excenter-x` is implemented in the current code. There is no `excenter-y` input.
 
@@ -112,4 +121,4 @@ setp polygon-ninja.mode 1
 - The component currently exports counts, not a float X offset.
 - The LUT is allocated from HAL shared memory during module init.
 - Default startup shape is a 4-sided polygon with `circumscribed-radius = 20.0`.
-- `index-enable` is exported as `HAL_IO` in code, even though runtime behavior is output-like.
+- `index-enable` is exported as `HAL_IO` so another HAL component can clear it to acknowledge the startup handshake.

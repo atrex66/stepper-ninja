@@ -59,6 +59,7 @@ uint8_t rx_size; // receive buffer size
 uint32_t total_cycles;
 
 #define ANALOG_MAX 4095
+#define ENCODER_VEL_FP_SCALE 10000.0f
 
 // do not modify
 #define dormant_cycles 6
@@ -531,7 +532,11 @@ void udp_io_process_recv(void *arg, long period) {
 
                 #if use_stepcounter == 0
                     d->delta_pos[i] = (float)d->delta_count[i] / *d->enc_scale[i];
-                    *d->enc_velocity[i] = lpf_update(&filter[i], ((float)rx_buffer->encoder_velocity[i]) / *d->enc_scale[i]);
+                    *d->enc_velocity[i] = lpf_update(
+                        &filter[i],
+                        (((float)rx_buffer->encoder_velocity[i]) / ENCODER_VEL_FP_SCALE) / *d->enc_scale[i]
+                    );
+                    //*d->enc_velocity[i] = (((float)rx_buffer->encoder_velocity[i]) / ENCODER_VEL_FP_SCALE) / *d->enc_scale[i];
                     d->delta_time[i] = 0;
                     d->delta_count_accum[i] = 0;
                     *d->enc_rpm[i] = (*d->enc_velocity[i]) * 60.0f; // Convert velocity to RPM
