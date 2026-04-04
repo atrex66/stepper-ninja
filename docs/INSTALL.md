@@ -38,10 +38,16 @@ Before building, install the following dependencies:
 
    - Linux: Ensure `make` is installed (`sudo apt install build-essential`).
 
-5. **UNZIP**:
+5. **installation of PICOTOOL (optional)**:
 
    ```bash
-   sudo apt install unzip
+   cd ~
+   git clone https://raspberrypi/picotool
+   cd picotool
+   mkdir build && cd build
+   cmake ..
+   make
+   sudo make install
    ```
 
 ---

@@ -96,7 +96,7 @@
 #define GPIO_CS         GP17
 #define GPIO_SCK        GP18
 #define GPIO_MOSI       GP19
-#define GPIO_RESET      GP20
+#define GPIO_RESET      GP00
 #define GPIO_INT        GP21
 
 // PICO pin to GPIO

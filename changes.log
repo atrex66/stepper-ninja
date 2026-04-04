@@ -1,0 +1,67 @@
+Stepper-Ninja Source-Only Change Log
+Date: 2026-04-04
+
+Intent
+- This log focuses on source-level changes only.
+- The top-level project is treated as the new version.
+
+Added Files (high-impact explanation)
+- A full WIZnet ioLibrary tree was added under firmware/ioLibrary_Driver/.
+	This brings Ethernet and Internet protocol support sources (DHCP, DNS, MQTT, SNTP, TFTP, HTTP, SNMP).
+- New/expanded breakout board and flash programming modules were added in firmware/modules/.
+- Quadrature encoder substep implementation and support files were added in firmware/quadrature_encoder_substep/.
+- HAL-side feature modules and utilities were expanded in hal-driver/ and hal-driver/modules/.
+- New top-level configuration header was added: pio_settings.h.
+- Separated BREAKOUTBOARD handling files.
+- Added 2 new BREAKOUTBOARD variants (2 and 3) with associated support files.
+- Added new USER BREAKOUTBOARD variant with associated support files (breakoutboard_user.c).
+
+Modified Files (with explanation)
+- docs/INSTALL.md
+	Installation instructions were updated.
+- firmware/CMakeLists.txt
+	Firmware build configuration was updated.
+- firmware/inc/config.h
+- firmware/inc/footer.h
+- firmware/inc/internals.h
+- firmware/inc/main.h
+	Core firmware header/configuration layout was revised.
+- firmware/modules/flash_config.c
+- firmware/modules/inc/flash_config.h
+- firmware/modules/inc/transmission.h
+- firmware/modules/mcp4725.c
+- firmware/modules/serial_terminal.c
+- firmware/src/main.c
+	Firmware runtime/module integration changed (flash config, transmission, DAC, serial terminal, and main flow).
+- hal-driver/install.sh
+	HAL installation flow was updated.
+
+Removed Files (with explanation)
+- hal-driver/CmakeLists.txt
+	Replaced by correctly cased CMakeLists.txt.
+- hal-driver/pi_zero2_gui/source/not_fancy.cc
+- hal-driver/pi_zero2_gui/utility/image_converter.py
+	Legacy pi_zero2_gui implementation artifacts were removed.
+- hal-driver/stepgen-ninja.c
+	Driver source moved/reworked in current layout.
+
+Source-Only Removed List
+- hal-driver/CmakeLists.txt
+- hal-driver/pi_zero2_gui/source/not_fancy.cc
+- hal-driver/pi_zero2_gui/utility/image_converter.py
+- hal-driver/stepgen-ninja.c
+
+Source-Only Modified List
+- docs/INSTALL.md
+- firmware/CMakeLists.txt
+- firmware/inc/config.h
+- firmware/inc/footer.h
+- firmware/inc/internals.h
+- firmware/inc/main.h
+- firmware/modules/flash_config.c
+- firmware/modules/inc/flash_config.h
+- firmware/modules/inc/transmission.h
+- firmware/modules/mcp4725.c
+- firmware/modules/serial_terminal.c
+- firmware/src/main.c
+- hal-driver/install.sh

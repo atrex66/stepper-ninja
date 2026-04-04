@@ -1,10 +1,15 @@
 # stepper-ninja
 
-An open-source, free, high performance step/generator, quadrature encoder counter, digital input/output, pwm interface for LinuxCNC.
+An open-source, free, high-performance step generator, quadrature encoder counter, digital I/O, and PWM interface for LinuxCNC.
 
-You definietly not need this to work with the ninja, only a cheap printerport breakout board, other configurations are possible!
+You definitely do not need the official breakout board to use stepper-ninja. A cheap printer-port breakout board is enough, and other configurations are also possible.
 
 ![official breakout board](docs/20250812_165926.jpg)
+
+## Documentation
+
+- [Installation Guide](docs/INSTALL.md)
+- [Make Your Own Breakout Board](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.md)
 
 ## Features
 
@@ -14,34 +19,39 @@ You definietly not need this to work with the ninja, only a cheap printerport br
   - W5500-evb-pico (same as above)
   - W5100S-evb-pico2 (same as above)
   - W5500-evb-pico2 (same as above)
-  - pico + W5500 module (need same wiring as W5100S-evb-pico)
-  - pico2 + W5500 module (if you use pico2 board with 48 GPIO you can use the extra GPIO now)
-  - pico + Raspberry Pi4 (Uses direct SPI connection, tested with linuxcnc official iso, utilizes the extra GPIO from the PI4)
+  - pico + W5500 module (needs the same wiring as the W5100S-evb-pico)
+  - pico2 + W5500 module (if you use a pico2 board with 48 GPIO, you can use the extra GPIO now)
+  - pico + Raspberry Pi4 (uses direct SPI connection, tested with the official LinuxCNC ISO, utilizes the extra GPIO from the Pi 4)
   - pico2 + Raspberry Pi4 (same as above)
-  - pico + PI ZERO2W (Uses SPI connection, linuxcnc runs with linuxcncrsh, tested on Bookworm with patched kernel 6.13.2.5-rt5-v7+)
+  - pico + PI ZERO2W (uses SPI connection, LinuxCNC runs with linuxcncrsh, tested on Bookworm with patched kernel 6.13.2.5-rt5-v7+)
   - pico2 + PI ZERO2W (same as above, able to use the extra GPIO from the ZERO2W)
-  - Stepper Ninja official breakout board (need pico and a w5500 module)
+  - Stepper Ninja official breakout board (needs a pico and a W5500 module)
 
-- **Breakout-board v1.0 - Digital version**: 16 optical isolated input, 8x optical isolated output, 4x step generator (differential out), 2x high speed encoder input, 2x 12bit DAC output (unipolar).
+- **Breakout-board v1.0 - Digital version**: 16 optically isolated inputs, 8 optically isolated outputs, 4 step generators (differential output), 2 high-speed encoder inputs, 2 12-bit DAC outputs (unipolar).
 
-- **step-generator**: (max 8 with pico 1, max 12 with pico2) 1Mhz per channel. pulse width set from hal pin (96nS - 6300 nS with 125Mhz pico) (60nS - 4000nS with 200Mhz pico).
+- **step-generator**: max 8 with pico 1, max 12 with pico2. 1 MHz per channel. Pulse width is set from a HAL pin (96 ns - 6300 ns with a 125 MHz pico, 60 ns - 4000 ns with a 200 MHz pico).
 
-- **quadrature-encoder**: (max 8 with pico1, max 12 with pico2) high speed, zero pulse handling, velocity estimation for low resolution encoders.
+- **quadrature-encoder**: max 8 with pico1, max 12 with pico2. High speed, zero-pulse handling, and velocity estimation for low-resolution encoders.
 
-- **digital IO**: you can configure the free pins of the pico to inputs and outputs.
+- **digital I/O**: you can configure the free pins of the pico as inputs and outputs.
 
-- **pwm**: you can configure max 16 GPIO for the pwm signal(1900Hz(16bit resolution) to 1Mhz(7bit resolution)) and can configure active low or active high
+- **PWM**: you can configure up to 16 GPIOs for PWM output (1900 Hz with 16-bit resolution up to 1 MHz with 7-bit resolution), and you can choose active-low or active-high behavior.
 
 - **Software**:
   - LinuxCNC HAL driver supporting multiple instances (max 4), with safety functions (timeout, data checks).
 
 - **Open-Source**: code and docs under MIT License.
 
-- **ready-to-ride**: breakout board version prebuilt uf2 and hal driver in the binary directory. To install the hal driver you need to copy the stepgen-ninja.so to your local hal-driver directory.
+- **ready-to-run**: prebuilt breakout board UF2 images and the HAL driver are in the binary directory. To install the HAL driver, copy stepgen-ninja.so to your local hal-driver directory.
 
-- **supporters**: all active sponsors, equals or above 15$ get access to the breakout board private repository for private use (production files:grbl, bom, position), all extras go here.
+- **supporters**: all active sponsors at or above $15 get access to the private breakout board repository for personal use, including production files such as Gerbers, BOM, and component positions.
 
-- **extra i/o**: The io expander for the breakout board, supporting up to total 64 inputs and 32 outputs (with 3 expanders, 24v optical isolated).
+- **extra I/O**: the I/O expander for the breakout board supports up to 64 inputs and 32 outputs total (with 3 expanders, 24 V optically isolated).
+
+- **new breakout boards**: type 2 has 96 optically isolated inputs and 32 outputs. Type 3 has 4 high-speed encoders and 4 bipolar analog outputs.
+
+- **user breakout board code**: breakoutboard_user.c and breakoutboard_hal_user.c were added to the modules directory for makers to make integration easier.
+
 
 ## Contributors
 
@@ -51,11 +61,9 @@ You definietly not need this to work with the ninja, only a cheap printerport br
 
 - **supporters**: Griletos, Cofhal, Sunhapas
 
-## Contact
+## Discord
 
-- **Discord**:
-
-  - [stepper-ninja Discord](https://discord.gg/K3CukMJ5)
+- Request a fresh Discord invite in Discussions.
 
 ## License
 

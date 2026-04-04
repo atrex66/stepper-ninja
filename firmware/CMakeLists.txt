@@ -54,21 +54,29 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet/W5100S
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet/W5500
+    ${CMAKE_CURRENT_SOURCE_DIR}/quadrature_encoder_substep
 )
 
 add_executable(stepper-ninja
     src/main.c
+    modules/breakoutboard_common.c
+    modules/breakoutboard_1.c
+    modules/breakoutboard_2.c
+    modules/breakoutboard_3.c
+    modules/breakoutboard_100.c
     modules/flash_config.c
     modules/serial_terminal.c
     modules/transmission.c
     modules/pwm.c
     modules/pio_utils.c
     modules/mcp4725.c
+    quadrature_encoder_substep/quadrature_encoder_substep.c
     ${WIZNET_SOURCES}
 )
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_encoder.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/freq_generator.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/step_counter.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/quadrature_encoder_substep/quadrature_encoder_substep.pio)
 
 target_include_directories(stepper-ninja PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver

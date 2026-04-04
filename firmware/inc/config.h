@@ -17,9 +17,15 @@
     #define DEFAULT_TIMEOUT 1000000
 
     // switch off this option (breakout_board 0) to use custom configuration
-    #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board
-    #define io_expanders 0 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
+    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board  
+                             // 2 = io-ninja IO breakout board (96 input, 32 output using 8 MCP23017)
+                             // 3 = analog-ninja breakout board (6x bipolar analog output using 6 MCP4725 and 6x high speed encoder counter) !!!! not implemented yet
+                             // 100 = breakoutboard_100 (4 stepgen, 2 encoder, 32 input, 16 output using MCP23017)
+                             // 0 = no breakout board, use custom pin configuration
 
+#if breakout_board < 1 
+
+    #define io_expanders 0 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
     // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
     // All GPIO form 0-15 and 22-31 are usable
     #define stepgens 4
@@ -29,9 +35,6 @@
     #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
     
-    #define default_pulse_width 2000 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
-    #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
-
     #define encoders 1
     #define enc_pins {PIN_11} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
     #define enc_index_pins {PIN_NULL}  // pin the encoder index is connected (interrupt driven)
@@ -51,6 +54,8 @@
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
     #define default_pwm_min_limit 0 // default pwm min limit if not specified in the HAL configuration
 
+#endif // breakout_board < 1
+
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
 
     // used gpio for SPI on the RPI: 8, 9, 10, 11
@@ -62,6 +67,9 @@
     #define raspi_input_pullups {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
+
+    #define default_pulse_width 2000 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
+    #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
 
     #define KBMATRIX
 

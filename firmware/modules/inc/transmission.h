@@ -7,7 +7,6 @@
 // first encoder index
 #define CTRL_SPINDEX 0
 
-
 #pragma pack(push, 1)
 // transmission structure from PC to Pico
 typedef struct{
@@ -21,8 +20,8 @@ typedef struct{
     #if encoders > 0
     uint8_t enc_control;  // enables encoder index 1st bit encoder 0 2nd encoder 1
     #endif
-    #if breakout_board > 0
-    uint32_t analog_out;
+    #if ANALOG_CH > 0
+    uint32_t analog_out[ANALOG_CH];
     #endif
     uint8_t packet_id;
     uint8_t checksum;
@@ -32,12 +31,12 @@ typedef struct{
 typedef struct{
     #if encoders > 0
     int32_t encoder_counter[encoders];
+    int32_t encoder_velocity[encoders];
     uint32_t encoder_timestamp[encoders];
-    int32_t encoder_latched[encoders];
+    uint8_t interrupt_data;
     #endif
     uint32_t inputs[4];
     uint32_t jitter;
-    uint8_t interrupt_data;
     uint8_t dummy;
     uint8_t packet_id;
     uint8_t checksum;

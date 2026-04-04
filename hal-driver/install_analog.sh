@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+rm -rf build-cmake
+rm -rf build-cmake-test
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${BUILD_DIR:-${script_dir}/build-cmake}"
 
 cmake -S "$script_dir" -B "$build_dir" "$@"
-cmake --build "$build_dir" --target io-ninja
-sudo cmake --install "$build_dir" --component io-ninja
+cmake --build "$build_dir" --target stepper-ninja
+sudo cmake --install "$build_dir" --component stepper-ninja

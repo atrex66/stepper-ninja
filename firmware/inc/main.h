@@ -31,6 +31,7 @@
 #include "freq_generator.pio.h"
 #include "pio_utils.h"
 #include "config.h"
+#include "breakoutboard.h"
 
 #if use_stepcounter == 0
 #include "quadrature_encoder.pio.h"
@@ -38,8 +39,8 @@
 #include "step_counter.pio.h"
 #endif
 
-#if breakout_board > 0
 #include "hardware/i2c.h"
+#if breakout_board > 0
 #include "mcp4725.h"
 #endif 
 
@@ -53,17 +54,10 @@
 // Globális változók a magok közötti kommunikációhoz
 // -------------------------------------------
 // Függvény deklarációk
-#if brakeout_board > 0
-    void i2c_setup(void);
-    bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr);
-    uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg);
-    void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value);
-#endif // brakeout_board > 0
 void stepgen_update_handler();
 static void alarm_irq(void);
 void jump_table_checksum();
 void jump_table_checksum_in();
-void i2c_setup(void);
 void cs_select();
 void cs_deselect();
 uint8_t spi_read();
@@ -82,12 +76,6 @@ void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
 void gpio_callback(uint gpio, uint32_t events);
 void stop_timer();
-#if breakout_board > 0
-void mcp4725_port_setup();
-bool i2c_check_address(i2c_inst_t *i2c, uint8_t addr);
-void mcp_write_register(uint8_t i2c_addr, uint8_t reg, uint8_t value);
-uint8_t mcp_read_register(uint8_t i2c_addr, uint8_t reg);
-#endif
 
 static void spi_write_burst(uint8_t *pBuf, uint16_t len);
 static void spi_read_burst(uint8_t *pBuf, uint16_t len);
