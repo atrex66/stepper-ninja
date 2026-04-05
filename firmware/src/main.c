@@ -1,6 +1,9 @@
 #include "main.h"
 #include "quadrature_encoder_substep.h"
 
+#define ENCODER_VEL_FP_SCALE 10000
+#define ENCODER_IDLE_STOP_SAMPLES 2500
+
 // Name: Stepper-Ninja
 
 //    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⠤⠤⠤⠤⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -73,8 +76,8 @@ transmission_pc_pico_t *rx_buffer;
 transmission_pico_pc_t *tx_buffer;
 
 // ==================== BREAKOUT BOARD: I/O buffers ====================
+volatile uint32_t input_buffer[4];      // Input register mirror for diagnostics / terminal
 #if breakout_board > 0
-    volatile uint32_t input_buffer[4];  // Breakout board input register mirror
     volatile uint32_t output_buffer;    // Breakout board output register mirror
 #else
     const uint8_t input_pins[] = in_pins;
@@ -149,6 +152,27 @@ PIO_def_t stepgen_pio[stepgens];
 
     substep_state_t substep_state[encoders];
 
+    static inline void reset_encoder_counter(uint8_t i) {
+#if use_stepcounter == 0
+        pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
+        substep_state[i].raw_step = 0;
+        substep_state[i].position = 0;
+        substep_state[i].speed = 0;
+        substep_state[i].speed_2_20 = 0;
+        substep_state[i].stopped = 1;
+        substep_state[i].idle_stop_sample_count = 0;
+        uint now_us = time_us_32();
+        substep_state[i].prev_step_us = now_us;
+        substep_state[i].prev_trans_us = now_us;
+        substep_state[i].prev_trans_pos = 0;
+        substep_state[i].prev_low = 0;
+        substep_state[i].prev_high = 0;
+#else
+        pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
+        encoder[i] = 0;
+#endif
+    }
+
 #endif
 
 #if stepgens > 0
@@ -210,8 +234,7 @@ void core1_entry() {
                 stop_timer();
 #if encoders >0
                     for (int i = 0; i < encoders; i++) {
-                        pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
-                        // pio_sm_set_enabled(encoder_pio[i].pio, encoder_pio[i].sm, true);
+                        reset_encoder_counter((uint8_t)i);
     #if use_stepcounter == 0
                         printf("Encoder %d reset\n", i);
     #else
@@ -512,6 +535,9 @@ int main() {
                 printf("Encoder %d pre init\n", i);
                 // Initialize substep encoder
                 substep_init_state(encoder_pio[i].pio, encoder_pio[i].sm, encoder_base[i], &substep_state[i]);
+                // Default (3 samples) is too aggressive for low RPM and can
+                // force speed to zero between sparse transitions.
+                substep_state[i].idle_stop_samples = ENCODER_IDLE_STOP_SAMPLES;
                 printf("Encoder %d set calibration data ....\n", i);
                 // Set default calibration data - can be overridden later
                 substep_set_calibration_data(&substep_state[i], 64, 128, 192);
@@ -701,10 +727,18 @@ void handle_data(){
         #if use_stepcounter == 0
         // update encoders
             for (int i = 0; i < encoders; i++) {
+                int64_t enc_vel_fp;
                 substep_update(&substep_state[i]);
-                // Convert sub-step speed to raw-count speed (64 sub-steps per raw count).
+                // Send velocity as fixed-point counts/s * ENCODER_VEL_FP_SCALE.
+                // This preserves low-speed resolution over the integer transport.
                 tx_buffer->encoder_counter[i] = substep_state[i].raw_step;
-                tx_buffer->encoder_velocity[i] = substep_state[i].speed / 64;
+                enc_vel_fp = ((int64_t)substep_state[i].speed * ENCODER_VEL_FP_SCALE) / 64;
+                if (enc_vel_fp > INT32_MAX) {
+                    enc_vel_fp = INT32_MAX;
+                } else if (enc_vel_fp < INT32_MIN) {
+                    enc_vel_fp = INT32_MIN;
+                }
+                tx_buffer->encoder_velocity[i] = (int32_t)enc_vel_fp;
                 tx_buffer->encoder_timestamp[i] = time_us_32();
                 //tx_buffer->encoder_latched[i] = encoder_latched[i];
             }
@@ -732,6 +766,10 @@ void handle_data(){
         // --- Standard GPIO path (no breakout board) ---
         tx_buffer->inputs[0] = gpio_get_all64() & 0xFFFFFFFF; // Read all GPIO inputs
         tx_buffer->inputs[1] = gpio_get_all64() >> 32;
+        input_buffer[0] = tx_buffer->inputs[0];
+        input_buffer[1] = tx_buffer->inputs[1];
+        input_buffer[2] = 0;
+        input_buffer[3] = 0;
         if (sizeof(output_pins)>0){
             //set output pins
             for (uint8_t i = 0; i < sizeof(output_pins); i++) {
@@ -762,9 +800,8 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
     for (int i=0;i<indexes;i++){
         if (gpio == encoder_indexes[i]) {
             if (events & (GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL)) {
-                // Update substep encoder state and capture position at index pulse
-                substep_update(&substep_state[i]);
-                //encoder_latched[i] = substep_state[i].raw_step;
+                // Reset the selected encoder exactly on the index edge.
+                reset_encoder_counter((uint8_t)i);
                 index_reset_flags |= (uint8_t)(1u << i);
 
                 if (enc_index_enabled[i] == 1) {

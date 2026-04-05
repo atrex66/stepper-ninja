@@ -25,7 +25,7 @@ extern uint8_t timeout_error;
 extern uint32_t time_constant;
 extern int32_t *position;
 extern uint32_t total_steps[stepgens];
-extern uint32_t input_buffer[4];
+extern volatile uint32_t input_buffer[4];
 bool enable_serial = true;
 
 void save_configuration(){
