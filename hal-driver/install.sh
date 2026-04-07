@@ -15,5 +15,5 @@ if [[ -f "$cache_file" ]]; then
 fi
 
 cmake -S "$script_dir" -B "$build_dir" "$@"
-cmake --build "$build_dir" --target stepper-ninja
-sudo cmake --install "$build_dir" --component stepper-ninja
+cmake --build "$build_dir" --target stepgen-ninja
+sudo cmake --install "$build_dir" --component stepgen-ninja
