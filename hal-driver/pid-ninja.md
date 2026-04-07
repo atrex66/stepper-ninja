@@ -169,10 +169,10 @@ addf pid-ninja.0.process  servo-thread
 net x-pos-cmd  motion.axis.0.motor-pos-cmd  => pid-ninja.0.command
 
 # Feedback from encoder
-net x-pos-fb   stepper-ninja.0.enc-position  => pid-ninja.0.feedback
+net x-pos-fb   stepgen-ninja.0.enc-position  => pid-ninja.0.feedback
 
 # Output to step generator
-net x-output   pid-ninja.0.output  => stepper-ninja.0.command
+net x-output   pid-ninja.0.output  => stepgen-ninja.0.command
 
 # Enable from machine on signal
 net machine-on  halui.machine.is-on  => pid-ninja.0.enable

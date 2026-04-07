@@ -249,16 +249,16 @@ Beispiel-Gerüst in deiner HAL-Datei:
 
 ```hal
 loadrt stepper-ninja ip_address="192.168.0.177:8888"
-addf stepper-ninja.0.watchdog-process servo-thread
-addf stepper-ninja.0.process-send     servo-thread
-addf stepper-ninja.0.process-recv     servo-thread
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send     servo-thread
+addf stepgen-ninja.0.process-recv     servo-thread
 
 # Beispiel Board-I/O-Nets (Namen hängen von deiner bb_hal_setup_pins-Implementierung ab)
-# net estop-in      stepper-ninja.0.inputs.0     => some-signal
-# net coolant-out   some-command                 => stepper-ninja.0.outputs.0
+# net estop-in      stepgen-ninja.0.inputs.0     => some-signal
+# net coolant-out   some-command                 => stepgen-ninja.0.outputs.0
 ```
 
-Anschließend mit `halshow`/`halcmd show pin stepper-ninja.0.*` überprüfen.
+Anschließend mit `halshow`/`halcmd show pin stepgen-ninja.0.*` überprüfen.
 
 ## 11. Inbetriebnahmeprozedur (Empfohlen)
 

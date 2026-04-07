@@ -249,16 +249,16 @@ Példa váz a HAL fájlodban:
 
 ```hal
 loadrt stepper-ninja ip_address="192.168.0.177:8888"
-addf stepper-ninja.0.watchdog-process servo-thread
-addf stepper-ninja.0.process-send     servo-thread
-addf stepper-ninja.0.process-recv     servo-thread
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send     servo-thread
+addf stepgen-ninja.0.process-recv     servo-thread
 
 # Példa board I/O net-ek (a nevek a bb_hal_setup_pins implementációdtól függnek)
-# net estop-in      stepper-ninja.0.inputs.0     => some-signal
-# net coolant-out   some-command                 => stepper-ninja.0.outputs.0
+# net estop-in      stepgen-ninja.0.inputs.0     => some-signal
+# net coolant-out   some-command                 => stepgen-ninja.0.outputs.0
 ```
 
-Ezután ellenőrizd a `halshow`/`halcmd show pin stepper-ninja.0.*` parancsokkal.
+Ezután ellenőrizd a `halshow`/`halcmd show pin stepgen-ninja.0.*` parancsokkal.
 
 ## 11. Üzembe helyezési eljárás (Ajánlott)
 

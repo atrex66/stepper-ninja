@@ -249,16 +249,16 @@ sudo cmake --install build-cmake --component stepper-ninja
 
 ```hal
 loadrt stepper-ninja ip_address="192.168.0.177:8888"
-addf stepper-ninja.0.watchdog-process servo-thread
-addf stepper-ninja.0.process-send     servo-thread
-addf stepper-ninja.0.process-recv     servo-thread
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send     servo-thread
+addf stepgen-ninja.0.process-recv     servo-thread
 
 # उदाहरण बोर्ड I/O nets (नाम bb_hal_setup_pins के अनुसार बदलते हैं)
-# net estop-in      stepper-ninja.0.inputs.0     => some-signal
-# net coolant-out   some-command                 => stepper-ninja.0.outputs.0
+# net estop-in      stepgen-ninja.0.inputs.0     => some-signal
+# net coolant-out   some-command                 => stepgen-ninja.0.outputs.0
 ```
 
-फिर `halshow`/`halcmd show pin stepper-ninja.0.*` से verify करें।
+फिर `halshow`/`halcmd show pin stepgen-ninja.0.*` से verify करें।
 
 ## 11. कमीशनिंग प्रक्रिया (अनुशंसित)
 

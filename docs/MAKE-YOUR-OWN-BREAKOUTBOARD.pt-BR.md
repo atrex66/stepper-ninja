@@ -249,16 +249,16 @@ Esqueleto de exemplo no seu arquivo HAL:
 
 ```hal
 loadrt stepper-ninja ip_address="192.168.0.177:8888"
-addf stepper-ninja.0.watchdog-process servo-thread
-addf stepper-ninja.0.process-send     servo-thread
-addf stepper-ninja.0.process-recv     servo-thread
+addf stepgen-ninja.0.watchdog-process servo-thread
+addf stepgen-ninja.0.process-send     servo-thread
+addf stepgen-ninja.0.process-recv     servo-thread
 
 # Redes de I/O de exemplo (os nomes dependem da sua implementação de bb_hal_setup_pins)
-# net estop-in      stepper-ninja.0.inputs.0     => some-signal
-# net coolant-out   some-command                 => stepper-ninja.0.outputs.0
+# net estop-in      stepgen-ninja.0.inputs.0     => some-signal
+# net coolant-out   some-command                 => stepgen-ninja.0.outputs.0
 ```
 
-Em seguida, verifique com `halshow`/`halcmd show pin stepper-ninja.0.*`.
+Em seguida, verifique com `halshow`/`halcmd show pin stepgen-ninja.0.*`.
 
 ## 11. Procedimento de Comissionamento (Recomendado)
 

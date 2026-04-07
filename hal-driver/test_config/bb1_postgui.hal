@@ -4,53 +4,53 @@
 #   - bb1-ui HAL user-space component created by bb1_pygame_panel.py
 
 # Driver status into UI
-net bb1-connected stepper-ninja.0.connected => bb1-ui.connected
-net bb1-io-ready  stepper-ninja.0.io-ready-out => bb1-ui.io_ready
+net bb1-connected stepgen-ninja.0.connected => bb1-ui.connected
+net bb1-io-ready  stepgen-ninja.0.io-ready-out => bb1-ui.io_ready
 
 # 16 digital inputs from board into UI
-net bb1-in-00 stepper-ninja.0.inputs.0  => bb1-ui.in00
-net bb1-in-01 stepper-ninja.0.inputs.1  => bb1-ui.in01
-net bb1-in-02 stepper-ninja.0.inputs.2  => bb1-ui.in02
-net bb1-in-03 stepper-ninja.0.inputs.3  => bb1-ui.in03
-net bb1-in-04 stepper-ninja.0.inputs.4  => bb1-ui.in04
-net bb1-in-05 stepper-ninja.0.inputs.5  => bb1-ui.in05
-net bb1-in-06 stepper-ninja.0.inputs.6  => bb1-ui.in06
-net bb1-in-07 stepper-ninja.0.inputs.7  => bb1-ui.in07
-net bb1-in-08 stepper-ninja.0.inputs.8  => bb1-ui.in08
-net bb1-in-09 stepper-ninja.0.inputs.9  => bb1-ui.in09
-net bb1-in-10 stepper-ninja.0.inputs.10 => bb1-ui.in10
-net bb1-in-11 stepper-ninja.0.inputs.11 => bb1-ui.in11
-net bb1-in-12 stepper-ninja.0.inputs.12 => bb1-ui.in12
-net bb1-in-13 stepper-ninja.0.inputs.13 => bb1-ui.in13
-net bb1-in-14 stepper-ninja.0.inputs.14 => bb1-ui.in14
-net bb1-in-15 stepper-ninja.0.inputs.15 => bb1-ui.in15
+net bb1-in-00 stepgen-ninja.0.inputs.0  => bb1-ui.in00
+net bb1-in-01 stepgen-ninja.0.inputs.1  => bb1-ui.in01
+net bb1-in-02 stepgen-ninja.0.inputs.2  => bb1-ui.in02
+net bb1-in-03 stepgen-ninja.0.inputs.3  => bb1-ui.in03
+net bb1-in-04 stepgen-ninja.0.inputs.4  => bb1-ui.in04
+net bb1-in-05 stepgen-ninja.0.inputs.5  => bb1-ui.in05
+net bb1-in-06 stepgen-ninja.0.inputs.6  => bb1-ui.in06
+net bb1-in-07 stepgen-ninja.0.inputs.7  => bb1-ui.in07
+net bb1-in-08 stepgen-ninja.0.inputs.8  => bb1-ui.in08
+net bb1-in-09 stepgen-ninja.0.inputs.9  => bb1-ui.in09
+net bb1-in-10 stepgen-ninja.0.inputs.10 => bb1-ui.in10
+net bb1-in-11 stepgen-ninja.0.inputs.11 => bb1-ui.in11
+net bb1-in-12 stepgen-ninja.0.inputs.12 => bb1-ui.in12
+net bb1-in-13 stepgen-ninja.0.inputs.13 => bb1-ui.in13
+net bb1-in-14 stepgen-ninja.0.inputs.14 => bb1-ui.in14
+net bb1-in-15 stepgen-ninja.0.inputs.15 => bb1-ui.in15
 
 # 8 digital outputs from UI to board
-net bb1-out-00 bb1-ui.out00 => stepper-ninja.0.outputs.0
-net bb1-out-01 bb1-ui.out01 => stepper-ninja.0.outputs.1
-net bb1-out-02 bb1-ui.out02 => stepper-ninja.0.outputs.2
-net bb1-out-03 bb1-ui.out03 => stepper-ninja.0.outputs.3
-net bb1-out-04 bb1-ui.out04 => stepper-ninja.0.outputs.4
-net bb1-out-05 bb1-ui.out05 => stepper-ninja.0.outputs.5
-net bb1-out-06 bb1-ui.out06 => stepper-ninja.0.outputs.6
-net bb1-out-07 bb1-ui.out07 => stepper-ninja.0.outputs.7
+net bb1-out-00 bb1-ui.out00 => stepgen-ninja.0.outputs.0
+net bb1-out-01 bb1-ui.out01 => stepgen-ninja.0.outputs.1
+net bb1-out-02 bb1-ui.out02 => stepgen-ninja.0.outputs.2
+net bb1-out-03 bb1-ui.out03 => stepgen-ninja.0.outputs.3
+net bb1-out-04 bb1-ui.out04 => stepgen-ninja.0.outputs.4
+net bb1-out-05 bb1-ui.out05 => stepgen-ninja.0.outputs.5
+net bb1-out-06 bb1-ui.out06 => stepgen-ninja.0.outputs.6
+net bb1-out-07 bb1-ui.out07 => stepgen-ninja.0.outputs.7
 
 # 2 analog outputs (0..10V style command range)
-setp stepper-ninja.0.analog.0.enable 1
-setp stepper-ninja.0.analog.1.enable 1
-setp stepper-ninja.0.analog.0.minimum 0.0
-setp stepper-ninja.0.analog.1.minimum 0.0
-setp stepper-ninja.0.analog.0.maximum 10.0
-setp stepper-ninja.0.analog.1.maximum 10.0
-net bb1-analog-0 bb1-ui.analog0 => stepper-ninja.0.analog.0.value
-net bb1-analog-1 bb1-ui.analog1 => stepper-ninja.0.analog.1.value
+setp stepgen-ninja.0.analog.0.enable 1
+setp stepgen-ninja.0.analog.1.enable 1
+setp stepgen-ninja.0.analog.0.minimum 0.0
+setp stepgen-ninja.0.analog.1.minimum 0.0
+setp stepgen-ninja.0.analog.0.maximum 10.0
+setp stepgen-ninja.0.analog.1.maximum 10.0
+net bb1-analog-0 bb1-ui.analog0 => stepgen-ninja.0.analog.0.value
+net bb1-analog-1 bb1-ui.analog1 => stepgen-ninja.0.analog.1.value
 
 # Encoder 0 monitor/control
-net bb1-enc0-raw      stepper-ninja.0.encoder.0.raw-count    => bb1-ui.enc0_raw_count
-net bb1-enc0-position stepper-ninja.0.encoder.0.position     => bb1-ui.enc0_position
-net bb1-enc0-rps      stepper-ninja.0.encoder.0.velocity-rps => bb1-ui.enc0_velocity_rps
-net bb1-enc0-rpm      stepper-ninja.0.encoder.0.velocity-rpm => bb1-ui.enc0_velocity_rpm
-net bb1-enc0-index-en bb1-ui.enc0_index_enable               => stepper-ninja.0.encoder.0.index-enable
+net bb1-enc0-raw      stepgen-ninja.0.encoder.0.raw-count    => bb1-ui.enc0_raw_count
+net bb1-enc0-position stepgen-ninja.0.encoder.0.position     => bb1-ui.enc0_position
+net bb1-enc0-rps      stepgen-ninja.0.encoder.0.velocity-rps => bb1-ui.enc0_velocity_rps
+net bb1-enc0-rpm      stepgen-ninja.0.encoder.0.velocity-rpm => bb1-ui.enc0_velocity_rpm
+net bb1-enc0-index-en bb1-ui.enc0_index_enable               => stepgen-ninja.0.encoder.0.index-enable
 
-setp stepper-ninja.0.encoder.0.scale 400
-setp stepper-ninja.0.encoder.1.scale 400
+setp stepgen-ninja.0.encoder.0.scale 400
+setp stepgen-ninja.0.encoder.1.scale 400
