@@ -56,6 +56,7 @@ obj-m += @module_name@.o
 include @LINUXCNC_MODINC@
 EXTRA_CFLAGS += -I@CMAKE_CURRENT_SOURCE_DIR@
 EXTRA_CFLAGS += -I@LINUXCNC_INCLUDE_DIR@
+EXTRA_CFLAGS += -DMODULE_NAME=\"@module_name@\"
 
 @module_name@.o: @module_source@
 	$(ECHO) Compiling realtime $<
@@ -93,11 +94,13 @@ EXTRA_CFLAGS += -I@LINUXCNC_INCLUDE_DIR@
 endfunction()
 
 add_linuxcnc_rt_module(stepgen-ninja stepgen-ninja.c)
+add_linuxcnc_rt_module(stepper-ninja stepper-ninja.c)
 add_linuxcnc_rt_module(plc-ninja plc-ninja.c)
 add_linuxcnc_rt_module(polygon-ninja polygon-ninja.c)
 
 add_custom_target(hal-modules)
 add_dependencies(hal-modules stepgen-ninja)
+add_dependencies(hal-modules stepper-ninja)
 add_dependencies(hal-modules plc-ninja)
 add_dependencies(hal-modules polygon-ninja)
 

@@ -24,15 +24,19 @@
 #endif
 
 // name of the module
+#ifndef MODULE_NAME
+    #define MODULE_NAME "stepgen-ninja"
+#endif
+
+#define module_name MODULE_NAME
+
 #if raspberry_pi_spi == 0
     #pragma message "Ethernet version"
-    #define module_name "stepgen-ninja"
     // to parse the modparamha
     char *ip_address;
     RTAPI_MP_STRING(ip_address, "Ip address");
 #else
     #pragma message "SPI version"
-    #define module_name "stepgen-ninja"
     #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_128
     const uint8_t rpi_inputs[] = raspi_inputs;
     const uint8_t rpi_outputs[] = raspi_outputs;
