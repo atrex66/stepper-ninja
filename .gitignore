@@ -69,6 +69,8 @@ Thumbs.db
 hardware/
 firmware/ioLibrary_Driver/build/
 firmware/python/
+hal-driver/build-cmake/
+hal-driver/instructions.md
 docs/configure-stepper-ninja.html
 firmware/tree.txt
 buildall.sh
