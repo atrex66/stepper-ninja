@@ -26,8 +26,8 @@
 // name of the module
 #if raspberry_pi_spi == 0
     #pragma message "Ethernet version"
-    #define module_name "stepper-ninja"
-    // to parse the modparam
+    #define module_name "stepgen-ninja"
+    // to parse the modparamha
     char *ip_address;
     RTAPI_MP_STRING(ip_address, "Ip address");
 #else
