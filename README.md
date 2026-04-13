@@ -2,6 +2,8 @@
 
 An open-source, free, high-performance step generator, quadrature encoder counter, digital I/O, and PWM interface for LinuxCNC.
 
+The encoder module also enables spindle-synchronized motion use cases, for example threading and other spindle-synchronous moves.
+
 You definitely do not need the official breakout board to use stepper-ninja. A cheap printer-port breakout board is enough, and other configurations are also possible.
 
 ![official breakout board](docs/20250812_165926.jpg)
@@ -9,7 +11,17 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 ## Documentation
 
 - [Installation Guide](docs/INSTALL.md)
+- [Configuration Guide](docs/CONFIG.md)
+- [IP Configuration Guide](docs/IPCONFIG.MD)
 - [Make Your Own Breakout Board](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.md)
+
+## Languages
+
+- [English](README.md)
+- [Deutsch](README.de.md)
+- [हिन्दी](README.hi.md)
+- [Magyar](README.hu.md)
+- [Português (Brasil)](README.pt-BR.md)
 
 ## Features
 
@@ -31,7 +43,7 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 - **step-generator**: max 8 with pico 1, max 12 with pico2. 1 MHz per channel. Pulse width is set from a HAL pin (96 ns - 6300 ns with a 125 MHz pico, 60 ns - 4000 ns with a 200 MHz pico).
 
-- **quadrature-encoder**: max 8 with pico1, max 12 with pico2. High speed, zero-pulse handling, and velocity estimation for low-resolution encoders.
+- **quadrature-encoder**: max 8 with pico1, max 12 with pico2. High speed, zero-pulse handling, velocity estimation for low-resolution encoders, and spindle-synchronized motion support.
 
 - **digital I/O**: you can configure the free pins of the pico as inputs and outputs.
 

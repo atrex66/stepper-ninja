@@ -102,6 +102,22 @@ Führe CMake aus und gib den WIZnet-Chip-Typ an (`W5100S` oder `W5500`). Ohne An
   cmake -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 ..
   ```
 
+- Um die Firmware nach dem Start aus dem RAM auszuführen, ergänze:
+
+   ```bash
+   -DSTEPPER_NINJA_RUN_FROM_RAM=ON
+   ```
+
+- Um die alte Encoder-PIO-Implementierung zu bauen, füge eine Compiler-Definition hinzu:
+
+   ```bash
+   CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake -DWIZCHIP_TYPE=W5500 ..
+   ```
+
+- Der Standard ist `ENCODER_PIO_SUBSTEP`. Die Geschwindigkeits-Schätzung des Encoders läuft in den aktuellen Builds im HAL-Treiber, unabhängig vom Encoder-Modus.
+
+- Eine vollständige Erklärung der `config.h`-Optionen findest du in [CONFIG.de.md](CONFIG.de.md).
+
 ### 3. Projekt kompilieren
 
 Kompiliere mit `make`:
@@ -127,6 +143,8 @@ Bei einem einfachen Pico + W5500-Modul stelle sicher, dass:
 
 - Der W5500 korrekt verdrahtet ist (SPI-Pins, 3,3-V-Versorgung).
 - Der Parameter `-DWIZCHIP_TYPE=W5500` im CMake-Schritt verwendet wird.
+- Optional `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` ergänzen, wenn die Firmware nach dem Booten aus dem RAM laufen soll.
+- `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` vor `cmake` setzen, wenn du die alte Encoder-PIO verwenden willst.
 
 ## Pico2-Unterstützung
 
@@ -134,6 +152,8 @@ Bei einem Pico2 + W5500-Modul stelle sicher, dass:
 
 - Der W5500 korrekt verdrahtet ist (SPI-Pins, 3,3-V-Versorgung).
 - Die Parameter `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` im CMake-Schritt verwendet werden.
+- Optional `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` ergänzen, wenn die Firmware nach dem Booten aus dem RAM laufen soll.
+- `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` vor `cmake` setzen, wenn du die alte Encoder-PIO verwenden willst.
 
 ---
 

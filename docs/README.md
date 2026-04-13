@@ -5,4 +5,7 @@
 
 ## Guides
 
+- [Installation](INSTALL.md)
+- [Configuration](CONFIG.md)
 - [Make Your Own Breakout Board](MAKE-YOUR-OWN-BREAKOUTBOARD.md)
+- [IP Configuration](IPCONFIG.MD)

@@ -108,6 +108,16 @@ Run CMake to generate Makefiles, specifying the WIZnet chip type (`W5100S` or `W
    -DSTEPPER_NINJA_RUN_FROM_RAM=ON
    ```
 
+- To build with the old encoder PIO implementation, add a compiler define:
+
+   ```bash
+   CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake -DWIZCHIP_TYPE=W5500 ..
+   ```
+
+- The default encoder mode is `ENCODER_PIO_SUBSTEP`. In current builds, encoder velocity estimation is done in the HAL driver for both encoder modes.
+
+- For a complete explanation of `config.h` options, see [CONFIG.md](CONFIG.md).
+
 ### 3. Build the Project
 
 Compile the project using `make`:
@@ -134,6 +144,7 @@ For a standard Pico with a W5500 module, ensure:
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DWIZCHIP_TYPE=W5500` in the CMake step.
 - Add `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` if you want a RAM-executing build.
+- Add `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` before `cmake` if you want the old encoder PIO.
 
 ## pico2 Support
 
@@ -142,6 +153,7 @@ For a Pico2 with a W5500 module, ensure:
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` in the CMake step.
 - Add `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` if you want a RAM-executing build.
+- Add `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` before `cmake` if you want the old encoder PIO.
 
 
 ## Installing the LinuxCNC HAL Driver

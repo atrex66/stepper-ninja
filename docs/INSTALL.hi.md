@@ -102,6 +102,22 @@ CMake चलाएं और WIZnet चिप टाइप (`W5100S` या `W55
   cmake -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 ..
   ```
 
+- यदि आप बूट के बाद फर्मवेयर को RAM से चलाना चाहते हैं, तो यह जोड़ें:
+
+   ```bash
+   -DSTEPPER_NINJA_RUN_FROM_RAM=ON
+   ```
+
+- यदि आप पुराना encoder PIO संस्करण बनाना चाहते हैं, तो यह compiler define जोड़ें:
+
+   ```bash
+   CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake -DWIZCHIP_TYPE=W5500 ..
+   ```
+
+- डिफ़ॉल्ट encoder mode `ENCODER_PIO_SUBSTEP` है। वर्तमान builds में encoder velocity estimation दोनों modes के लिए HAL driver में की जाती है।
+
+- `config.h` के सभी विकल्पों की व्याख्या के लिए [CONFIG.hi.md](CONFIG.hi.md) देखें।
+
 ### 3. प्रोजेक्ट बिल्ड करें
 
 `make` से कंपाइल करें:
@@ -127,6 +143,8 @@ make
 
 - W5500 सही तरीके से वायर्ड हो (SPI पिन, 3.3V पावर)।
 - CMake स्टेप में `-DWIZCHIP_TYPE=W5500` उपयोग करें।
+- RAM से चलाने के लिए `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` जोड़ सकते हैं।
+- पुराना encoder PIO चुनने के लिए `cmake` से पहले `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` सेट करें।
 
 ## Pico2 सपोर्ट
 
@@ -134,6 +152,8 @@ W5500 मॉड्यूल के साथ Pico2 के लिए सुनि
 
 - W5500 सही तरीके से वायर्ड हो (SPI पिन, 3.3V पावर)।
 - CMake स्टेप में `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` उपयोग करें।
+- RAM से चलाने के लिए `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` जोड़ सकते हैं।
+- पुराना encoder PIO चुनने के लिए `cmake` से पहले `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'` सेट करें।
 
 ---
 

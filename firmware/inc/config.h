@@ -17,7 +17,7 @@
     #define DEFAULT_TIMEOUT 1000000
 
     // switch off this option (breakout_board 0) to use custom configuration
-    #define breakout_board 1 // 1 = stepper-ninia v1.0 breakout board  
+    #define breakout_board 0 // 1 = stepper-ninia v1.0 breakout board  
                              // 2 = io-ninja IO breakout board (96 input, 32 output using 8 MCP23017)
                              // 3 = analog-ninja breakout board (6x bipolar analog output using 6 MCP4725 and 6x high speed encoder counter) !!!! not implemented yet
                              // 100 = breakoutboard_100 (4 stepgen, 2 encoder, 32 input, 16 output using MCP23017)

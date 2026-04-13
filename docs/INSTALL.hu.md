@@ -102,6 +102,22 @@ Futtasd a CMake-et, és add meg a WIZnet chip típusát (`W5100S` vagy `W5500`).
   cmake -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 ..
   ```
 
+- Ha a firmware-t indulás után RAM-ból szeretnéd futtatni, add hozzá ezt:
+
+   ```bash
+   -DSTEPPER_NINJA_RUN_FROM_RAM=ON
+   ```
+
+- Ha a régi encoder PIO verzióval szeretnél buildelni, add meg ezt a compiler define-t:
+
+   ```bash
+   CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake -DWIZCHIP_TYPE=W5500 ..
+   ```
+
+- Az alapértelmezett encoder mód az `ENCODER_PIO_SUBSTEP`. A jelenlegi buildben az enkóder sebességbecslése mindkét módban a HAL driverben történik.
+
+- A `config.h` opciók teljes magyarázatát lásd itt: [CONFIG.hu.md](CONFIG.hu.md).
+
 ### 3. Fordítsd le a projektet
 
 Fordítás `make`-kel:
@@ -127,6 +143,8 @@ Sima Pico + W5500 modul esetén győződj meg róla, hogy:
 
 - A W5500 megfelelően van bekötve (SPI lábak, 3,3 V-os tápellátás).
 - Használd a `-DWIZCHIP_TYPE=W5500` paramétert a CMake lépésnél.
+- Opcionálisan add hozzá a `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` kapcsolót, ha RAM-ból szeretnéd futtatni a firmware-t.
+- A régi encoder PIO kiválasztásához állítsd be a `cmake` előtt: `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'`.
 
 ## Pico2 támogatás
 
@@ -134,6 +152,8 @@ Pico2 + W5500 modul esetén győződj meg róla, hogy:
 
 - A W5500 megfelelően van bekötve (SPI lábak, 3,3 V-os tápellátás).
 - Használd a `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` paramétert a CMake lépésnél.
+- Opcionálisan add hozzá a `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` kapcsolót, ha RAM-ból szeretnéd futtatni a firmware-t.
+- A régi encoder PIO kiválasztásához állítsd be a `cmake` előtt: `CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY'`.
 
 ---
 
