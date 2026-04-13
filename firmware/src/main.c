@@ -1,7 +1,5 @@
 #include "main.h"
 #include "quadrature_encoder_substep.h"
-
-#define ENCODER_VEL_FP_SCALE 10000
 #define ENCODER_IDLE_STOP_SAMPLES 2500
 
 // Name: Stepper-Ninja
@@ -97,11 +95,24 @@ dma_channel_config dma_channel_config_rx;
 uint32_t step_pin[stepgens] = stepgen_steps;
 uint32_t dir_pin[stepgens] = stepgen_dirs;
 uint32_t total_steps[stepgens] = {0,};
+
+    #if use_timer_interrupt == 1
+    #define STEP_RING_BUFFER_SIZE 3
+
+    volatile uint32_t step_command_ring[STEP_RING_BUFFER_SIZE][stepgens];
+    volatile uint8_t step_ring_head = 0;
+    volatile uint8_t step_ring_tail = 0;
+    volatile uint8_t step_ring_count = 0;
+    volatile uint32_t step_timer_period_us = 1000;
+    volatile uint32_t last_step_packet_us = 0;
+    volatile uint64_t next_step_alarm_us = 0;
+    volatile bool step_ring_overflow = false;
+    volatile bool step_ring_underflow = false;
+    #endif
 #endif
 
 uint8_t buffer_index = 0;
 
-int32_t *command;
 uint8_t *src_ip;
 uint16_t src_port;
 uint8_t rx_counter=0;
@@ -116,8 +127,7 @@ uint8_t old_nop = 0;
 
 uint8_t connected = 0;
 uint8_t timer_started = 0;
-absolute_time_t first_time;
-uint alarm_num = 0;
+int alarm_num = -1;
 
 uint8_t checksum_error = 0;
 uint8_t timeout_error = 1;
@@ -150,11 +160,15 @@ PIO_def_t stepgen_pio[stepgens];
     static uint8_t enc_index_enabled[encoders] = {0,};
     PIO_def_t encoder_pio[encoders];
 
+    #if encoder_pio_version == ENCODER_PIO_SUBSTEP
     substep_state_t substep_state[encoders];
+    #endif
 
     static inline void reset_encoder_counter(uint8_t i) {
 #if use_stepcounter == 0
         pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
+        encoder[i] = 0;
+        #if encoder_pio_version == ENCODER_PIO_SUBSTEP
         substep_state[i].raw_step = 0;
         substep_state[i].position = 0;
         substep_state[i].speed = 0;
@@ -167,6 +181,7 @@ PIO_def_t stepgen_pio[stepgens];
         substep_state[i].prev_trans_pos = 0;
         substep_state[i].prev_low = 0;
         substep_state[i].prev_high = 0;
+        #endif
 #else
         pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
         encoder[i] = 0;
@@ -179,19 +194,88 @@ PIO_def_t stepgen_pio[stepgens];
 // -------------------------------------------
 // Pulse generation setup
 // -------------------------------------------
-void __time_critical_func(stepgen_update_handler)() {
+static inline void __time_critical_func(apply_stepgen_commands)(const uint32_t *step_commands) {
     if (checksum_error){
         return;
     }
 
     for (int i = 0; i < stepgens; i++) {
-        command[i] = rx_buffer->stepgen_command[i];
-        if (command[i] != 0){
-            gpio_put(dir_pin[i], (command[i] >> 31));
-            pio_sm_put_blocking(stepgen_pio[i].pio, stepgen_pio[i].sm, command[i] & 0x7fffffff);
-            }
+        uint32_t command_word = step_commands[i];
+        if (command_word != 0){
+            gpio_put(dir_pin[i], (command_word >> 31));
+            pio_sm_put_blocking(stepgen_pio[i].pio, stepgen_pio[i].sm, command_word & 0x7fffffff);
+        }
     }
 }
+
+void __time_critical_func(stepgen_update_handler)() {
+    apply_stepgen_commands((const uint32_t *)rx_buffer->stepgen_command);
+}
+
+    #if use_timer_interrupt == 1
+    static inline void reset_step_ring_buffer(void) {
+        uint32_t irq_state = save_and_disable_interrupts();
+        step_ring_head = 0;
+        step_ring_tail = 0;
+        step_ring_count = 0;
+        last_step_packet_us = 0;
+        step_ring_overflow = false;
+        step_ring_underflow = false;
+        restore_interrupts(irq_state);
+    }
+
+    static void arm_step_timer(void) {
+        uint64_t now_us = time_us_64();
+
+        if (alarm_num < 0) {
+            alarm_num = hardware_alarm_claim_unused(false);
+            if (alarm_num < 0) {
+                printf("No free hardware alarm for step ring buffer\n");
+                return;
+            }
+            hardware_alarm_set_callback((uint)alarm_num, timer_callback);
+        }
+
+        next_step_alarm_us = now_us + step_timer_period_us;
+        hardware_alarm_set_target((uint)alarm_num, from_us_since_boot(next_step_alarm_us));
+        timer_started = 1;
+    }
+
+    static void enqueue_stepgen_commands(const uint32_t *step_commands) {
+        uint32_t now_us = time_us_32();
+        uint8_t should_arm_timer = 0;
+        uint32_t irq_state = save_and_disable_interrupts();
+
+        if (last_step_packet_us != 0) {
+            uint32_t measured_period_us = now_us - last_step_packet_us;
+            if (measured_period_us > 50 && measured_period_us < TIMEOUT_US) {
+                step_timer_period_us = (step_timer_period_us * 3u + measured_period_us + 2u) / 4u;
+            }
+        }
+        last_step_packet_us = now_us;
+
+        if (step_ring_count < STEP_RING_BUFFER_SIZE) {
+            for (int i = 0; i < stepgens; i++) {
+                step_command_ring[step_ring_head][i] = step_commands[i];
+            }
+            step_ring_head = (uint8_t)((step_ring_head + 1u) % STEP_RING_BUFFER_SIZE);
+            step_ring_count++;
+            step_ring_overflow = false;
+            if (!timer_started && step_ring_count == STEP_RING_BUFFER_SIZE) {
+                should_arm_timer = 1;
+                step_ring_underflow = false;
+            }
+        } else {
+            step_ring_overflow = true;
+        }
+
+        restore_interrupts(irq_state);
+
+        if (should_arm_timer) {
+            arm_step_timer();
+        }
+    }
+    #endif
 #endif
 
 // -------------------------------------------
@@ -351,7 +435,6 @@ int main() {
     sleep_ms(2000);
 
     src_ip = (uint8_t *)malloc(4);
-    command = malloc(sizeof(int32_t) * stepgens);
     rx_buffer = (transmission_pc_pico_t *)malloc(rx_size);
     if (rx_buffer == NULL) {
         printf("rx_buffer allocation failed\n");
@@ -519,6 +602,8 @@ int main() {
     #if encoders > 0
         #if use_stepcounter == 0
             for (int i = 0; i < encoders; i++) {
+                uint8_t encoder_program_len;
+
                 printf("Encoder %d GPIO init\n", i);
                 gpio_init(encoder_base[i]);
                 gpio_init(encoder_base[i]+1);
@@ -528,11 +613,17 @@ int main() {
                 gpio_pull_up(encoder_base[i]+1);
                 //tx_buffer->encoder_latched[i] = 0;
                 tx_buffer->encoder_velocity[i] = 0;
-                encoder_pio[i] = get_next_pio(encoder_len);
+                #if encoder_pio_version == ENCODER_PIO_SUBSTEP
+                encoder_program_len = quadrature_encoder_substep_len;
+                #else
+                encoder_program_len = quadrature_encoder_legacy_len;
+                #endif
+                encoder_pio[i] = get_next_pio(encoder_program_len);
                 if (encoder_pio[i].sm == 255){
                     printf("Not enough pio state machines, check the config.h \n");
                 }
                 printf("Encoder %d pre init\n", i);
+                #if encoder_pio_version == ENCODER_PIO_SUBSTEP
                 // Initialize substep encoder
                 substep_init_state(encoder_pio[i].pio, encoder_pio[i].sm, encoder_base[i], &substep_state[i]);
                 // Default (3 samples) is too aggressive for low RPM and can
@@ -542,6 +633,14 @@ int main() {
                 // Set default calibration data - can be overridden later
                 substep_set_calibration_data(&substep_state[i], 64, 128, 192);
                 printf("encoder%d. pio:%d sm:%d init done (substep)...\n", i, encoder_pio[i].pio_blk, encoder_pio[i].sm);
+                #else
+                if (pio_can_add_program_at_offset(encoder_pio[i].pio, &quadrature_encoder_program, 0)) {
+                    pio_add_program_at_offset(encoder_pio[i].pio, &quadrature_encoder_program, 0);
+                }
+                quadrature_encoder_program_init(encoder_pio[i].pio, encoder_pio[i].sm, encoder_base[i], 0);
+                encoder[i] = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                printf("encoder%d. pio:%d sm:%d init done (legacy)...\n", i, encoder_pio[i].pio_blk, encoder_pio[i].sm);
+                #endif
             }
         #else
             for (int i = 0; i < encoders; i++) {
@@ -704,8 +803,12 @@ void handle_data(){
     if (!checksum_error) {
 
         #if stepgens > 0
-        // update stepgens
-        stepgen_update_handler();
+        // Buffer only the step commands when timer-interrupt mode is enabled.
+            #if use_timer_interrupt == 1
+            enqueue_stepgen_commands((const uint32_t *)rx_buffer->stepgen_command);
+            #else
+            stepgen_update_handler();
+            #endif
         #endif
 
 #if use_pwm == 1
@@ -727,19 +830,18 @@ void handle_data(){
         #if use_stepcounter == 0
         // update encoders
             for (int i = 0; i < encoders; i++) {
-                int64_t enc_vel_fp;
-                substep_update(&substep_state[i]);
-                // Send velocity as fixed-point counts/s * ENCODER_VEL_FP_SCALE.
-                // This preserves low-speed resolution over the integer transport.
-                tx_buffer->encoder_counter[i] = substep_state[i].raw_step;
-                enc_vel_fp = ((int64_t)substep_state[i].speed * ENCODER_VEL_FP_SCALE) / 64;
-                if (enc_vel_fp > INT32_MAX) {
-                    enc_vel_fp = INT32_MAX;
-                } else if (enc_vel_fp < INT32_MIN) {
-                    enc_vel_fp = INT32_MIN;
-                }
-                tx_buffer->encoder_velocity[i] = (int32_t)enc_vel_fp;
+                #if encoder_pio_version == ENCODER_PIO_SUBSTEP
                 tx_buffer->encoder_timestamp[i] = time_us_32();
+                substep_update(&substep_state[i]);
+                tx_buffer->encoder_counter[i] = substep_state[i].raw_step;
+                tx_buffer->encoder_velocity[i] = 0;
+                #else
+                int32_t encoder_count = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                tx_buffer->encoder_timestamp[i] = time_us_32();
+                tx_buffer->encoder_counter[i] = encoder_count;
+                tx_buffer->encoder_velocity[i] = encoder_count - (int32_t)encoder[i];
+                encoder[i] = (uint32_t)encoder_count;
+                #endif
                 //tx_buffer->encoder_latched[i] = encoder_latched[i];
             }
         #else
@@ -782,6 +884,21 @@ void handle_data(){
         }
     #endif
     // ===================================================================================
+
+    tx_buffer->step_ring_fill = 0;
+    tx_buffer->step_ring_status = 0;
+    #if use_timer_interrupt == 1 && stepgens > 0
+        tx_buffer->step_ring_fill = step_ring_count;
+        if (timer_started) {
+            tx_buffer->step_ring_status |= STEP_RING_STATUS_ACTIVE;
+        }
+        if (step_ring_underflow) {
+            tx_buffer->step_ring_status |= STEP_RING_STATUS_UNDERFLOW;
+        }
+        if (step_ring_overflow) {
+            tx_buffer->step_ring_status |= STEP_RING_STATUS_OVERFLOW;
+        }
+    #endif
     
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
@@ -818,31 +935,47 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
 }
 #endif
 
-#if use_timer_interrupt == 1
-// Timer interrupt kezelő függvény
-void timer_callback(uint alarm_num) {
-    hw_clear_bits(&timer_hw->intr, 1u << alarm_num);
-    first_time += 1000000; // 1 másodperc = 1 000 000 us
-    timer_hw->alarm[alarm_num] = (uint32_t)(first_time & 0xFFFFFFFF); // Alsó 32 bit
+#if use_timer_interrupt == 1 && stepgens > 0
+void __time_critical_func(timer_callback)(uint triggered_alarm_num) {
+    uint32_t step_commands[stepgens] = {0,};
 
-    handle_data();
-    if (!checksum_error){
-    _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-    rx_counter += 1;
+    if ((int)triggered_alarm_num != alarm_num) {
+        return;
     }
 
+    if (step_ring_count == 0) {
+        hardware_alarm_cancel(triggered_alarm_num);
+        timer_started = 0;
+        step_ring_underflow = true;
+        return;
+    }
+
+    for (int i = 0; i < stepgens; i++) {
+        step_commands[i] = step_command_ring[step_ring_tail][i];
+    }
+    step_ring_tail = (uint8_t)((step_ring_tail + 1u) % STEP_RING_BUFFER_SIZE);
+    step_ring_count--;
+
+    next_step_alarm_us += step_timer_period_us;
+    hardware_alarm_set_target(triggered_alarm_num, from_us_since_boot(next_step_alarm_us));
+
+    apply_stepgen_commands(step_commands);
 }
 #endif
 
 // Timer leállítása
 void stop_timer() {
-        // Timer interrupt kikapcsolása
-        hardware_alarm_set_callback(alarm_num, NULL); // Callback törlése
-        hw_clear_bits(&timer_hw->inte, 1u << alarm_num); // Interrupt engedélyezés törlése
-
-        // Timer csatorna felszabadítása
-        hardware_alarm_unclaim(alarm_num);
+    #if use_timer_interrupt == 1 && stepgens > 0
+        if (alarm_num >= 0) {
+            hardware_alarm_cancel((uint)alarm_num);
+            hardware_alarm_set_callback((uint)alarm_num, NULL);
+            hardware_alarm_unclaim((uint)alarm_num);
+            alarm_num = -1;
+        }
+        timer_started = 0;
+        reset_step_ring_buffer();
         printf("Timer stopped\n");
+    #endif
 }
 
 // -------------------------------------------
@@ -869,22 +1002,11 @@ void __not_in_flash_func(handle_udp)() {
                 int len = rx_size; // for compatibility
             #endif
             if (len == rx_size) {
-                #if use_timer_interrupt
-                    if (timer_started == 0){
-                        sleep_us(250);
-                        hardware_alarm_claim(alarm_num);
-                        hardware_alarm_set_callback(alarm_num, timer_callback);
-                        first_time = make_timeout_time_us(1000000); // 1 másodperc
-                        timer_hw->alarm[alarm_num] = (uint32_t)(to_us_since_boot(first_time) & 0xFFFFFFFF);
-                        timer_started = 1;
-                    }
-                #else
-                    handle_data();
-                    #if raspberry_pi_spi == 0
-                        if (!checksum_error){
+                handle_data();
+                #if raspberry_pi_spi == 0
+                    if (!checksum_error){
                         _sendto(0, (uint8_t *)tx_buffer, tx_size, src_ip, src_port);
-                        }
-                    #endif
+                    }
                 #endif
                 rx_counter += 1;
             }

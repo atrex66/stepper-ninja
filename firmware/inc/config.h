@@ -26,7 +26,7 @@
 #if breakout_board < 1 
 
     #define io_expanders 0 // how many IO expander you connected to the breakout board (16 Input + 8 output each max 3 io_expanders)
-    // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
+   // all pin alias is defined in the internals.h if you want to use instead of using GPIO numbers
     // All GPIO form 0-15 and 22-31 are usable
     #define stepgens 4
     
@@ -35,20 +35,20 @@
     #define stepgen_dirs {PIN_2, PIN_5, PIN_7, PIN_10}
     #define step_invert {0, 0, 0, 0, 0} // step pin invert for each stepgen (0 = not inverted, 1 = inverted)
     
-    #define encoders 1
-    #define enc_pins {PIN_11} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
-    #define enc_index_pins {PIN_NULL}  // pin the encoder index is connected (interrupt driven)
-    #define enc_index_active_level {high}
+    #define encoders 3
+    #define enc_pins {PIN_14, PIN_14, PIN_14} // uses 2 pins, you need to set the first pin (PIN_11 + PIN_12)
+    #define enc_index_pins {PIN_12, PIN_NULL, PIN_NULL}  // pin the encoder index is connected (interrupt driven)
+    #define enc_index_active_level {high, high, high}
 
     #define in_pins {PIN_29, PIN_31, PIN_32, PIN_34} // Free GPIO for inputs (GPIO 22-28)
-    #define in_pullup {0, 0, 0, 0}
+    #define in_pullup {1, 1, 1, 1}
 
-    #define out_pins {PIN_16, PIN_17, PIN_20}
+    #define out_pins {PIN_11}
 
     // if you want to use the module with pwm output, set this to 1
-    #define use_pwm 1 // use of pwm output
+    #define use_pwm 0 // use of pwm output
     #define pwm_count 1
-    #define pwm_pin {PIN_19} // PWM GPIO for the module (GPIO 13, GPIO 14)
+    #define pwm_pin {PIN_NULL} // PWM GPIO for the module (GPIO 13, GPIO 14)
     #define pwm_invert {0} // Invert the PWM signal (1 = inverted, 0 = not inverted)
     #define default_pwm_frequency 10000 // default pwm frequency in Hz if not specified in the HAL configuration
     #define default_pwm_maxscale 4096 // default pwm max scale if not specified in the HAL configuration
@@ -68,8 +68,14 @@
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
 
-    #define default_pulse_width 2000 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
+    #define default_pulse_width 2500 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
+    
+    #define use_timer_interrupt 0 // Use a timer interrupt with a 3-slot step ring buffer to smooth PC transmission jitter for step commands    
+
+    #ifndef encoder_pio_version
+    #define encoder_pio_version ENCODER_PIO_LEGACY // 0 = old quadrature encoder PIO, 1 = substep encoder PIO
+    #endif
 
     #define KBMATRIX
 

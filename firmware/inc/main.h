@@ -76,6 +76,9 @@ void printbuf(uint8_t *buf, size_t len);
 void core1_entry();
 void gpio_callback(uint gpio, uint32_t events);
 void stop_timer();
+#if use_timer_interrupt == 1 && stepgens > 0
+void timer_callback(uint alarm_num);
+#endif
 
 static void spi_write_burst(uint8_t *pBuf, uint16_t len);
 static void spi_read_burst(uint8_t *pBuf, uint16_t len);

@@ -7,6 +7,10 @@
 // first encoder index
 #define CTRL_SPINDEX 0
 
+#define STEP_RING_STATUS_ACTIVE    (1u << 0)
+#define STEP_RING_STATUS_UNDERFLOW (1u << 1)
+#define STEP_RING_STATUS_OVERFLOW  (1u << 2)
+
 #pragma pack(push, 1)
 // transmission structure from PC to Pico
 typedef struct{
@@ -37,7 +41,8 @@ typedef struct{
     #endif
     uint32_t inputs[4];
     uint32_t jitter;
-    uint8_t dummy;
+    uint8_t step_ring_fill;
+    uint8_t step_ring_status;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;

@@ -137,4 +137,12 @@
 #define Sn_IR_RECV    0x04
 #define SOCKET_DHCP   0
 
+#ifndef ENCODER_PIO_LEGACY
+#define ENCODER_PIO_LEGACY 0
+#endif
+#ifndef ENCODER_PIO_SUBSTEP
+#define ENCODER_PIO_SUBSTEP 1
+#endif
+
+
 #endif // INTERNALS_H

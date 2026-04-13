@@ -200,7 +200,6 @@
     #endif // breakout_board == 100
 
     #define use_stepcounter 0 // Use step counter for the stepgen
-    #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
     #define debug_mode 0   // only used in Raspberry PI communications
     #define max_statemachines stepgens + encoders
     

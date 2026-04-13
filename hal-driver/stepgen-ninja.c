@@ -63,10 +63,13 @@ uint8_t rx_size; // receive buffer size
 uint32_t total_cycles;
 
 #define ANALOG_MAX 4095
-#define ENCODER_VEL_FP_SCALE 10000.0f
 
 // do not modify
+#if use_timer_interrupt == 0 && stepgens > 0
 #define dormant_cycles 6
+#else
+#define dormant_cycles 0
+#endif
 
 // Add 10,000 mm offset to *d->command[i] to avoid simulator zero-crossing issue
 // Not needed on real machine due to homing at axis limits, but not hurts real machines.
@@ -128,6 +131,10 @@ typedef struct {
     #endif
 
     hal_s32_t *jitter;
+    hal_u32_t *step_ring_fill;
+    hal_bit_t *step_ring_active;
+    hal_bit_t *step_ring_underflow;
+    hal_bit_t *step_ring_overflow;
     // inputs
     hal_bit_t *input[96];
     hal_bit_t *input_not[96];
@@ -236,6 +243,23 @@ void lpf_init(LowPassFilter* f, float tau, float dt) {
 float lpf_update(LowPassFilter* f, float x) {
     f->y += f->alpha * (x - f->y);
     return f->y;
+}
+
+static void update_encoder_velocity_from_deltas(module_data_t *d, uint8_t encoder_index) {
+    if (d->delta_time[encoder_index] == 0) {
+        d->delta_pos[encoder_index] = 0.0f;
+    } else if (d->delta_time[encoder_index] > 2500000) {
+        *d->enc_velocity[encoder_index] = 0;
+        d->delta_pos[encoder_index] = 0.0f;
+    } else {
+        d->delta_pos[encoder_index] = (float)d->delta_count_accum[encoder_index] / *d->enc_scale[encoder_index];
+        *d->enc_velocity[encoder_index] = lpf_update(
+            &filter[encoder_index],
+            d->delta_pos[encoder_index] * (1000000.0f / (float)d->delta_time[encoder_index])
+        );
+    }
+
+    *d->enc_rpm[encoder_index] = (*d->enc_velocity[encoder_index]) * 60.0f;
 }
 
 void module_init(void) {
@@ -453,6 +477,10 @@ static inline void roll_left_96(uint32_t buf[3])
 void udp_io_process_recv(void *arg, long period) {
     module_data_t *d = arg;
     if (d->watchdog_expired) {
+        *d->step_ring_fill = 0;
+        *d->step_ring_active = 0;
+        *d->step_ring_underflow = 0;
+        *d->step_ring_overflow = 0;
         *d->io_ready_out = 0;
         return;
     }
@@ -470,12 +498,20 @@ void udp_io_process_recv(void *arg, long period) {
             printbuf((uint8_t*)rx_buffer, rx_size);
             d->checksum_error = 1;
             d->connected = 0;
+            *d->step_ring_fill = 0;
+            *d->step_ring_active = 0;
+            *d->step_ring_underflow = 0;
+            *d->step_ring_overflow = 0;
             *d->io_ready_out = 0; // set io-ready-out to 0 to break the estop-loop
             return;
         }
         *d->connected = 1;
         d->last_received_time = d->current_time;
         *d->jitter = 1000 - rx_buffer->jitter; // Set jitter value from received data
+        *d->step_ring_fill = rx_buffer->step_ring_fill;
+        *d->step_ring_active = (rx_buffer->step_ring_status & STEP_RING_STATUS_ACTIVE) != 0;
+        *d->step_ring_underflow = (rx_buffer->step_ring_status & STEP_RING_STATUS_UNDERFLOW) != 0;
+        *d->step_ring_overflow = (rx_buffer->step_ring_status & STEP_RING_STATUS_OVERFLOW) != 0;
         #if encoders > 0
             for (uint8_t i = 0; i < encoders; i++) {
                 #if debug == 1
@@ -531,34 +567,15 @@ void udp_io_process_recv(void *arg, long period) {
                 }
 
                 *d->raw_count[i] = encoder_count; // raw encoder count
-                d->delta_time[i] += encoder_ts - d->enc_timestamp[i];
-                d->delta_count_accum[i] += d->delta_count[i];
-
+                d->delta_time[i] = encoder_ts - d->enc_timestamp[i];
+                d->delta_count_accum[i] = d->delta_count[i];
                 #if use_stepcounter == 0
-                    d->delta_pos[i] = (float)d->delta_count[i] / *d->enc_scale[i];
-                    *d->enc_velocity[i] = lpf_update(
-                        &filter[i],
-                        (((float)rx_buffer->encoder_velocity[i]) / ENCODER_VEL_FP_SCALE) / *d->enc_scale[i]
-                    );
-                    //*d->enc_velocity[i] = (((float)rx_buffer->encoder_velocity[i]) / ENCODER_VEL_FP_SCALE) / *d->enc_scale[i];
-                    d->delta_time[i] = 0;
-                    d->delta_count_accum[i] = 0;
-                    *d->enc_rpm[i] = (*d->enc_velocity[i]) * 60.0f; // Convert velocity to RPM
-                #else
-                    if (d->delta_time[i] > 2500000) {
-                        *d->enc_velocity[i] = 0;
-                        d->delta_time[i] = 0;
-                        d->delta_count_accum[i] = 0;
-                    } else if (d->delta_count_accum[i] != 0 && d->delta_time[i] > 0) {
-                        d->delta_pos[i] = (float)d->delta_count_accum[i] / *d->enc_scale[i];
-                        *d->enc_velocity[i] = lpf_update(&filter[i], d->delta_pos[i] * (1000000.0f / (float)d->delta_time[i]));
-                        //*d->enc_velocity[i] = kalman_filter(d->delta_pos[i] * (1000000.0f / (float)d->delta_time[i]), *d->enc_velocity[i], &error_estimate);
-                        d->delta_time[i] = 0;
-                        d->delta_count_accum[i] = 0;
-                    } else {
-                        d->delta_pos[i] = 0.0f;
+                    if (rx_buffer->encoder_velocity[i] != 0 || d->delta_count[i] == 0) {
+                        d->delta_count_accum[i] = rx_buffer->encoder_velocity[i];
                     }
                 #endif
+
+                update_encoder_velocity_from_deltas(d, i);
 
                 d->enc_timestamp[i] = encoder_ts;
                 d->enc_prev_pos[i] = *d->enc_position[i];
@@ -879,6 +896,10 @@ int rtapi_app_main(void) {
         #endif
 
         PIN_S32(&hal_data[j].jitter, HAL_OUT, module_name ".%d.jitter", j);
+        PIN_U32_INIT(&hal_data[j].step_ring_fill, HAL_OUT, 0, module_name ".%d.stepgen.ring-fill", j);
+        PIN_BIT_INIT(&hal_data[j].step_ring_active, HAL_OUT, 0, module_name ".%d.stepgen.ring-active", j);
+        PIN_BIT_INIT(&hal_data[j].step_ring_underflow, HAL_OUT, 0, module_name ".%d.stepgen.ring-underflow", j);
+        PIN_BIT_INIT(&hal_data[j].step_ring_overflow, HAL_OUT, 0, module_name ".%d.stepgen.ring-overflow", j);
 
         #if raspberry_pi_spi == 1
             for (int i = 0; i< rpi_inputs_no; i++){

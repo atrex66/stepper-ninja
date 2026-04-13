@@ -102,6 +102,12 @@ Run CMake to generate Makefiles, specifying the WIZnet chip type (`W5100S` or `W
   cmake -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 ..
   ```
 
+- To run the firmware from RAM after it boots from flash, add:
+  
+   ```bash
+   -DSTEPPER_NINJA_RUN_FROM_RAM=ON
+   ```
+
 ### 3. Build the Project
 
 Compile the project using `make`:
@@ -127,6 +133,7 @@ For a standard Pico with a W5500 module, ensure:
 
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DWIZCHIP_TYPE=W5500` in the CMake step.
+- Add `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` if you want a RAM-executing build.
 
 ## pico2 Support
 
@@ -134,6 +141,7 @@ For a Pico2 with a W5500 module, ensure:
 
 - The W5500 is properly wired (SPI pins, 3.3V power).
 - Use `-DBOARD=pico2 -DWIZCHIP_TYPE=W5500` in the CMake step.
+- Add `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` if you want a RAM-executing build.
 
 
 ## Installing the LinuxCNC HAL Driver

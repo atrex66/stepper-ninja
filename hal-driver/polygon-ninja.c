@@ -58,6 +58,12 @@
 #define MAX_SIDES    64             /* upper bound on polygon sides           */
 #define EPS          1e-9f          /* near-zero threshold for intersection   */
 
+typedef enum {
+    POLY_STATE_DISABLED = 0,
+    POLY_STATE_WAIT_INDEX_CLEAR,
+    POLY_STATE_RUNNING,
+} polygon_run_state_t;
+
 MODULE_AUTHOR("Viola Zsolt");
 MODULE_DESCRIPTION("polygon-ninja: LUT-based encoder-synchronous polygon turning HAL component");
 MODULE_LICENSE("MIT");
@@ -108,8 +114,7 @@ typedef struct {
     float lut_min_norm;
     float lut_max_norm;
     float lut_mean_norm;
-    hal_bit_t waiting_for_index_clear;
-    hal_bit_t output_started;
+    polygon_run_state_t run_state;
     hal_bit_t prev_enable;
 
 } polygon_data_t;
@@ -358,6 +363,8 @@ static void polygon_process(void *arg, long period)
 {
     polygon_data_t *d = (polygon_data_t *)arg;
     (void)period;
+    hal_bit_t enable_now = (hal_bit_t)(*d->enable != 0);
+    hal_bit_t next_prev_enable = enable_now;
 
     int   sides       = (int)*d->polygon_sides;
     float ex_x        = (float)*d->excenter_x;
@@ -382,14 +389,10 @@ static void polygon_process(void *arg, long period)
         *d->index_enable = 0;
         *d->debug_r_abs_mm = 0.0;
         *d->debug_x_target_mm = 0.0;
-        d->waiting_for_index_clear = 0;
-        d->output_started = 0;
-        d->prev_enable = 0;
-        return;
-    }
-
-    /* Disabled path — zero output and reset handshake */
-    if (!*d->enable) {
+        d->run_state = POLY_STATE_DISABLED;
+        next_prev_enable = 0;
+    } else if (!enable_now) {
+        /* Disabled path — zero output and reset handshake */
         *d->eoffset_counts = 0;
         *d->enable_out = 0;
         *d->clear_out = 1;
@@ -398,65 +401,74 @@ static void polygon_process(void *arg, long period)
         *d->debug_x_target_mm = 0.0;
         *d->debug_r_min_mm = d->lut_min_norm * circ_radius;
         *d->debug_r_max_mm = d->lut_max_norm * circ_radius;
-        d->waiting_for_index_clear = 0;
-        d->output_started = 0;
-        d->prev_enable = 0;
-        return;
-    }
+        d->run_state = POLY_STATE_DISABLED;
+        next_prev_enable = 0;
+    } else {
+        *d->clear_out = 0;
 
-    *d->clear_out = 0;
-
-    /* On enable edge: request index handshake first, but do not start output yet. */
-    if (!d->prev_enable) {
-        *d->index_enable = 1;
-        *d->enable_out = 0;
-        *d->eoffset_counts = 0;
-        d->waiting_for_index_clear = 1;
-        d->output_started = 0;
-    }
-
-    /* Another component is expected to clear index-enable after servicing it. */
-    if (d->waiting_for_index_clear) {
-        if (!*d->index_enable) {
-            d->waiting_for_index_clear = 0;
-            d->output_started = 1;
-            *d->enable_out = 1;
-        } else {
+        /* On enable edge: request index handshake first, but do not start output yet. */
+        if (!d->prev_enable) {
+            *d->index_enable = 1;
             *d->enable_out = 0;
             *d->eoffset_counts = 0;
-            d->prev_enable = 1;
-            return;
+            d->run_state = POLY_STATE_WAIT_INDEX_CLEAR;
+        }
+
+        switch (d->run_state) {
+            case POLY_STATE_WAIT_INDEX_CLEAR:
+                /* Another component is expected to clear index-enable after servicing it. */
+                if (!*d->index_enable) {
+                    d->run_state = POLY_STATE_RUNNING;
+                    *d->enable_out = 1;
+                } else {
+                    *d->enable_out = 0;
+                    *d->eoffset_counts = 0;
+                    next_prev_enable = 1;
+                }
+                break;
+            case POLY_STATE_RUNNING:
+                break;
+            case POLY_STATE_DISABLED:
+            default:
+                /* Safety fallback: if enabled but state is disabled, restart handshake. */
+                *d->index_enable = 1;
+                *d->enable_out = 0;
+                *d->eoffset_counts = 0;
+                d->run_state = POLY_STATE_WAIT_INDEX_CLEAR;
+                next_prev_enable = 1;
+                break;
+        }
+
+        if (d->run_state == POLY_STATE_RUNNING) {
+            /* Encoder count → LUT index (bitmask wrap, no modulo) */
+            int idx = ((int)*d->encoder_count + (int)*d->phase_offset) & d->lut_mask;
+
+            /* Scale normalized radius by circumscribed-radius pin */
+            float r_abs_mm = d->lut[idx] * circ_radius;
+            float r_min_mm = d->lut_min_norm * circ_radius;
+            float r_max_mm = d->lut_max_norm * circ_radius;
+            float r_mean_mm = d->lut_mean_norm * circ_radius;
+            float x_target_mm;
+
+            if (mode == 1) {
+                x_target_mm = r_abs_mm - r_min_mm;     /* starts from zero at flats */
+            } else if (mode == 2) {
+                x_target_mm = r_abs_mm - r_mean_mm;    /* centered around zero */
+            } else {
+                x_target_mm = r_abs_mm;                /* absolute radius */
+            }
+
+            *d->debug_r_abs_mm = r_abs_mm;
+            *d->debug_r_min_mm = r_min_mm;
+            *d->debug_r_max_mm = r_max_mm;
+            *d->debug_x_target_mm = x_target_mm;
+
+            *d->eoffset_counts = (hal_s32_t)lroundf(x_target_mm * 1000.0f);
+            *d->enable_out = 1;
         }
     }
 
-    /* Encoder count → LUT index (bitmask wrap, no modulo) */
-    int idx = ((int)*d->encoder_count + (int)*d->phase_offset) & d->lut_mask;
-
-    /* Scale normalized radius by circumscribed-radius pin */
-    float r_abs_mm = d->lut[idx] * circ_radius;
-    float r_min_mm = d->lut_min_norm * circ_radius;
-    float r_max_mm = d->lut_max_norm * circ_radius;
-    float r_mean_mm = d->lut_mean_norm * circ_radius;
-    float x_target_mm;
-
-    if (mode == 1) {
-        x_target_mm = r_abs_mm - r_min_mm;     /* starts from zero at flats */
-    } else if (mode == 2) {
-        x_target_mm = r_abs_mm - r_mean_mm;    /* centered around zero */
-    } else {
-        x_target_mm = r_abs_mm;                /* absolute radius */
-    }
-
-    *d->debug_r_abs_mm = r_abs_mm;
-    *d->debug_r_min_mm = r_min_mm;
-    *d->debug_r_max_mm = r_max_mm;
-    *d->debug_x_target_mm = x_target_mm;
-
-    *d->eoffset_counts = d->output_started ?
-        (hal_s32_t)lroundf(x_target_mm * 1000.0f) : 0;
-
-    *d->enable_out = d->output_started ? 1 : 0;
-    d->prev_enable = 1;
+    d->prev_enable = next_prev_enable;
 }
 
 /* =========================================================================
@@ -560,8 +572,7 @@ int rtapi_app_main(void)
     *hal_data->debug_x_target_mm    = 0.0;
     hal_data->polygon_error_latched = 0;
     hal_data->polygon_valid         = 1;
-    hal_data->waiting_for_index_clear = 0;
-    hal_data->output_started          = 0;
+    hal_data->run_state            = POLY_STATE_DISABLED;
     hal_data->prev_enable           = 0;
 
     build_lut(hal_data, 4, 0.0f, *hal_data->circumscribed_radius);
