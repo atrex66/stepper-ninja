@@ -71,7 +71,7 @@
     #define default_pulse_width 2500 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
     
-    #define use_timer_interrupt 1 // Use a timer interrupt with a 3-slot step ring buffer to smooth PC transmission jitter for step commands    
+    #define use_timer_interrupt 0 // Use a timer interrupt with a 3-slot step ring buffer to smooth PC transmission jitter for step commands    
 
     #ifndef encoder_pio_version
     #define encoder_pio_version ENCODER_PIO_SUBSTEP // 0 = old quadrature encoder PIO, 1 = substep encoder PIO
