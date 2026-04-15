@@ -119,6 +119,7 @@ uint8_t rx_counter=0;
 
 uint8_t rx_size = sizeof(transmission_pc_pico_t);
 uint8_t tx_size = sizeof(transmission_pico_pc_t);
+static uint8_t spi_rx_frame[SPI_TRANSFER_SIZE];
 
 uint8_t sety = 0;
 uint8_t nop = 0;
@@ -440,11 +441,13 @@ int main() {
         printf("rx_buffer allocation failed\n");
         return -1;
     }
+    memset(rx_buffer, 0, rx_size);
     tx_buffer = (transmission_pico_pc_t *)malloc(tx_size);
     if (tx_buffer == NULL) {
         printf("tx_buffer allocation failed\n");
         return -1;
     }
+    memset(tx_buffer, 0, tx_size);
 
     printf("\033[2J");
     printf("\033[H");
@@ -984,8 +987,14 @@ void stop_timer() {
 void __not_in_flash_func(handle_udp)() {
     gpio_pull_up(GPIO_INT);
     uint8_t *packet_buffer;
-    packet_buffer = malloc(rx_size);
-    memset(packet_buffer, 0, rx_size);
+    packet_buffer = malloc(SPI_TRANSFER_SIZE);
+    if (packet_buffer == NULL) {
+        printf("SPI packet buffer allocation failed\n");
+        while (1) {
+            sleep_ms(1000);
+        }
+    }
+    memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
     last_packet_time = get_absolute_time();
     while (1){
         if (consume_save_config_request()) {
@@ -996,9 +1005,10 @@ void __not_in_flash_func(handle_udp)() {
                 setSn_IR(0, Sn_IR_RECV);
                 int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
             #else 
-                memset(packet_buffer, 0, rx_size);
+                memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
                 memcpy(packet_buffer, (uint8_t *)tx_buffer, tx_size);
-                spi_read_fulldup((uint8_t *)rx_buffer, packet_buffer, rx_size);
+                spi_read_fulldup(spi_rx_frame, packet_buffer, SPI_TRANSFER_SIZE);
+                memcpy((uint8_t *)rx_buffer, spi_rx_frame, rx_size);
                 int len = rx_size; // for compatibility
             #endif
             if (len == rx_size) {
@@ -1034,7 +1044,7 @@ static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
-    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_RX);
+    channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
     dma_channel_configure(dma_rx, &dma_channel_config_rx,
                           pBuf,                     
                           &spi_get_hw(SPI_PORT)->dr,

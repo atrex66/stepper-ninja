@@ -112,7 +112,15 @@ target_link_libraries(stepper-ninja
     hardware_irq
 )
 
-set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}")
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/inc/config.h" RASPBERRY_PI_SPI_ENABLED
+    REGEX "^[ 	]*#define[ 	]+raspberry_pi_spi[ 	]+1([ 	]|$)")
+
+if(RASPBERRY_PI_SPI_ENABLED)
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-spi")
+else()
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}")
+endif()
+
 set_target_properties(stepper-ninja PROPERTIES OUTPUT_NAME ${TARGET_NAME_WITH_CHIP})
 
 pico_add_extra_outputs(stepper-ninja)

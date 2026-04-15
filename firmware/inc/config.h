@@ -56,7 +56,7 @@
 
 #endif // breakout_board < 1
 
-    #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+    #define raspberry_pi_spi 1 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
 
     // used gpio for SPI on the RPI: 8, 9, 10, 11
     // used gpio for SPI on the PICO: 16, 17, 18, 19
@@ -71,10 +71,10 @@
     #define default_pulse_width 2500 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
     
-    #define use_timer_interrupt 0 // Use a timer interrupt with a 3-slot step ring buffer to smooth PC transmission jitter for step commands    
+    #define use_timer_interrupt 1 // Use a timer interrupt with a 3-slot step ring buffer to smooth PC transmission jitter for step commands    
 
     #ifndef encoder_pio_version
-    #define encoder_pio_version ENCODER_PIO_LEGACY // 0 = old quadrature encoder PIO, 1 = substep encoder PIO
+    #define encoder_pio_version ENCODER_PIO_SUBSTEP // 0 = old quadrature encoder PIO, 1 = substep encoder PIO
     #endif
 
     #define KBMATRIX

@@ -48,6 +48,10 @@ typedef struct{
 } transmission_pico_pc_t;
 #pragma pack(pop)
 
+#define SPI_TRANSFER_SIZE ((sizeof(transmission_pc_pico_t) > sizeof(transmission_pico_pc_t)) \
+    ? sizeof(transmission_pc_pico_t) \
+    : sizeof(transmission_pico_pc_t))
+
 uint16_t pwm_calculate_wrap(uint32_t freq);
 bool rx_checksum_ok(transmission_pc_pico_t *rx_buffer);
 bool tx_checksum_ok(transmission_pico_pc_t *tx_buffer);

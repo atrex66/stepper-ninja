@@ -1,0 +1,13 @@
+
+#stepper-ninja encoder connections with the spindle
+# for spindle sync moves
+
+# encoder pulses/rev * 4 (all stepper-ninja encoder handler counts all edge changes)
+
+setp stepgen-ninja.0.encoder.scale 4096
+
+net spindle-index-enable spindle.0.index-enable stepgen-ninja.0.encoder.1.index-enable
+net spindle-revs         spindle.0.revs stepgen-ninja.0.encoder.1.position
+net spindle-speed-in     spindle.0.speed-in stepgen-ninja.0.encoder.1.velocity-rps
+
+
