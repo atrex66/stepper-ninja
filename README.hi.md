@@ -53,6 +53,51 @@ Stepper-ninja उपयोग करने के लिए आपको officia
 
 - **Open-Source**: code और docs MIT License के अंतर्गत।
 
+## PIO कॉन्फ़िगरेशन और संसाधन सीमाएँ
+
+Raspberry Pi Pico और Pico2 **PIO (Programmable I/O) ब्लॉक** का उपयोग करके step generation और encoder counting को सीधे hardware में लागू करते हैं। PIO instruction memory बहुत सीमित होने के कारण, **step generators और encoders को एक साथ उपयोग नहीं किया जा सकता** — एक को सक्षम करने से दूसरा अक्षम हो जाता है।
+
+### RP2040 (Pico)
+
+- 2 PIO ब्लॉक (PIO0 और PIO1), प्रत्येक में **4 state machines** और **32 instruction slots**
+- Step generator PIO program: प्रति state machine ~20 instructions
+- Encoder PIO program: प्रति state machine ~15–18 instructions
+- **4 step generators** एक PIO ब्लॉक को पूरी तरह भर देते हैं — उसी ब्लॉक में encoders के लिए कोई जगह नहीं बचती
+- **4 encoders** एक PIO ब्लॉक को पूरी तरह भर देते हैं — step generators के लिए कोई जगह नहीं बचती
+- अधिकतम: **8 step generators** अथवा **8 encoders** (दोनों PIO ब्लॉक उपयोग करके), कभी मिश्रित नहीं
+
+### RP2350 (Pico2)
+
+- 2 PIO ब्लॉक, प्रत्येक में **4 state machines** और **32 instruction slots** (RP2040 जैसी संरचना)
+- RP2350 में अतिरिक्त **PIO2** भी है जिसमें 4 और state machines हैं
+- अधिकतम: **12 step generators** अथवा **12 encoders** (तीनों PIO ब्लॉक उपयोग करके)
+- Step generators और encoders को अभी भी मिश्रित नहीं किया जा सकता — प्रत्येक function का PIO program ब्लॉक को पूरी तरह भर देता है
+
+### मोड बदलना
+
+`firmware/inc/config.h` को संपादित करें:
+
+```c
+#define stepgens 4   // step generators की संख्या (0 = केवल encoder मोड)
+#define encoders 0   // encoders की संख्या (0 = केवल step generator मोड)
+```
+
+यह सेटिंग बदलने के बाद firmware को rebuild करें और Pico पर flash करें।
+
+### Encoder PIO Variants
+
+दो encoder implementations उपलब्ध हैं:
+
+- **`ENCODER_PIO_SUBSTEP`** (default): smooth velocity estimation के लिए sub-step interpolation (~18 instructions)
+- **`ENCODER_PIO_LEGACY`**: सरल quadrature counting, थोड़ा छोटा (~15 instructions)
+
+Legacy encoder के साथ build करें:
+```bash
+CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake ..
+```
+
+---
+
 ## License
 
 - Quadrature encoder PIO program Raspberry Pi (Trading) Ltd. की BSD-3 license का उपयोग करता है।

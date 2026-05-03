@@ -53,6 +53,51 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 
 - **Open source**: a kód és a dokumentáció MIT licenc alatt érhető el.
 
+## PIO-konfiguráció és erőforrás-korlátok
+
+A Raspberry Pi Pico és Pico2 **PIO-blokkokat (Programmable I/O)** használ a step-generátorok és encoder-számlálók hardveres megvalósításához. Mivel a PIO-utasításmemória rendkívül korlátozott, **a step-generátorok és az encoderek nem használhatók egyszerre** — az egyik engedélyezése letiltja a másikat.
+
+### RP2040 (Pico)
+
+- 2 PIO-blokk (PIO0 és PIO1), mindkettőben **4 állapotgép** és **32 utasításhely**
+- Step-generátor PIO-program: ~20 utasítás állapotgépenként
+- Encoder PIO-program: ~15–18 utasítás állapotgépenként
+- **4 step-generátor** teljesen kitölt egy PIO-blokkot — nem marad hely encoder számára ugyanabban a blokkban
+- **4 encoder** teljesen kitölt egy PIO-blokkot — nem marad hely step-generátor számára
+- Maximum: **8 step-generátor** VAGY **8 encoder** (mindkét PIO-blokk felhasználásával), soha nem vegyítve
+
+### RP2350 (Pico2)
+
+- 2 PIO-blokk, mindkettőben **4 állapotgép** és **32 utasításhely** (azonos struktúra, mint az RP2040)
+- Az RP2350 rendelkezik egy további **PIO2** blokkal, amely 4 további állapotgépet tartalmaz
+- Maximum: **12 step-generátor** VAGY **12 encoder** (mindhárom PIO-blokk felhasználásával)
+- A step-generátorok és encoderek keveredése továbbra sem lehetséges — minden funkció PIO-programja teljesen kitölti a blokkot
+
+### Módok közötti váltás
+
+Szerkeszd a `firmware/inc/config.h` fájlt a kívánt mód beállításához:
+
+```c
+#define stepgens 4   // step-generátorok száma (0 = csak encoder mód)
+#define encoders 0   // encoderek száma (0 = csak step-generátor mód)
+```
+
+A beállítás módosítása után build-eld újra a firmware-t, és flasheld a Picóra.
+
+### Encoder PIO-változatok
+
+Két encoder-implementáció áll rendelkezésre:
+
+- **`ENCODER_PIO_SUBSTEP`** (alapértelmezett): sub-step interpoláció a sima sebességbecsléshez (~18 utasítás)
+- **`ENCODER_PIO_LEGACY`**: egyszerű kvadratúra-számlálás, kissé kisebb (~15 utasítás)
+
+Legacy encoderrel való build:
+```bash
+CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake ..
+```
+
+---
+
 ## Licenc
 
 - A kvadratúrás encoder PIO program a Raspberry Pi (Trading) Ltd. BSD-3 licencét használja.

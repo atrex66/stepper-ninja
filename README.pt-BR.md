@@ -53,6 +53,51 @@ Você não precisa da breakout board oficial para usar o stepper-ninja. Uma brea
 
 - **Open-Source**: código e documentação sob licença MIT.
 
+## Configuração PIO e Limitações de Recursos
+
+O Raspberry Pi Pico e Pico2 utilizam **blocos PIO (Programmable I/O)** para implementar step generation e contagem de encoder diretamente em hardware. Como a memória de instruções PIO é muito limitada, **step generators e encoders não podem ser usados ao mesmo tempo** — habilitar um desabilita o outro.
+
+### RP2040 (Pico)
+
+- 2 blocos PIO (PIO0 e PIO1), cada um com **4 state machines** e **32 slots de instrução**
+- Programa PIO do step generator: ~20 instruções por state machine
+- Programa PIO do encoder: ~15–18 instruções por state machine
+- **4 step generators** preenchem completamente um bloco PIO — sem espaço restante para encoders no mesmo bloco
+- **4 encoders** preenchem completamente um bloco PIO — sem espaço para step generators
+- Máximo: **8 step generators** OU **8 encoders** (usando ambos os blocos PIO), nunca misturados
+
+### RP2350 (Pico2)
+
+- 2 blocos PIO, cada um com **4 state machines** e **32 slots de instrução** (mesma estrutura do RP2040)
+- O RP2350 possui adicionalmente um **PIO2** com mais 4 state machines
+- Máximo: **12 step generators** OU **12 encoders** (usando todos os três blocos PIO)
+- Step generators e encoders ainda não podem ser misturados — o programa PIO de cada função preenche o bloco completamente
+
+### Alternando Entre Modos
+
+Edite `firmware/inc/config.h` para escolher o modo:
+
+```c
+#define stepgens 4   // número de step generators (0 = modo somente encoder)
+#define encoders 0   // número de encoders (0 = modo somente step generator)
+```
+
+Recompile o firmware e faça o flash no Pico após alterar essa configuração.
+
+### Variantes de PIO para Encoder
+
+Duas implementações de encoder estão disponíveis:
+
+- **`ENCODER_PIO_SUBSTEP`** (padrão): interpolação sub-step para estimativa de velocidade suave (~18 instruções)
+- **`ENCODER_PIO_LEGACY`**: contagem em quadratura simples, um pouco menor (~15 instruções)
+
+Compilar com encoder legado:
+```bash
+CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake ..
+```
+
+---
+
 ## Licença
 
 - O programa PIO do encoder em quadratura usa licença BSD-3 da Raspberry Pi (Trading) Ltd.

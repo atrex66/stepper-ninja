@@ -956,6 +956,7 @@ int rtapi_app_main(void)
         hal_data[j].watchdog_running = 0;
         hal_data[j].first_data = true;
         hal_data[j].error_triggered = false;
+        hal_data[j].tx_counter = 0;
 
         #if raspberry_pi_spi == 0
             hal_data[j].ip_address = &results[j];
