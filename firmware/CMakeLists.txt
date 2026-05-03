@@ -14,6 +14,8 @@ endif()
 set(WIZCHIP_TYPE "W5100S" CACHE STRING "WIZnet chip type (W5100S or W5500)")
 set_property(CACHE WIZCHIP_TYPE PROPERTY STRINGS "W5100S" "W5500")
 
+option(STEPPER_NINJA_RUN_FROM_RAM "Copy the firmware from flash to SRAM before execution" OFF)
+
 if(NOT WIZCHIP_TYPE MATCHES "^(W5100S|W5500)$")
     message(FATAL_ERROR "Invalid WIZCHIP_TYPE: ${WIZCHIP_TYPE}. Must be W5100S or W5500.")
 endif()
@@ -54,21 +56,35 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet/W5100S
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver/Ethernet/W5500
+    ${CMAKE_CURRENT_SOURCE_DIR}/quadrature_encoder_substep
 )
 
 add_executable(stepper-ninja
     src/main.c
+    modules/breakoutboard_common.c
+    modules/breakoutboard_1.c
+    modules/breakoutboard_2.c
+    modules/breakoutboard_3.c
+    modules/breakoutboard_100.c
     modules/flash_config.c
     modules/serial_terminal.c
     modules/transmission.c
     modules/pwm.c
     modules/pio_utils.c
     modules/mcp4725.c
+    quadrature_encoder_substep/quadrature_encoder_substep.c
     ${WIZNET_SOURCES}
 )
+
+if(STEPPER_NINJA_RUN_FROM_RAM)
+    pico_set_binary_type(stepper-ninja copy_to_ram)
+    message(STATUS "stepper-ninja will copy the firmware to RAM before execution")
+endif()
+
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/quadrature_encoder.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/freq_generator.pio)
 pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/step_counter.pio)
+pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/quadrature_encoder_substep/quadrature_encoder_substep.pio)
 
 target_include_directories(stepper-ninja PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/ioLibrary_Driver
@@ -96,7 +112,15 @@ target_link_libraries(stepper-ninja
     hardware_irq
 )
 
-set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}")
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/inc/config.h" RASPBERRY_PI_SPI_ENABLED
+    REGEX "^[ 	]*#define[ 	]+raspberry_pi_spi[ 	]+1([ 	]|$)")
+
+if(RASPBERRY_PI_SPI_ENABLED)
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-spi")
+else()
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}")
+endif()
+
 set_target_properties(stepper-ninja PROPERTIES OUTPUT_NAME ${TARGET_NAME_WITH_CHIP})
 
 pico_add_extra_outputs(stepper-ninja)

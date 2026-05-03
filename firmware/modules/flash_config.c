@@ -33,6 +33,7 @@ int16_t adc_offset = 0;
 uint16_t adc_min = 0;
 uint16_t adc_max = 0;
 configuration_t *flash_config = NULL;
+static volatile bool save_requested = false;
 
 #define FLASH_TARGET_OFFSET (1024 * 1024) // 1mb offset
 #define FLASH_DATA_SIZE (sizeof(configuration_t))
@@ -45,54 +46,73 @@ uint8_t calculate_checksum_flash(configuration_t *config) {
     return checksum;
 }
 
+static void call_flash_range_erase(void *param) {
+    uint32_t offset = (uint32_t)(uintptr_t)param;
+    flash_range_erase(offset, FLASH_SECTOR_SIZE);
+}
+
+static void call_flash_range_program(void *param) {
+    uintptr_t *params = (uintptr_t *)param;
+    uint32_t offset = (uint32_t)params[0];
+    const uint8_t *data = (const uint8_t *)params[1];
+    uint32_t len = (uint32_t)params[2];
+    flash_range_program(offset, data, len);
+}
+
+void request_save_config_to_flash() {
+    save_requested = true;
+}
+
+bool consume_save_config_request() {
+    if (!save_requested) {
+        return false;
+    }
+    save_requested = false;
+    return true;
+}
+
 void __time_critical_func(save_config_to_flash)() {
     if (flash_config == NULL) {
         printf("Nothing to save flash_config is empty.\n");
+        return;
     }
+
+    // flash_safe_execute must run on core0 in this firmware architecture.
+    if (get_core_num() != 0) {
+        request_save_config_to_flash();
+        printf("Save request queued for core0.\n");
+        return;
+    }
+
     uint8_t *data;
     data = (uint8_t *)malloc(FLASH_SECTOR_SIZE);
     if (data == NULL) {
         printf("Failed to allocate memory for flash data.\n");
         return;
     }
-    
-    uint core_id = get_core_num();
-
-    if (core_id == 1)
-    {
-        while (!multicore_fifo_wready()) {
-            tight_loop_contents();
-        }
-        multicore_fifo_push_blocking(0xCAFEBABE);
-
-        while(!multicore_fifo_rvalid()) {
-            tight_loop_contents();
-        }
-        uint32_t signal = multicore_fifo_pop_blocking();
-        if (signal != 0xFEEDFACE) {
-            printf("Core0 is not ready, aborting flash write...\n");
-            free(data);
-            return;
-        }
-        printf("Core0 is ready, proceeding with flash write...\n");
-    }
 
     flash_config->checksum = calculate_checksum_flash(flash_config);
 
     memset(data, 0xFF, FLASH_SECTOR_SIZE);
     memcpy(data, flash_config, sizeof(configuration_t));
-    uint32_t ints = save_and_disable_interrupts();
-    flash_safe_execute_core_deinit();
-    flash_range_erase(FLASH_TARGET_OFFSET, FLASH_SECTOR_SIZE);
-    flash_range_program(FLASH_TARGET_OFFSET, data, FLASH_SECTOR_SIZE);
-    restore_interrupts(ints);
+    int rc = flash_safe_execute(call_flash_range_erase, (void *)(uintptr_t)FLASH_TARGET_OFFSET, UINT32_MAX);
+    if (rc != PICO_OK) {
+        printf("flash_safe_execute erase failed: %d\n", rc);
+        free(data);
+        return;
+    }
+
+    uintptr_t params[] = {(uintptr_t)FLASH_TARGET_OFFSET, (uintptr_t)data, (uintptr_t)FLASH_SECTOR_SIZE};
+    rc = flash_safe_execute(call_flash_range_program, params, UINT32_MAX);
+    if (rc != PICO_OK) {
+        printf("flash_safe_execute program failed: %d\n", rc);
+        free(data);
+        return;
+    }
+
     free(data);
-    if (core_id == 1){
-    multicore_fifo_push_blocking(0xDEADBEEF);
-    while (1) {
-        tight_loop_contents();
-        }
-    }    
+    printf("Configuration saved to flash.\n");
+    reset_with_watchdog();
 }
 
 void load_config_from_flash() {

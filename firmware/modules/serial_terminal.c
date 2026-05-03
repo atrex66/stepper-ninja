@@ -7,7 +7,9 @@
 #include "hardware/pwm.h"
 #include "flash_config.h"
 #include "transmission.h"
+#include "internals.h"
 #include "config.h"
+#include "hardware/i2c.h"
 
 char buffer[64];
 int buffer_pos = 0;
@@ -23,6 +25,7 @@ extern uint8_t timeout_error;
 extern uint32_t time_constant;
 extern int32_t *position;
 extern uint32_t total_steps[stepgens];
+extern volatile uint32_t input_buffer[4];
 bool enable_serial = true;
 
 void save_configuration(){
@@ -47,6 +50,16 @@ void load_configuration(){
     net_info.dhcp = flash_config->dhcp;
     port = flash_config->port;
     TIMEOUT_US = flash_config->timeout;
+}
+
+bool i2c_check(i2c_inst_t *i2c, uint8_t addr) {
+    uint8_t buffer[1] = {0x00};
+    int ret = i2c_write_blocking_until(i2c, addr, buffer, 1, false, make_timeout_time_us(250));
+    if (ret != PICO_ERROR_GENERIC) {
+        return true;
+    } else {
+        return false;
+    }
 }
 
 // Function: process_command
@@ -191,6 +204,19 @@ void process_command(char* command) {
         }
     } else if (strcmp(command, "reset") == 0) {
         reset_with_watchdog();
+    } else if (strcmp(command, "scan") == 0) {
+        printf("Scanning I2C1 bus...\n");
+        for (uint8_t addr = 1; addr < 127; addr++) {
+            if (i2c_check(i2c1, addr)) {
+                printf("Device found at address: 0x%02X\n", addr);
+            }
+        }
+    } else if (strcmp(command, "inputs") == 0) {
+        printf("Input states:\n");
+        printf("Input %04X\n", input_buffer[0]);
+        printf("Input %04X\n", input_buffer[1]);
+        printf("Input %04X\n", input_buffer[2]);
+        printf("Input %04X\n", input_buffer[3]);
     } else {
         printf("Unknown command\n");
     }

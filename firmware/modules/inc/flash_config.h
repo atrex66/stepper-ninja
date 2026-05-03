@@ -20,5 +20,7 @@ void clear_flash();
 void restore_default_config();
 void save_config_to_flash();
 void load_config_from_flash();
+void request_save_config_to_flash();
+bool consume_save_config_request();
 
 #endif // CONFIG_H

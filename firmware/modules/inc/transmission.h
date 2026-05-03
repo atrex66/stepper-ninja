@@ -7,6 +7,9 @@
 // first encoder index
 #define CTRL_SPINDEX 0
 
+#define STEP_RING_STATUS_ACTIVE    (1u << 0)
+#define STEP_RING_STATUS_UNDERFLOW (1u << 1)
+#define STEP_RING_STATUS_OVERFLOW  (1u << 2)
 
 #pragma pack(push, 1)
 // transmission structure from PC to Pico
@@ -21,8 +24,8 @@ typedef struct{
     #if encoders > 0
     uint8_t enc_control;  // enables encoder index 1st bit encoder 0 2nd encoder 1
     #endif
-    #if breakout_board > 0
-    uint32_t analog_out;
+    #if ANALOG_CH > 0
+    uint32_t analog_out[ANALOG_CH];
     #endif
     uint8_t packet_id;
     uint8_t checksum;
@@ -32,17 +35,22 @@ typedef struct{
 typedef struct{
     #if encoders > 0
     int32_t encoder_counter[encoders];
+    int32_t encoder_velocity[encoders];
     uint32_t encoder_timestamp[encoders];
-    int32_t encoder_latched[encoders];
+    uint8_t interrupt_data;
     #endif
     uint32_t inputs[4];
     uint32_t jitter;
-    uint8_t interrupt_data;
-    uint8_t dummy;
+    uint8_t step_ring_fill;
+    uint8_t step_ring_status;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;
 #pragma pack(pop)
+
+#define SPI_TRANSFER_SIZE ((sizeof(transmission_pc_pico_t) > sizeof(transmission_pico_pc_t)) \
+    ? sizeof(transmission_pc_pico_t) \
+    : sizeof(transmission_pico_pc_t))
 
 uint16_t pwm_calculate_wrap(uint32_t freq);
 bool rx_checksum_ok(transmission_pc_pico_t *rx_buffer);

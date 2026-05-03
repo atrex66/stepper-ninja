@@ -1,6 +1,7 @@
 halcompile --install stepgen-ninja.c
+halcompile --install stepper-ninja.c
 
 echo ""
 echo "***************************************************************"
-echo "* Now you need to add stepgen-ninja to your hal configuration *"
+echo "* You can now use stepgen-ninja or stepper-ninja in HAL config *"
 echo "***************************************************************"
