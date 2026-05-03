@@ -94,15 +94,11 @@ EXTRA_CFLAGS += -DMODULE_NAME=\"@module_name@\"
 endfunction()
 
 add_linuxcnc_rt_module(stepgen-ninja stepgen-ninja.c)
-add_linuxcnc_rt_module(stepper-ninja stepper-ninja.c)
-add_linuxcnc_rt_module(plc-ninja plc-ninja.c)
-add_linuxcnc_rt_module(polygon-ninja polygon-ninja.c)
+
 
 add_custom_target(hal-modules)
 add_dependencies(hal-modules stepgen-ninja)
-add_dependencies(hal-modules stepper-ninja)
-add_dependencies(hal-modules plc-ninja)
-add_dependencies(hal-modules polygon-ninja)
+
 
 message(STATUS "LinuxCNC include dir: ${LINUXCNC_INCLUDE_DIR}")
 message(STATUS "LinuxCNC modinc: ${LINUXCNC_MODINC}")
