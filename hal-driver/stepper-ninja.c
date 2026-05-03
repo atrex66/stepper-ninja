@@ -1,1 +1,0 @@
-stepgen-ninja.c

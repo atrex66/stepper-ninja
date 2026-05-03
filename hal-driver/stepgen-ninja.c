@@ -18,12 +18,32 @@
     #include <sys/socket.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
+// Use kernel spidev for SPI
 #else
-    #include "bcm2835.c"
-    #include "bcm2835rt.h"
+    #include <linux/spi/spidev.h>
+    #include <sys/ioctl.h>
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <stdint.h>
+    #include <gpiod.h>
+    #define SPI_DEV_PATH "/dev/spidev0.0"
+    #define SPI_SPEED_HZ 1500000
+    static int spi_fd = -1;
+    static const uint8_t spi_mode = SPI_MODE_3;
+    static const uint8_t spi_bits = 8;
+    static const uint32_t spi_speed = SPI_SPEED_HZ;
+
+    static struct gpiod_chip *gpiochip = NULL;
+    static struct gpiod_line_request *raspi_int_out_req = NULL;
+    static struct gpiod_line_request *raspi_spi_cs_req = NULL;
+    static struct gpiod_line_request *rpi_input_reqs[32];
+    static struct gpiod_line_request *rpi_output_reqs[32];
+    // Adjust these GPIO numbers to your hardware
+    #define RASPI_INT_OUT_GPIO 17
+    #define RASPI_SPI_CS_GPIO 27
 #endif
 
-/* name of the module */
+/* name of the module */                
 #ifndef MODULE_NAME
     #define MODULE_NAME "stepgen-ninja"
 #endif
@@ -36,7 +56,6 @@
     RTAPI_MP_STRING(ip_address, "Ip address");
 #else
     #pragma message "SPI version"
-    #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_128
     const uint8_t rpi_inputs[] = raspi_inputs;
     const uint8_t rpi_outputs[] = raspi_outputs;
     const uint8_t rpi_input_pullup[] = raspi_input_pullups;
@@ -67,7 +86,7 @@ uint32_t total_cycles;
 #if use_timer_interrupt == 0 && stepgens > 0
 #define dormant_cycles 6
 #else
-#define dormant_cycles 0
+#define dormant_cycles 4
 #endif
 
 /*
@@ -345,22 +364,82 @@ static void init_socket(module_data_t *arg)
     setsockopt(d->sockfd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize));
 }
 #else
+#include <stdio.h>
+
+/* libgpiod v2 helper: request a single output line */
+static struct gpiod_line_request *sn_gpio_request_output(struct gpiod_chip *chip,
+    unsigned int gpio_line, const char *consumer, int initial_value)
+{
+    struct gpiod_line_settings *settings = gpiod_line_settings_new();
+    struct gpiod_line_config *line_cfg = gpiod_line_config_new();
+    struct gpiod_request_config *req_cfg = gpiod_request_config_new();
+    struct gpiod_line_request *req = NULL;
+
+    if (!settings || !line_cfg || !req_cfg) goto cleanup;
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_OUTPUT);
+    gpiod_line_settings_set_output_value(settings,
+        initial_value ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
+    gpiod_line_config_add_line_settings(line_cfg, &gpio_line, 1, settings);
+    gpiod_request_config_set_consumer(req_cfg, consumer);
+    req = gpiod_chip_request_lines(chip, req_cfg, line_cfg);
+cleanup:
+    if (req_cfg) gpiod_request_config_free(req_cfg);
+    if (line_cfg) gpiod_line_config_free(line_cfg);
+    if (settings) gpiod_line_settings_free(settings);
+    return req;
+}
+
+/* libgpiod v2 helper: request a single input line with optional pull */
+static struct gpiod_line_request *sn_gpio_request_input(struct gpiod_chip *chip,
+    unsigned int gpio_line, const char *consumer, int pull_up)
+{
+    struct gpiod_line_settings *settings = gpiod_line_settings_new();
+    struct gpiod_line_config *line_cfg = gpiod_line_config_new();
+    struct gpiod_request_config *req_cfg = gpiod_request_config_new();
+    struct gpiod_line_request *req = NULL;
+
+    if (!settings || !line_cfg || !req_cfg) goto cleanup;
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_INPUT);
+    gpiod_line_settings_set_bias(settings,
+        pull_up ? GPIOD_LINE_BIAS_PULL_UP : GPIOD_LINE_BIAS_PULL_DOWN);
+    gpiod_line_config_add_line_settings(line_cfg, &gpio_line, 1, settings);
+    gpiod_request_config_set_consumer(req_cfg, consumer);
+    req = gpiod_chip_request_lines(chip, req_cfg, line_cfg);
+cleanup:
+    if (req_cfg) gpiod_request_config_free(req_cfg);
+    if (line_cfg) gpiod_line_config_free(line_cfg);
+    if (settings) gpiod_line_settings_free(settings);
+    return req;
+}
+
 static void init_spi(void)
 {
-    if (!bcm2835_init_rt()) {
-        printf("bcm2835 init failed\n");
+    spi_fd = rtapi_open_as_root(SPI_DEV_PATH, O_RDWR);
+    if (spi_fd < 0) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "can't open SPI device");
         return;
     }
+    if (ioctl(spi_fd, SPI_IOC_WR_MODE, &spi_mode) == -1) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "can't set spi mode");
+    }
+    if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &spi_bits) == -1) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "can't set bits per word");
+    }
+    if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &spi_speed) == -1) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "can't set max speed hz");
+    }
 
-    bcm2835_spi_begin();
-    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);
-    bcm2835_spi_setDataMode(BCM2835_SPI_MODE3);
-    bcm2835_spi_setClockDivider(SPI_SPEED);
-    bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
-    bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
-
-    bcm2835_gpio_fsel(raspi_int_out, BCM2835_GPIO_FSEL_OUTP);
-    bcm2835_gpio_set(raspi_int_out);
+    gpiochip = gpiod_chip_open("/dev/gpiochip0");
+    if (!gpiochip) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "Failed to open /dev/gpiochip0\n");
+        return;
+    }
+    raspi_int_out_req = sn_gpio_request_output(gpiochip, RASPI_INT_OUT_GPIO, "stepgen-ninja", 1);
+    if (!raspi_int_out_req)
+        rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request INT_OUT GPIO\n");
+    raspi_spi_cs_req = sn_gpio_request_output(gpiochip, RASPI_SPI_CS_GPIO, "stepgen-ninja", 1);
+    if (!raspi_spi_cs_req)
+        rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request SPI_CS GPIO\n");
 }
 #endif
 
@@ -453,13 +532,30 @@ static int _send(void *arg)
         module_data_t *d = arg;
         return sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
     #else
-        bcm2835_gpio_clr(raspi_int_out);
+        if (raspi_int_out_req)
+            gpiod_line_request_set_value(raspi_int_out_req, RASPI_INT_OUT_GPIO, GPIOD_LINE_VALUE_INACTIVE);
         memset(spi_tx_buffer, 0, sizeof(spi_tx_buffer));
         memset(spi_rx_buffer, 0, sizeof(spi_rx_buffer));
         memcpy(spi_tx_buffer, tx_buffer, tx_size);
-        bcm2835_spi_transfernb((char *)spi_tx_buffer, (char *)spi_rx_buffer, SPI_TRANSFER_SIZE);
+        struct spi_ioc_transfer tr = {
+            .tx_buf = (unsigned long)spi_tx_buffer,
+            .rx_buf = (unsigned long)spi_rx_buffer,
+            .len = SPI_TRANSFER_SIZE,
+            .delay_usecs = 0,
+            .speed_hz = spi_speed,
+            .bits_per_word = spi_bits,
+        };
+        if (raspi_spi_cs_req)
+            gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_INACTIVE);
+        int ret = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &tr);
+        if (raspi_spi_cs_req)
+            gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_ACTIVE);
+        if (ret < 1) {
+            perror("can't send spi message");
+        }
         memcpy(rx_buffer, spi_rx_buffer, rx_size);
-        bcm2835_gpio_set(raspi_int_out);
+        if (raspi_int_out_req)
+            gpiod_line_request_set_value(raspi_int_out_req, RASPI_INT_OUT_GPIO, GPIOD_LINE_VALUE_ACTIVE);
         return rx_size;
     #endif
 }
@@ -585,7 +681,8 @@ void udp_io_process_recv(void *arg, long period)
         #endif
         #if raspberry_pi_spi == 1
             for (int i = 0; i < rpi_inputs_no; i++) {
-                *d->rpi_input[i] = bcm2835_gpio_lev(rpi_inputs[i]);
+                *d->rpi_input[i] = (rpi_input_reqs[i] &&
+                    gpiod_line_request_get_value(rpi_input_reqs[i], rpi_inputs[i]) == GPIOD_LINE_VALUE_ACTIVE) ? 1 : 0;
             }
         #endif
 
@@ -718,11 +815,9 @@ static void udp_io_process_send(void *arg, long period)
 
     #if raspberry_pi_spi == 1
         for (int i = 0; i < rpi_outputs_no; i++) {
-            if (*d->rpi_output[i]) {
-                bcm2835_gpio_set(rpi_outputs[i]);
-            } else {
-                bcm2835_gpio_clr(rpi_outputs[i]);
-            }
+            if (rpi_output_reqs[i])
+                gpiod_line_request_set_value(rpi_output_reqs[i], rpi_outputs[i],
+                    *d->rpi_output[i] ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
         }
     #endif
 
@@ -895,18 +990,16 @@ int rtapi_app_main(void)
 
         #if raspberry_pi_spi == 1
             for (int i = 0; i < rpi_inputs_no; i++) {
-
-                bcm2835_gpio_fsel(rpi_inputs[i], BCM2835_GPIO_FSEL_INPT);
-                if (rpi_input_pullup[i]) {
-                    bcm2835_gpio_set_pud(rpi_inputs[i], BCM2835_GPIO_PUD_UP);
-                } else {
-                    bcm2835_gpio_set_pud(rpi_inputs[i], BCM2835_GPIO_PUD_DOWN);
-                }
+                rpi_input_reqs[i] = sn_gpio_request_input(gpiochip, rpi_inputs[i], "stepgen-ninja", rpi_input_pullup[i]);
+                if (!rpi_input_reqs[i])
+                    rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request rpi_input GPIO %d\n", rpi_inputs[i]);
                 PIN_BIT(&hal_data[j].rpi_input[i], HAL_OUT, module_name ".%d.rpi-input.gp%d", j, rpi_inputs[i]);
                 PIN_BIT(&hal_data[j].rpi_input_not[i], HAL_OUT, module_name ".%d.rpi-input.gp%d-not", j, rpi_inputs[i]);
             }
             for (int i = 0; i < rpi_outputs_no; i++) {
-                bcm2835_gpio_fsel(rpi_outputs[i], BCM2835_GPIO_FSEL_OUTP);
+                rpi_output_reqs[i] = sn_gpio_request_output(gpiochip, rpi_outputs[i], "stepgen-ninja", 0);
+                if (!rpi_output_reqs[i])
+                    rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request rpi_output GPIO %d\n", rpi_outputs[i]);
                 PIN_BIT_INIT(&hal_data[j].rpi_output[i], HAL_IN, 0, module_name ".%d.rpi-output.gp%d", j, rpi_outputs[i]);
             }
         #endif
@@ -1032,8 +1125,23 @@ void rtapi_app_exit(void)
         #if raspberry_pi_spi == 0
         close(hal_data[i].sockfd);
         #else
-        bcm2835_spi_end();
-        bcm2835_close();
+        if (raspi_int_out_req) {
+            gpiod_line_request_set_value(raspi_int_out_req, RASPI_INT_OUT_GPIO, GPIOD_LINE_VALUE_INACTIVE);
+            gpiod_line_request_release(raspi_int_out_req);
+        }
+        if (raspi_spi_cs_req) {
+            gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_INACTIVE);
+            gpiod_line_request_release(raspi_spi_cs_req);
+        }
+        for (int j = 0; j < rpi_inputs_no; j++) {
+            if (rpi_input_reqs[j]) gpiod_line_request_release(rpi_input_reqs[j]);
+        }
+        for (int j = 0; j < rpi_outputs_no; j++) {
+            if (rpi_output_reqs[j]) gpiod_line_request_release(rpi_output_reqs[j]);
+        }
+        if (gpiochip) {
+            gpiod_chip_close(gpiochip);
+        }
         #endif
     }
     hal_exit(comp_id);

@@ -4,6 +4,16 @@ project(stepper_ninja_hal_driver LANGUAGES C)
 
 find_program(LINUXCNC_MAKE_PROGRAM NAMES gmake make REQUIRED)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPIOD REQUIRED libgpiod)
+string(REPLACE ";" " " GPIOD_CFLAGS_STR "${GPIOD_CFLAGS}")
+find_library(GPIOD_STATIC_LIB
+    NAMES libgpiod.a
+    HINTS ${GPIOD_LIBRARY_DIRS}
+    REQUIRED
+)
+set(GPIOD_LDFLAGS_STR "-Wl,--whole-archive ${GPIOD_STATIC_LIB} -Wl,--no-whole-archive")
+
 find_path(LINUXCNC_INCLUDE_DIR
     NAMES rtapi.h hal.h
     PATHS
@@ -57,6 +67,8 @@ include @LINUXCNC_MODINC@
 EXTRA_CFLAGS += -I@CMAKE_CURRENT_SOURCE_DIR@
 EXTRA_CFLAGS += -I@LINUXCNC_INCLUDE_DIR@
 EXTRA_CFLAGS += -DMODULE_NAME=\"@module_name@\"
+EXTRA_CFLAGS += @GPIOD_CFLAGS_STR@
+LDFLAGS += @GPIOD_LDFLAGS_STR@
 
 @module_name@.o: @module_source@
 	$(ECHO) Compiling realtime $<
@@ -95,10 +107,8 @@ endfunction()
 
 add_linuxcnc_rt_module(stepgen-ninja stepgen-ninja.c)
 
-
 add_custom_target(hal-modules)
 add_dependencies(hal-modules stepgen-ninja)
-
 
 message(STATUS "LinuxCNC include dir: ${LINUXCNC_INCLUDE_DIR}")
 message(STATUS "LinuxCNC modinc: ${LINUXCNC_MODINC}")
