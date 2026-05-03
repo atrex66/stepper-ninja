@@ -39,8 +39,7 @@
     static struct gpiod_line_request *rpi_input_reqs[32];
     static struct gpiod_line_request *rpi_output_reqs[32];
     // Adjust these GPIO numbers to your hardware
-    #define RASPI_INT_OUT_GPIO 17
-    #define RASPI_SPI_CS_GPIO 27
+
 #endif
 
 /* name of the module */                

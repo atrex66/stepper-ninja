@@ -58,11 +58,13 @@
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
 
+    #define RASPI_INT_OUT_GPIO 25
+    #define RASPI_SPI_CS_GPIO 8
+
     // used gpio for SPI on the RPI: 8, 9, 10, 11
     // used gpio for SPI on the PICO: 16, 17, 18, 19
     // available GPIO left side:  2,3,4,17,27,33,0,5,6,13,19,26
     // available GPIO right side: 14,15,18,23,24,25,1,12,16,20,21
-    #define raspi_int_out 25
     #define raspi_inputs {2, 3, 4, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 27}
     #define raspi_input_pullups {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
