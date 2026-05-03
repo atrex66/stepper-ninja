@@ -107,6 +107,7 @@ endfunction()
 
 add_linuxcnc_rt_module(stepgen-ninja stepgen-ninja.c)
 
+
 add_custom_target(hal-modules)
 add_dependencies(hal-modules stepgen-ninja)
 

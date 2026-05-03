@@ -1069,6 +1069,7 @@ int rtapi_app_main(void)
         PIN_U32(&hal_data[j].period, HAL_IN, module_name ".%d.period", j);
         PIN_BIT(&hal_data[j].io_ready_in, HAL_IN, module_name ".%d.io-ready-in", j);
         PIN_BIT(&hal_data[j].io_ready_out, HAL_OUT, module_name ".%d.io-ready-out", j);
+        
         #pragma message "Adding export functions. (watchdog)"
         char watchdog_name[48] = {0};
         snprintf(watchdog_name, sizeof(watchdog_name), module_name ".%d.watchdog-process", j);

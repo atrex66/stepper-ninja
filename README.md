@@ -25,6 +25,10 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 ## Features
 
+- **Using with single board compiters (SBC) and SPI**:
+  - the stepper-ninja project now uses the kernel spi drivers and libgpiod v2 for communication, a littlebit slower
+  - than the bmc2835 driver but with this change in theory no more barrier to use another SBC (single board computer) 
+
 - **Supported configurations**:
 
   - W5100S-evb-pico UDP Ethernet. <https://docs.wiznet.io/Product/iEthernet/W5100S/w5100s-evb-pico>
