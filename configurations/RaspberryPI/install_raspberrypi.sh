@@ -62,7 +62,7 @@ check_spi_enabled() {
 select_board() {
     local answer
     while true; do
-        echo ""
+        printf "\n" >&2
         read -r -p "Select target board: [1] Pico1 (RP2040), [2] Pico2 (RP2350): " answer
         case "${answer,,}" in
             1|pico|pico1|rp2040)
@@ -74,7 +74,7 @@ select_board() {
                 return 0
                 ;;
             *)
-                echo "Please enter 1 or 2."
+                echo "Please enter 1 or 2." >&2
                 ;;
         esac
     done
