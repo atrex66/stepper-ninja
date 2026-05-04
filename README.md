@@ -68,6 +68,8 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 - **user breakout board code**: breakoutboard_user.c and breakoutboard_hal_user.c were added to the modules directory for makers to make integration easier.
 
+- **sample KiCad breakout board**: a simple, low-cost DIY breakout board KiCad project is available in `configurations/RaspberryPi`. It connects a Pico/Pico2 to a Raspberry Pi via SPI and requires only a Pico or Pico2, a standard 40-pin GPIO header, and 2.54 mm PCB screw terminals.
+
 
 ## Contributors
 

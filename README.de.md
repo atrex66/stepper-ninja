@@ -53,6 +53,8 @@ Du brauchst das offizielle Breakout-Board nicht, um stepper-ninja zu verwenden. 
 
 - **Open Source**: Code und Dokumentation unter MIT-Lizenz.
 
+- **Beispiel-KiCad-Breakout-Board**: Ein einfaches, günstiges DIY-Breakout-Board-KiCad-Projekt ist unter `configurations/RaspberryPi` verfügbar. Es verbindet einen Pico/Pico2 über SPI mit dem Raspberry Pi und benötigt lediglich einen Pico oder Pico2, einen Standard-40-Pin-GPIO-Stecker und 2,54-mm-Leiterplatten-Schraubklemmen.
+
 ## PIO-Konfiguration und Ressourcenbeschränkungen
 
 Die Raspberry Pi Pico und Pico2 verwenden **PIO-Blöcke (Programmierbare I/O)**, um Step-Generatoren und Encoder-Zähler direkt in Hardware zu realisieren. Da der PIO-Instruktionsspeicher sehr begrenzt ist, **können Step-Generatoren und Encoder nicht gleichzeitig verwendet werden** — das Aktivieren einer Funktion deaktiviert die andere.

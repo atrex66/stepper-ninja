@@ -53,6 +53,8 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 
 - **Open source**: a kód és a dokumentáció MIT licenc alatt érhető el.
 
+- **minta KiCad breakout board**: egy egyszerű, filléres DIY breakout board KiCad projekt érhető el a `configurations/RaspberryPi` könyvtárban. Egy Pico/Pico2-t köt össze a Raspberry Pi-vel SPI-on keresztül, és csupán egy Pico vagy Pico2, egy szabványos 40 pólusú GPIO csatlakozó és 2,54 mm-es nyákos sorkapcsok szükségesek hozzá.
+
 ## PIO-konfiguráció és erőforrás-korlátok
 
 A Raspberry Pi Pico és Pico2 **PIO-blokkokat (Programmable I/O)** használ a step-generátorok és encoder-számlálók hardveres megvalósításához. Mivel a PIO-utasításmemória rendkívül korlátozott, **a step-generátorok és az encoderek nem használhatók egyszerre** — az egyik engedélyezése letiltja a másikat.
