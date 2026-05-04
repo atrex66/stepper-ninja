@@ -437,8 +437,8 @@ static void init_spi(void)
     if (!raspi_int_out_req)
         rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request INT_OUT GPIO\n");
     raspi_spi_cs_req = sn_gpio_request_output(gpiochip, RASPI_SPI_CS_GPIO, "stepgen-ninja", 1);
-    if (!raspi_spi_cs_req)
-        rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request SPI_CS GPIO\n");
+    //if (!raspi_spi_cs_req)
+    //    rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request SPI_CS GPIO\n");
 }
 #endif
 
