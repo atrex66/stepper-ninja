@@ -998,17 +998,6 @@ void __not_in_flash_func(handle_udp)() {
     }
     memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
     last_packet_time = get_absolute_time();
-
-    // Flush any stale bytes that accumulated in the SPI RX FIFO between
-    // spi_set_slave() in main() and this point. Without this, the first
-    // DMA transfer reads those stale bytes at the front of the frame,
-    // shifting the received packet and causing a checksum error on first connect.
-    #if raspberry_pi_spi == 1
-    while (spi_is_readable(SPI_PORT)) {
-        (void)spi_get_hw(SPI_PORT)->dr;
-    }
-    #endif
-
     while (1){
         if (consume_save_config_request()) {
             save_config_to_flash();
