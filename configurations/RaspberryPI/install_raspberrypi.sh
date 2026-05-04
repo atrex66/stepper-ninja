@@ -80,44 +80,6 @@ select_board() {
     done
 }
 
-find_pico_mount() {
-    local m
-
-    for m in "/media/${USER}/RPI-RP2" "/run/media/${USER}/RPI-RP2" "/media/RPI-RP2"; do
-        if [[ -d "$m" && -w "$m" ]]; then
-            echo "$m"
-            return 0
-        fi
-    done
-
-    if command -v lsblk >/dev/null 2>&1; then
-        m="$(lsblk -nr -o LABEL,MOUNTPOINT 2>/dev/null | awk '$1=="RPI-RP2" && $2!="" {print $2; exit}')"
-        if [[ -n "$m" && -d "$m" && -w "$m" ]]; then
-            echo "$m"
-            return 0
-        fi
-    fi
-
-    return 1
-}
-
-wait_for_pico_mount() {
-    local timeout_sec="${1:-120}"
-    local elapsed=0
-    local mount_point=""
-
-    while (( elapsed < timeout_sec )); do
-        if mount_point="$(find_pico_mount)"; then
-            echo "$mount_point"
-            return 0
-        fi
-        sleep 1
-        ((elapsed += 1))
-    done
-
-    return 1
-}
-
 copy_raspberrypi_config() {
     if [[ -f "$FIRMWARE_CONFIG_SOURCE" ]]; then
         info "Copying Raspberry Pi firmware config"
@@ -156,14 +118,11 @@ find_uf2() {
     return 1
 }
 
-flash_uf2() {
-    local uf2_file="$1"
-    local pico_mount="$2"
-
-    info "Copying $(basename "$uf2_file") to ${pico_mount}"
-    cp "$uf2_file" "$pico_mount/"
-    sync
-    info "UF2 copied successfully"
+open_firmware_dir_in_thunar() {
+    local folder="$1"
+    require_cmd thunar
+    info "Opening firmware directory in Thunar: ${folder}"
+    thunar "$folder" >/dev/null 2>&1 &
 }
 
 build_hal_driver() {
@@ -197,29 +156,17 @@ main() {
     require_cmd cmake
     require_cmd make
     require_cmd find
-    require_cmd awk
     require_cmd grep
     require_cmd cp
+    require_cmd thunar
 
     check_libgpiod
     check_spi_enabled
 
     local board
     local uf2_file
-    local pico_mount
 
     board="$(select_board)"
-
-    echo ""
-    echo "Connect the ${board} board in BOOTSEL mode now."
-    echo "Hold BOOTSEL while plugging USB, then press Enter."
-    read -r
-
-    info "Waiting for Pico mass storage (RPI-RP2)"
-    if ! pico_mount="$(wait_for_pico_mount 120)"; then
-        die "Could not find a mounted RPI-RP2 volume within 120 seconds"
-    fi
-    info "Detected Pico mount: ${pico_mount}"
 
     copy_raspberrypi_config
     build_firmware "$board"
@@ -228,14 +175,16 @@ main() {
         die "UF2 build artifact not found in ${FIRMWARE_BUILD_DIR}"
     fi
 
-    flash_uf2 "$uf2_file" "$pico_mount"
     build_hal_driver
     copy_linuxcnc_config
+    open_firmware_dir_in_thunar "$FIRMWARE_BUILD_DIR"
 
     echo ""
     echo "Install finished."
     echo "- Firmware board: ${board}"
-    echo "- Flashed UF2: ${uf2_file}"
+    echo "- UF2 ready: ${uf2_file}"
+    echo "- Thunar opened at: ${FIRMWARE_BUILD_DIR}"
+    echo "- Copy UF2 manually to the Pico mounted in BOOTSEL mode"
     echo "- LinuxCNC config dir: ${LINUXCNC_TARGET_DIR}"
 }
 
