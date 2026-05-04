@@ -1,0 +1,5 @@
+﻿Designator,Quantity,Value,Footprint,Package,MPN,DNP,Mount_Type,Description
+A1,1,RaspberryPi_Pico,RaspberryPi_Pico_Common_Unspecified,,,,tht,"Versatile and inexpensive microcontroller module powered by RP2040 dual-core Arm Cortex-M0+ processor up to 133 MHz, 264kB SRAM, 2MB QSPI flash; also supports Raspberry Pi Pico 2"
+J1,1,GPIO,PinSocket_2x20_P2.54mm_Vertical,,,,tht,"Generic connector, double row, 02x20, odd/even pin numbering scheme (row 1 odd numbers, row 2 even numbers), script generated (kicad-library-utils/schlib/autogen/connector/)"
+J2,1,Conn_01x19_Socket,Molex_SL_171971-0019_1x19_P2.54mm_Vertical,,,,tht,"Generic connector, single row, 01x19, script generated"
+J3,1,Conn_01x15_Socket,Molex_KK-254_AE-6410-15A_1x15_P2.54mm_Vertical,,,,tht,"Generic connector, single row, 01x15, script generated"

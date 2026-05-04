@@ -1,0 +1,5 @@
+﻿pos_x,pos_y,rotation,side,designator,mpn,pack,footprint,value,mount_type
+39.13,36.69,-90.0,top,A1,,,RaspberryPi_Pico_Common_Unspecified,RaspberryPi_Pico,tht
+8.37,51.23,-90.0,bottom,J1,,,PinSocket_2x20_P2.54mm_Vertical,GPIO,tht
+55.44,3.0,180.0,top,J2,,,Molex_SL_171971-0019_1x19_P2.54mm_Vertical,Conn_01x19_Socket,tht
+4.02,11.215,90.0,top,J3,,,Molex_KK-254_AE-6410-15A_1x15_P2.54mm_Vertical,Conn_01x15_Socket,tht
