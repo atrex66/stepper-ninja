@@ -35,6 +35,15 @@ require_cmd() {
     command -v "$cmd" >/dev/null 2>&1 || die "Missing command: ${cmd}"
 }
 
+run_as_root() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+        "$@"
+    else
+        require_cmd sudo
+        sudo "$@"
+    fi
+}
+
 check_libgpiod() {
     require_cmd pkg-config
     if ! pkg-config --exists libgpiod; then
@@ -57,6 +66,34 @@ check_spi_enabled() {
     echo "  dtparam=spi=on"
     echo "Then reboot and run this script again."
     exit 1
+}
+
+ensure_gpio_spi_group_membership() {
+    local target_user="${SUDO_USER:-${USER:-$(id -un)}}"
+
+    if [[ -z "$target_user" ]]; then
+        die "Could not determine target user for group membership"
+    fi
+
+    require_cmd id
+    require_cmd getent
+    require_cmd usermod
+
+    if ! id "$target_user" >/dev/null 2>&1; then
+        die "Target user does not exist: ${target_user}"
+    fi
+
+    if ! getent group gpio >/dev/null 2>&1; then
+        run_as_root groupadd gpio
+    fi
+
+    if ! getent group spi >/dev/null 2>&1; then
+        run_as_root groupadd spi
+    fi
+
+    run_as_root usermod -aG gpio,spi "$target_user"
+    info "User ${target_user} added to groups: gpio, spi"
+    info "Log out and back in for group changes to take effect"
 }
 
 select_board() {
@@ -162,6 +199,7 @@ main() {
 
     check_libgpiod
     check_spi_enabled
+    ensure_gpio_spi_group_membership
 
     local board
     local uf2_file
