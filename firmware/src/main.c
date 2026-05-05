@@ -593,6 +593,7 @@ int main() {
            gpio_set_outover(step_pin[i], GPIO_OVERRIDE_INVERT);
         }
         gpio_set_dir(step_pin[i], GPIO_OUT);
+        gpio_set_dir(dir_pin[i], GPIO_OUT);
         pio_sm_set_consecutive_pindirs(pio, sm, step_pin[i], 1, true);
         pio_sm_config c = freq_generator_program_get_default_config(offset[o]);
         sm_config_set_set_pins(&c, step_pin[i], 1);
