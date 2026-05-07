@@ -2641,6 +2641,8 @@ class gmoccapy(object):
 
     def on_hal_status_tool_in_spindle_changed(self, object, new_tool_no):
         LOG.debug("hal signal tool changed")
+        # Poll immediately so tool/gcode state is current for the update path.
+        self.stat.poll()
         # need to save the tool in spindle as preference, to be able to reload it on startup
         self.prefs.putpref("tool_in_spindle", new_tool_no, int)
         self._update_toolinfo(new_tool_no)
@@ -3493,7 +3495,10 @@ class gmoccapy(object):
 
     def _update_toolinfo(self, tool):
         LOG.debug("Tool is now {0}".format(tool))
-        if "G43" in self.active_gcodes:
+        # Read compensation state from live status, because callbacks can be
+        # triggered before active_gcodes is refreshed in _periodic().
+        g43_active = any(code in self.stat.gcodes for code in (430, 431, 432))
+        if g43_active:
             LOG.debug("G43 is active")
         else:
             LOG.debug("G43 is not active")
@@ -3540,11 +3545,21 @@ class gmoccapy(object):
             self.on_hal_status_interp_idle(None)
             return
 
-        if "G43" in self.active_gcodes and self.stat.task_mode != linuxcnc.MODE_AUTO:
+        if g43_active and self.stat.task_mode != linuxcnc.MODE_AUTO:
             self.command.mode(linuxcnc.MODE_MDI)
             self.command.wait_complete()
             self.command.mdi("G43")
             self.command.wait_complete()
+
+        # Combi_DRO values are updated from GStat current-position signals.
+        # Force one refresh cycle so tool-offset dependent R/D readouts are
+        # recalculated immediately after a tool change.
+        try:
+            if self.dro_dic:
+                first_dro = next(iter(self.dro_dic.values()))
+                first_dro.gstat.forced_update()
+        except Exception:
+            LOG.debug("Could not force DRO refresh after tool update")
 
     def _set_enable_tooltips(self, value):
         LOG.debug("_set_enable_tooltips = {0}".format(value))
