@@ -682,6 +682,7 @@ void udp_io_process_recv(void *arg, long period)
             for (int i = 0; i < rpi_inputs_no; i++) {
                 *d->rpi_input[i] = (rpi_input_reqs[i] &&
                     gpiod_line_request_get_value(rpi_input_reqs[i], rpi_inputs[i]) == GPIOD_LINE_VALUE_ACTIVE) ? 1 : 0;
+                *d->rpi_input_not[i] = !(*d->rpi_input[i]);
             }
         #endif
 
