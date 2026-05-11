@@ -58,8 +58,7 @@
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
     // if you are using raspberry pi SPI instead of Wizchip you get the GP20 free on the PICO
-    // connect gpio for SPI on the RPI:   8,  9, 10, 11, 25
-    //         gpio for SPI on the PICO: 16, 17, 18, 19, 21
+    // for the spi interface connections, see the wiring diagram in the configurations/RaspberryPi/raspi45_stepperninja_connection.pdf
 
     #define RASPI_INT_OUT_GPIO 25
     #define RASPI_SPI_CS_GPIO 8
