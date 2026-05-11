@@ -57,6 +57,7 @@
 #endif // breakout_board < 1
 
     #define raspberry_pi_spi 0 // if you want to use the stepper-ninja with Raspberry Pi SPI interface, set this to 1 (need a normal pico)
+    // if you are using raspberry pi SPI instead of Wizchip you get the GP20 free on the PICO
 
     #define RASPI_INT_OUT_GPIO 25
     #define RASPI_SPI_CS_GPIO 8
@@ -68,7 +69,6 @@
     #define raspi_inputs {2, 3, 4, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 27}
     #define raspi_input_pullups {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
     #define raspi_outputs {0, 1, 5, 6, 12, 13, 19, 26}
-    // if you are using raspberry pi SPI instead of Wizchip you get the GP20, GP21 free on the PICO
 
     #define default_pulse_width 2500 // default pulse width in nanoseconds, for the stepgen if not specified in the HAL configuration
     #define default_step_scale 1000 // default step scale in steps/unit for the stepgen if not specified in the HAL configuration
