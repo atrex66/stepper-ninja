@@ -80,13 +80,7 @@ uint8_t rx_size;
 uint32_t total_cycles;
 
 #define ANALOG_MAX 4095
-
-/* do not modify */
-#if use_timer_interrupt == 0 && stepgens > 0
 #define dormant_cycles 6
-#else
-#define dormant_cycles 4
-#endif
 
 /*
  * Add a fixed offset to command positions to avoid simulator zero-crossing
