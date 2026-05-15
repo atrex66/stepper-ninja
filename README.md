@@ -77,7 +77,9 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 - **testing**: Jimfong1, Griletos
 
-- **supporters**: Griletos, Cofhal, Sunhapas
+- **supporters**: Griletos, Cofhal, Sunhapas, milhead2, vanOverload
+
+- **known-ninjas**: Griletos, Cofhal, Sunhapas, milhead2, vanOverload, Player
 
 ## Discord
 

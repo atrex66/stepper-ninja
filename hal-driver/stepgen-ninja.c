@@ -309,9 +309,9 @@ static void module_init(void)
 
 #if raspberry_pi_spi == 0
 /*
- * init_socket - Initializes a UDP socket for the io-samurai module.
+ * init_socket - Initializes a UDP socket for the stepper-ninja module.
  *
- * @arg: Pointer to an io_samurai_data_t structure containing socket configuration data.
+ * @arg: Pointer to a module_data_t structure containing socket configuration data.
  *
  * Create the UDP socket, bind it locally, and configure the remote peer.
  * On failure the socket is closed and left in the disabled state.
