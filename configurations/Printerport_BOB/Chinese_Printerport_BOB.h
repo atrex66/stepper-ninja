@@ -48,6 +48,7 @@
 
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define use_timer_interrupt 0 // Use timer interrupt for the stepgen starting, maybe eliminates servo-thread jitter experimental
+    #define encoder_pio_version ENCODER_PIO_SUBSTEP // 0 = old quadrature encoder PIO, 1 = substep encoder PIO
     #define debug_mode 0    // only used in Raspberry PI communications
 
 #endif
