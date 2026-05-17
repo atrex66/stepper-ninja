@@ -1,7 +1,6 @@
 # Installation and Build Instructions for Stepper-Ninja
 
-This guide explains how to build **Stepper-Ninja**, a LinuxCNC HAL driver for Raspberry Pi Pico, using **CMake** with the Unix Makefiles generator (`make`). The project supports W5100S-EVB-Pico and standard Pico with W5500 Ethernet modules, achieving 255 kHz step generation and 12.5 MHz encoder counting.
-
+This guide explains how to build **Stepper-Ninja**, a LinuxCNC HAL driver for Raspberry Pi Pico, using **CMake** with the Unix Makefiles generator (`make`). The project supports W5100S-EVB-Pico and standard Pico with W5500 Ethernet modules.
 Tested with Pico SDK 2.1.1, CMake 3.20.6, and GNU ARM Embedded Toolchain. See [Troubleshooting](#troubleshooting) for common issues.
 
 ---
@@ -10,20 +9,14 @@ Tested with Pico SDK 2.1.1, CMake 3.20.6, and GNU ARM Embedded Toolchain. See [T
 
 Before building, install the following dependencies:
 
-1. **CMake** (version 3.15 or higher):
-
-   ```bash
-   sudo apt install cmake  # Debian/Ubuntu
-   ```
-
-2. **GNU ARM Embedded Toolchain**:
+1. **GNU ARM Embedded Toolchain**:
   
    ```bash
    sudo apt update
-   sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi unzip
+   sudo apt install cmake gcc-arm-none-eabi binutils-arm-none-eabi unzip build-essential
    ```
 
-3. **Pico SDK (2.1.1)**:
+2. **Pico SDK (2.1.1)**:
 
    ```bash
    git clone https://github.com/raspberrypi/pico-sdk
@@ -34,11 +27,7 @@ Before building, install the following dependencies:
 
    Add `PICO_SDK_PATH` to your shell profile (e.g., `~/.bashrc`).
 
-4. **Build Tools**:
-
-   - Linux: Ensure `make` is installed (`sudo apt install build-essential`).
-
-5. **installation of PICOTOOL (optional)**:
+3. **installation of PICOTOOL (optional)**:
 
    ```bash
    cd ~
