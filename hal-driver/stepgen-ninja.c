@@ -430,7 +430,7 @@ static void init_spi(void)
     raspi_int_out_req = sn_gpio_request_output(gpiochip, RASPI_INT_OUT_GPIO, "stepgen-ninja", 1);
     if (!raspi_int_out_req)
         rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request INT_OUT GPIO\n");
-    raspi_spi_cs_req = sn_gpio_request_output(gpiochip, RASPI_SPI_CS_GPIO, "stepgen-ninja", 1);
+    // raspi_spi_cs_req = sn_gpio_request_output(gpiochip, RASPI_SPI_CS_GPIO, "stepgen-ninja", 1);
     //if (!raspi_spi_cs_req)
     //    rtapi_print_msg(RTAPI_MSG_ERR, "Failed to request SPI_CS GPIO\n");
 }
@@ -526,7 +526,7 @@ static int _send(void *arg)
         return sendto(d->sockfd, tx_buffer, tx_size, MSG_DONTROUTE | MSG_DONTWAIT, &d->remote_addr, sizeof(d->remote_addr));
     #else
         if (raspi_int_out_req)
-            gpiod_line_request_set_value(raspi_int_out_req, RASPI_INT_OUT_GPIO, GPIOD_LINE_VALUE_INACTIVE);
+        gpiod_line_request_set_value(raspi_int_out_req, RASPI_INT_OUT_GPIO, GPIOD_LINE_VALUE_INACTIVE);
         memset(spi_tx_buffer, 0, sizeof(spi_tx_buffer));
         memset(spi_rx_buffer, 0, sizeof(spi_rx_buffer));
         memcpy(spi_tx_buffer, tx_buffer, tx_size);
@@ -538,11 +538,11 @@ static int _send(void *arg)
             .speed_hz = spi_speed,
             .bits_per_word = spi_bits,
         };
-        if (raspi_spi_cs_req)
-            gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_INACTIVE);
+        // if (raspi_spi_cs_req)
+        //    gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_INACTIVE);
         int ret = ioctl(spi_fd, SPI_IOC_MESSAGE(1), &tr);
-        if (raspi_spi_cs_req)
-            gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_ACTIVE);
+        //if (raspi_spi_cs_req)
+        //    gpiod_line_request_set_value(raspi_spi_cs_req, RASPI_SPI_CS_GPIO, GPIOD_LINE_VALUE_ACTIVE);
         if (ret < 1) {
             perror("can't send spi message");
         }
