@@ -104,3 +104,5 @@ CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake ..
 
 - O programa PIO do encoder em quadratura usa licença BSD-3 da Raspberry Pi (Trading) Ltd.
 - O `ioLibrary_Driver` é licenciado sob a MIT License da Wiznet.
+
+O patch de compatibilidade com a API HAL do LinuxCNC 2.9/2.10 é baseado no código de [Frederic Müller (FredericM88)](https://github.com/FredericM88) no projeto [linuxcnc-sim](https://github.com/FredericM88/linuxcnc-sim/tree/42ef3723da83b8ed88c123138c60437093255a22/compat/stepper-ninja), adaptado para este driver sob a licença MIT. Consulte as [notas de compatibilidade](hal-driver/hal-api-compatibility.md) e a [licença original](hal-driver/LICENSE.hal-compat.txt).

@@ -69,6 +69,8 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 ## Contributors
 
+The LinuxCNC 2.9/2.10 HAL API compatibility patch is based on code by [Frederic Müller (FredericM88)](https://github.com/FredericM88) in [linuxcnc-sim](https://github.com/FredericM88/linuxcnc-sim/tree/42ef3723da83b8ed88c123138c60437093255a22/compat/stepper-ninja), adapted for this driver under the MIT license. See the [compatibility notes](hal-driver/hal-api-compatibility.md) and [original license](hal-driver/LICENSE.hal-compat.txt).
+
 - **code**: atrex66, pippin88
 
 - **testing**: Jimfong1, Griletos

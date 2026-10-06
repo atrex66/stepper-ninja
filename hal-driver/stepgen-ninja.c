@@ -108,72 +108,72 @@ typedef struct {
 
 typedef struct {
     #if stepgens > 0
-    hal_float_t *command[stepgens];
-    hal_float_t *feedback[stepgens];
-    hal_float_t *scale[stepgens];
-    hal_bit_t *mode[stepgens];
-    hal_bit_t *enable[stepgens];
-    hal_u32_t *pulse_width;
+    sn_float_pin command[stepgens];
+    sn_float_pin feedback[stepgens];
+    sn_float_pin scale[stepgens];
+    sn_bit_pin mode[stepgens];
+    sn_bit_pin enable[stepgens];
+    sn_u32_pin pulse_width;
     #endif
     #if encoders > 0
-    hal_s32_t *raw_count[encoders];
-    hal_float_t *enc_scale[encoders];
-    hal_float_t *enc_position[encoders];
-    hal_float_t *enc_velocity[encoders];
-    hal_bit_t *enc_index[encoders];
-    hal_bit_t *enc_reset[encoders];
-    hal_float_t *enc_rpm[encoders];
+    sn_s32_pin raw_count[encoders];
+    sn_float_pin enc_scale[encoders];
+    sn_float_pin enc_position[encoders];
+    sn_float_pin enc_velocity[encoders];
+    sn_bit_pin enc_index[encoders];
+    sn_bit_pin enc_reset[encoders];
+    sn_float_pin enc_rpm[encoders];
     #endif
     #if use_pwm == 1
-    hal_bit_t *pwm_enable[pwm_count];
-    hal_u32_t *pwm_output[pwm_count];
-    hal_u32_t *pwm_frequency[pwm_count];
-    hal_u32_t *pwm_maxscale[pwm_count];
-    hal_u32_t *pwm_min_limit[pwm_count];
+    sn_bit_pin pwm_enable[pwm_count];
+    sn_u32_pin pwm_output[pwm_count];
+    sn_u32_pin pwm_frequency[pwm_count];
+    sn_u32_pin pwm_maxscale[pwm_count];
+    sn_u32_pin pwm_min_limit[pwm_count];
     #endif 
     
     #if ANALOG_CH > 0
-    hal_float_t *analog_value[ANALOG_CH];
-    hal_float_t *analog_min[ANALOG_CH];
-    hal_float_t *analog_max[ANALOG_CH];
-    hal_bit_t *analog_enable[ANALOG_CH];
-    hal_s32_t *analog_offset[ANALOG_CH];
+    sn_float_pin analog_value[ANALOG_CH];
+    sn_float_pin analog_min[ANALOG_CH];
+    sn_float_pin analog_max[ANALOG_CH];
+    sn_bit_pin analog_enable[ANALOG_CH];
+    sn_s32_pin analog_offset[ANALOG_CH];
     #endif
 
-    hal_s32_t *jitter;
-    hal_u32_t *step_ring_fill;
-    hal_bit_t *step_ring_active;
-    hal_bit_t *step_ring_underflow;
-    hal_bit_t *step_ring_overflow;
-    hal_bit_t *input[96];
-    hal_bit_t *input_not[96];
-    hal_bit_t *rpi_input[32];
-    hal_bit_t *rpi_input_not[32];
+    sn_s32_pin jitter;
+    sn_u32_pin step_ring_fill;
+    sn_bit_pin step_ring_active;
+    sn_bit_pin step_ring_underflow;
+    sn_bit_pin step_ring_overflow;
+    sn_bit_pin input[96];
+    sn_bit_pin input_not[96];
+    sn_bit_pin rpi_input[32];
+    sn_bit_pin rpi_input_not[32];
 
-    hal_bit_t *output[64];
-    hal_bit_t *rpi_output[32];
+    sn_bit_pin output[64];
+    sn_bit_pin rpi_output[32];
 
 #if toolchanger_encoder == 1
-    hal_bit_t *toolchanger_bit0;
-    hal_bit_t *toolchanger_bit1;
-    hal_bit_t *toolchanger_bit2;
-    hal_bit_t *toolchanger_bit3;
-    hal_bit_t *toolchanger_strobe;
-    hal_bit_t *toolchanger_parity;
-    hal_bit_t *toolchanger_even_or_odd_parity;
-    hal_u32_t *toolchanger_position;
-    hal_bit_t *toolchanger_error;
+    sn_bit_pin toolchanger_bit0;
+    sn_bit_pin toolchanger_bit1;
+    sn_bit_pin toolchanger_bit2;
+    sn_bit_pin toolchanger_bit3;
+    sn_bit_pin toolchanger_strobe;
+    sn_bit_pin toolchanger_parity;
+    sn_bit_pin toolchanger_even_or_odd_parity;
+    sn_u32_pin toolchanger_position;
+    sn_bit_pin toolchanger_error;
 #endif
 
 #if debug == 1
-    hal_float_t *debug_freq;
-    hal_s32_t *debug_steps[stepgens];
-    hal_bit_t *debug_steps_reset;
+    sn_float_pin debug_freq;
+    sn_s32_pin debug_steps[stepgens];
+    sn_bit_pin debug_steps_reset;
 #endif
-    hal_u32_t *period;
-    hal_bit_t *connected;
-    hal_bit_t *io_ready_in;
-    hal_bit_t *io_ready_out;
+    sn_u32_pin period;
+    sn_bit_pin connected;
+    sn_bit_pin io_ready_in;
+    sn_bit_pin io_ready_out;
 #if raspberry_pi_spi == 0
     IpPort *ip_address;
     int sockfd;
@@ -262,23 +262,26 @@ float lpf_update(LowPassFilter *f, float x)
     return f->y;
 }
 
+#if encoders > 0
 static void update_encoder_velocity_from_deltas(module_data_t *d, uint8_t encoder_index)
 {
     if (d->delta_time[encoder_index] == 0) {
         d->delta_pos[encoder_index] = 0.0f;
     } else if (d->delta_time[encoder_index] > 2500000) {
-        *d->enc_velocity[encoder_index] = 0;
+        sn_set_float(d->enc_velocity[encoder_index], 0);
         d->delta_pos[encoder_index] = 0.0f;
     } else {
-        d->delta_pos[encoder_index] = (float)d->delta_count_accum[encoder_index] / *d->enc_scale[encoder_index];
-        *d->enc_velocity[encoder_index] = lpf_update(
+        d->delta_pos[encoder_index] = (float)d->delta_count_accum[encoder_index] / sn_get_float(d->enc_scale[encoder_index]);
+        sn_set_float(d->enc_velocity[encoder_index], lpf_update(
             &filter[encoder_index],
             d->delta_pos[encoder_index] * (1000000.0f / (float)d->delta_time[encoder_index])
-        );
+        ));
     }
 
-    *d->enc_rpm[encoder_index] = (*d->enc_velocity[encoder_index]) * 60.0f;
+    sn_set_float(d->enc_rpm[encoder_index], (sn_get_float(d->enc_velocity[encoder_index])) * 60.0f);
 }
+
+#endif
 
 static void module_init(void)
 {
@@ -571,11 +574,11 @@ void udp_io_process_recv(void *arg, long period)
     module_data_t *d = arg;
 
     if (d->watchdog_expired) {
-        *d->step_ring_fill = 0;
-        *d->step_ring_active = 0;
-        *d->step_ring_underflow = 0;
-        *d->step_ring_overflow = 0;
-        *d->io_ready_out = 0;
+        sn_set_u32(d->step_ring_fill, 0);
+        sn_set_bit(d->step_ring_active, 0);
+        sn_set_bit(d->step_ring_underflow, 0);
+        sn_set_bit(d->step_ring_overflow, 0);
+        sn_set_bit(d->io_ready_out, 0);
         return;
     }
 
@@ -592,72 +595,72 @@ void udp_io_process_recv(void *arg, long period)
                 d->index, rx_buffer->checksum, calculate_checksum(rx_buffer, rx_size - 1));
             printbuf((uint8_t *)rx_buffer, rx_size);
             d->checksum_error = 1;
-            d->connected = 0;
-            *d->step_ring_fill = 0;
-            *d->step_ring_active = 0;
-            *d->step_ring_underflow = 0;
-            *d->step_ring_overflow = 0;
-            *d->io_ready_out = 0;
+            sn_set_bit(d->connected, 0);
+            sn_set_u32(d->step_ring_fill, 0);
+            sn_set_bit(d->step_ring_active, 0);
+            sn_set_bit(d->step_ring_underflow, 0);
+            sn_set_bit(d->step_ring_overflow, 0);
+            sn_set_bit(d->io_ready_out, 0);
             return;
         }
-        *d->connected = 1;
+        sn_set_bit(d->connected, 1);
         d->last_received_time = d->current_time;
-        *d->jitter = 1000 - rx_buffer->jitter;
-        *d->step_ring_fill = rx_buffer->step_ring_fill;
-        *d->step_ring_active = (rx_buffer->step_ring_status & STEP_RING_STATUS_ACTIVE) != 0;
-        *d->step_ring_underflow = (rx_buffer->step_ring_status & STEP_RING_STATUS_UNDERFLOW) != 0;
-        *d->step_ring_overflow = (rx_buffer->step_ring_status & STEP_RING_STATUS_OVERFLOW) != 0;
+        sn_set_s32(d->jitter, 1000 - rx_buffer->jitter);
+        sn_set_u32(d->step_ring_fill, rx_buffer->step_ring_fill);
+        sn_set_bit(d->step_ring_active, (rx_buffer->step_ring_status & STEP_RING_STATUS_ACTIVE) != 0);
+        sn_set_bit(d->step_ring_underflow, (rx_buffer->step_ring_status & STEP_RING_STATUS_UNDERFLOW) != 0);
+        sn_set_bit(d->step_ring_overflow, (rx_buffer->step_ring_status & STEP_RING_STATUS_OVERFLOW) != 0);
         #if encoders > 0
             for (uint8_t i = 0; i < encoders; i++) {
                 #if debug == 1
-                    if (*d->enc_reset[i] == 1) {
+                    if (sn_get_bit(d->enc_reset[i]) == 1) {
                         d->enc_offset[i] = rx_buffer->encoder_counter[i];
-                        *d->enc_reset[i] = 0;
+                        sn_set_bit(d->enc_reset[i], 0);
                     }
                 #endif
                 uint32_t encoder_ts = rx_buffer->encoder_timestamp[i];
                 int32_t encoder_count = rx_buffer->encoder_counter[i];
                 uint8_t index_reset_event = (rx_buffer->interrupt_data >> i) & 0x01u;
 
-                *d->enc_position[i] = (float)encoder_count / *d->enc_scale[i];
+                sn_set_float(d->enc_position[i], (float)encoder_count / sn_get_float(d->enc_scale[i]));
 
                 if (d->enc_timestamp[i] == 0) {
-                    *d->raw_count[i] = encoder_count;
+                    sn_set_s32(d->raw_count[i], encoder_count);
                     d->enc_timestamp[i] = encoder_ts;
                     d->delta_count[i] = 0;
                     d->delta_count_accum[i] = 0;
                     d->delta_time[i] = 0;
                     d->delta_pos[i] = 0.0f;
-                    d->enc_prev_pos[i] = *d->enc_position[i];
+                    d->enc_prev_pos[i] = sn_get_float(d->enc_position[i]);
                     continue;
                 }
 
                 if (index_reset_event) {
                     // Rebase encoder timing/count state on index-reset event so
                     // one-shot index-enable reset does not inject a velocity spike.
-                    *d->raw_count[i] = encoder_count;
+                    sn_set_s32(d->raw_count[i], encoder_count);
                     d->enc_timestamp[i] = encoder_ts;
                     d->delta_count[i] = 0;
                     d->delta_count_accum[i] = 0;
                     d->delta_time[i] = 0;
                     d->delta_pos[i] = 0.0f;
-                    d->enc_prev_pos[i] = *d->enc_position[i];
-                    *d->enc_index[i] = 0;
+                    d->enc_prev_pos[i] = sn_get_float(d->enc_position[i]);
+                    sn_set_bit(d->enc_index[i], 0);
                     continue;
                 }
 
-                if (*d->enc_index[i] == 1) {
-                    d->delta_count[i] = encoder_count - *d->raw_count[i];
-                    if (d->delta_count[i] < -(*d->enc_scale[i] / 2)) {
-                        d->delta_count[i] += (int32_t)*d->enc_scale[i];
-                    } else if (d->delta_count[i] > (*d->enc_scale[i] / 2)) {
-                        d->delta_count[i] -= (int32_t)*d->enc_scale[i];
+                if (sn_get_bit(d->enc_index[i]) == 1) {
+                    d->delta_count[i] = encoder_count - sn_get_s32(d->raw_count[i]);
+                    if (d->delta_count[i] < -(sn_get_float(d->enc_scale[i]) / 2)) {
+                        d->delta_count[i] += (int32_t)sn_get_float(d->enc_scale[i]);
+                    } else if (d->delta_count[i] > (sn_get_float(d->enc_scale[i]) / 2)) {
+                        d->delta_count[i] -= (int32_t)sn_get_float(d->enc_scale[i]);
                     }
                 } else {
-                    d->delta_count[i] = (int32_t)((uint32_t)encoder_count - (uint32_t)*d->raw_count[i]);
+                    d->delta_count[i] = (int32_t)((uint32_t)encoder_count - (uint32_t)sn_get_s32(d->raw_count[i]));
                 }
 
-                *d->raw_count[i] = encoder_count;
+                sn_set_s32(d->raw_count[i], encoder_count);
                 d->delta_time[i] = encoder_ts - d->enc_timestamp[i];
                 d->delta_count_accum[i] = d->delta_count[i];
                 #if use_stepcounter == 0
@@ -669,14 +672,14 @@ void udp_io_process_recv(void *arg, long period)
                 update_encoder_velocity_from_deltas(d, i);
 
                 d->enc_timestamp[i] = encoder_ts;
-                d->enc_prev_pos[i] = *d->enc_position[i];
+                d->enc_prev_pos[i] = sn_get_float(d->enc_position[i]);
             }
         #endif
         #if raspberry_pi_spi == 1
             for (int i = 0; i < rpi_inputs_no; i++) {
-                *d->rpi_input[i] = (rpi_input_reqs[i] &&
-                    gpiod_line_request_get_value(rpi_input_reqs[i], rpi_inputs[i]) == GPIOD_LINE_VALUE_ACTIVE) ? 1 : 0;
-                *d->rpi_input_not[i] = !(*d->rpi_input[i]);
+                sn_set_bit(d->rpi_input[i], (rpi_input_reqs[i] &&
+                    gpiod_line_request_get_value(rpi_input_reqs[i], rpi_inputs[i]) == GPIOD_LINE_VALUE_ACTIVE) ? 1 : 0);
+                sn_set_bit(d->rpi_input_not[i], !(sn_get_bit(d->rpi_input[i])));
             }
         #endif
 
@@ -690,40 +693,40 @@ static void udp_io_process_send(void *arg, long period)
     int16_t steps;
     uint8_t sign = 0;
 
-    total_cycles = (uint32_t)(*d->period * 1000) / 1000;
+    total_cycles = (uint32_t)(sn_get_u32(d->period) * 1000) / 1000;
     memset(tx_buffer, 0, tx_size);
 
     if (d->watchdog_expired) {
-        *d->io_ready_out = 0;
+        sn_set_bit(d->io_ready_out, 0);
         return;
     }
 
-    if (*d->io_ready_in == 1) {
-        *d->io_ready_out = *d->io_ready_in;
+    if (sn_get_bit(d->io_ready_in) == 1) {
+        sn_set_bit(d->io_ready_out, sn_get_bit(d->io_ready_in));
     } else {
-        *d->io_ready_out = 0;
+        sn_set_bit(d->io_ready_out, 0);
     }
 
     #if encoders > 0
     tx_buffer->enc_control = 0;
     for (int i = 0; i < encoders; i++) {
-        tx_buffer->enc_control |= (uint8_t)(1 * *d->enc_index[i]) << (CTRL_SPINDEX + i);
+        tx_buffer->enc_control |= (uint8_t)(1 * sn_get_bit(d->enc_index[i])) << (CTRL_SPINDEX + i);
     }
     #endif
 
     if (d->watchdog_running == 1) {
         #if stepgens > 0
         double f_steps[stepgens] = {0,};
-        uint32_t max_f = (uint32_t)(1.0 / ((*d->pulse_width * 2) * 1e-9));
+        uint32_t max_f = (uint32_t)(1.0 / ((sn_get_u32(d->pulse_width) * 2) * 1e-9));
         #if debug == 1
-        *d->debug_freq = (float)max_f / 1000.0;
+        sn_set_float(d->debug_freq, (float)max_f / 1000.0);
         #endif
-        if (old_pulse_width != *d->pulse_width) {
-            old_pulse_width = *d->pulse_width;
+        if (old_pulse_width != sn_get_u32(d->pulse_width)) {
+            old_pulse_width = sn_get_u32(d->pulse_width);
             uint32_t step_counter;
             uint32_t pio_cmd;
             total_cycles = (uint32_t)((period * (pico_clock / 1000)) / 1000000UL);
-            uint16_t pio_index = nearest(*d->pulse_width);
+            uint16_t pio_index = nearest(sn_get_u32(d->pulse_width));
             rtapi_print_msg(RTAPI_MSG_INFO, "Max frequency: %.4f KHz\n", max_f / 1000.0);
             rtapi_print_msg(RTAPI_MSG_INFO, "max pulse_width: %dnS\n", pio_settings[298].high_cycles * (int)cycle_time_ns);
             rtapi_print_msg(RTAPI_MSG_INFO, "min pulse_width: %dnS\n", pio_settings[0].high_cycles * (int)cycle_time_ns);
@@ -737,25 +740,25 @@ static void udp_io_process_send(void *arg, long period)
 
         int32_t cmd[stepgens] = {0,};
         for (int i = 0; i < stepgens; i++) {
-            float f_command = *d->command[i] + offset;
+            float f_command = sn_get_float(d->command[i]) + offset;
             if (d->first_data) {
-                d->prev_pos[i] = f_command * *d->scale[i];
+                d->prev_pos[i] = f_command * sn_get_float(d->scale[i]);
             }
-            if (*d->enable[i] == 0) {
+            if (sn_get_bit(d->enable[i]) == 0) {
                 cmd[i] = 0;
                 continue;
             }
-            if (*d->mode[i] == 0) {
-                d->curr_pos[i] = f_command * *d->scale[i];
+            if (sn_get_bit(d->mode[i]) == 0) {
+                d->curr_pos[i] = f_command * sn_get_float(d->scale[i]);
                 f_steps[i] = (d->prev_pos[i] - d->curr_pos[i]);
                 steps = (int16_t)f_steps[i];
 
                 #if debug == 1
-                *d->debug_steps[i] -= steps;
-                if (*d->debug_steps_reset == 1) {
-                    *d->debug_steps[i] = 0;
+                sn_set_s32(d->debug_steps[i], sn_get_s32(d->debug_steps[i]) - (steps));
+                if (sn_get_bit(d->debug_steps_reset) == 1) {
+                    sn_set_s32(d->debug_steps[i], 0);
                     if (i == stepgens - 1) {
-                        *d->debug_steps_reset = 0;
+                        sn_set_bit(d->debug_steps_reset, 0);
                     }
                 }
                 #endif
@@ -776,8 +779,8 @@ static void udp_io_process_send(void *arg, long period)
                     cmd[i] = 0;
                 }
             } else {
-                float velocity = *d->command[i];
-                float steps_per_sec = velocity * *d->scale[i];
+                float velocity = sn_get_float(d->command[i]);
+                float steps_per_sec = velocity * sn_get_float(d->scale[i]);
                 uint8_t sign = (velocity >= 0) ? 1 : 0;
 
                 steps_per_sec = fabs(steps_per_sec);
@@ -786,10 +789,10 @@ static void udp_io_process_send(void *arg, long period)
                 }
                 uint32_t steps_per_cycle = (uint32_t)(steps_per_sec * (period / 1000000000.0));
                 #if debug == 1
-                *d->debug_steps[i] += (uint16_t)steps_per_cycle;
-                if (*d->debug_steps_reset == 1) {
-                    *d->debug_steps[i] = 0;
-                    *d->debug_steps_reset = 0;
+                sn_set_s32(d->debug_steps[i], sn_get_s32(d->debug_steps[i]) + ((uint16_t)steps_per_cycle));
+                if (sn_get_bit(d->debug_steps_reset) == 1) {
+                    sn_set_s32(d->debug_steps[i], 0);
+                    sn_set_bit(d->debug_steps_reset, 0);
                 }
                 #endif
                 if (steps_per_cycle > 0) {
@@ -798,20 +801,20 @@ static void udp_io_process_send(void *arg, long period)
                     cmd[i] = 0;
                 }
             }
-            *d->feedback[i] = *d->command[i];
+            sn_set_float(d->feedback[i], sn_get_float(d->command[i]));
         }
         d->first_data = false;
         for (uint8_t i = 0; i < stepgens; i++) {
             tx_buffer->stepgen_command[i] = cmd[i];
         }
-        tx_buffer->pio_timing = nearest(*d->pulse_width);
+        tx_buffer->pio_timing = nearest(sn_get_u32(d->pulse_width));
         #endif
 
     #if raspberry_pi_spi == 1
         for (int i = 0; i < rpi_outputs_no; i++) {
             if (rpi_output_reqs[i])
                 gpiod_line_request_set_value(rpi_output_reqs[i], rpi_outputs[i],
-                    *d->rpi_output[i] ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
+                    sn_get_bit(d->rpi_output[i]) ? GPIOD_LINE_VALUE_ACTIVE : GPIOD_LINE_VALUE_INACTIVE);
         }
     #endif
 
@@ -819,25 +822,25 @@ static void udp_io_process_send(void *arg, long period)
 
     #if use_pwm == 1
     for (int i = 0; i < pwm_count; i++) {
-        if (*d->pwm_enable[i]) {
-            if (*d->pwm_frequency[i] > 0) {
-                if (*d->pwm_frequency[i] > 1000000) {
-                    *d->pwm_frequency[i] = 1000000;
+        if (sn_get_bit(d->pwm_enable[i])) {
+            if (sn_get_u32(d->pwm_frequency[i]) > 0) {
+                if (sn_get_u32(d->pwm_frequency[i]) > 1000000) {
+                    sn_set_u32(d->pwm_frequency[i], 1000000);
                 }
-                if (*d->pwm_frequency[i] < 1907) {
-                    *d->pwm_frequency[i] = 1907;
+                if (sn_get_u32(d->pwm_frequency[i]) < 1907) {
+                    sn_set_u32(d->pwm_frequency[i], 1907);
                 }
-                if (*d->pwm_output[i] < *d->pwm_min_limit[i]) {
-                    *d->pwm_output[i] = *d->pwm_min_limit[i];
+                if (sn_get_u32(d->pwm_output[i]) < sn_get_u32(d->pwm_min_limit[i])) {
+                    sn_set_u32(d->pwm_output[i], sn_get_u32(d->pwm_min_limit[i]));
                 }
-                uint16_t wrap = pwm_calculate_wrap(*d->pwm_frequency[i]);
-                uint16_t duty_cycle = (uint16_t)(round(((float)*d->pwm_output[i] / *d->pwm_maxscale[i]) * wrap));
+                uint16_t wrap = pwm_calculate_wrap(sn_get_u32(d->pwm_frequency[i]));
+                uint16_t duty_cycle = (uint16_t)(round(((float)sn_get_u32(d->pwm_output[i]) / sn_get_u32(d->pwm_maxscale[i])) * wrap));
                 tx_buffer->pwm_duty[i] = duty_cycle;
             } else {
                 tx_buffer->pwm_duty[i] = 0;
             }
         }
-        tx_buffer->pwm_frequency[i] = *d->pwm_frequency[i];
+        tx_buffer->pwm_frequency[i] = sn_get_u32(d->pwm_frequency[i]);
     }
     #endif
 
@@ -849,7 +852,7 @@ static void udp_io_process_send(void *arg, long period)
     } else {
         if (!d->error_triggered) {
             d->error_triggered = true;
-            *d->io_ready_out = 0;
+            sn_set_bit(d->io_ready_out, 0);
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: watchdog not running\n", d->index);
             return;
         }
@@ -1070,7 +1073,7 @@ int rtapi_app_main(void)
         char watchdog_name[48] = {0};
         snprintf(watchdog_name, sizeof(watchdog_name), module_name ".%d.watchdog-process", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for watchdog-process: %d init...\n", j, r);
-        r = hal_export_funct(watchdog_name, watchdog_process, &hal_data[j], 1, 1, comp_id);
+        r = sn_export_funct(watchdog_name, watchdog_process, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed for watchdog-process: %d\n", r);
             hal_exit(comp_id);
@@ -1082,7 +1085,7 @@ int rtapi_app_main(void)
         char process_send[48] = {0};
         snprintf(process_send, sizeof(process_send), module_name ".%d.process-send", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-send %d init...\n", j, r);
-        r = hal_export_funct(process_send, udp_io_process_send, &hal_data[j], 1, 1, comp_id);
+        r = sn_export_funct(process_send, udp_io_process_send, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
             hal_exit(comp_id);
@@ -1094,7 +1097,7 @@ int rtapi_app_main(void)
         char process_recv[48] = {0};
         snprintf(process_recv, sizeof(process_recv), module_name ".%d.process-recv", j);
         rtapi_print_msg(RTAPI_MSG_INFO, module_name ".%d: hal_export_funct for process-recv: %d init...\n", j, r);
-        r = hal_export_funct(process_recv, udp_io_process_recv, &hal_data[j], 1, 1, comp_id);
+        r = sn_export_funct(process_recv, udp_io_process_recv, &hal_data[j], 1, 1, comp_id);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed: %d\n", r);
             hal_exit(comp_id);

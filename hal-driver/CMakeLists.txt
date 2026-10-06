@@ -14,24 +14,38 @@ find_library(GPIOD_STATIC_LIB
 )
 set(GPIOD_LDFLAGS_STR "-Wl,--whole-archive ${GPIOD_STATIC_LIB} -Wl,--no-whole-archive")
 
-find_path(LINUXCNC_INCLUDE_DIR
-    NAMES rtapi.h hal.h
-    PATHS
-        /usr/include/linuxcnc
-        /usr/local/include/linuxcnc
-	/home/ninja/linuxcnc/src/rtapi
-    REQUIRED
-)
+set(LINUXCNC_SOURCE_DIR "" CACHE PATH
+    "Unconfigured LinuxCNC source tree for a headers-only compile/test (no .so)")
 
-find_file(LINUXCNC_MODINC
-    NAMES Makefile.modinc
-    PATHS
-        /usr/share/linuxcnc
-        /etc/linuxcnc
-        /usr/lib/linuxcnc
-	/home/ninja/linuxcnc/src
-    REQUIRED
-)
+if(LINUXCNC_SOURCE_DIR)
+    foreach(header src/hal/hal.h src/rtapi/rtapi.h)
+        if(NOT EXISTS "${LINUXCNC_SOURCE_DIR}/${header}")
+            message(FATAL_ERROR "Missing LinuxCNC source header: ${header}")
+        endif()
+    endforeach()
+    set(HAL_INCLUDE_DIRS "${LINUXCNC_SOURCE_DIR}/src/hal" "${LINUXCNC_SOURCE_DIR}/src/rtapi")
+    message(STATUS "LinuxCNC source-header validation only: no loadable module or installation")
+else()
+    find_path(LINUXCNC_INCLUDE_DIR
+        NAMES rtapi.h hal.h
+        PATHS
+            /usr/include/linuxcnc
+            /usr/local/include/linuxcnc
+            /home/ninja/linuxcnc/src/rtapi
+        REQUIRED
+    )
+
+    find_file(LINUXCNC_MODINC
+        NAMES Makefile.modinc
+        PATHS
+            /usr/share/linuxcnc
+            /etc/linuxcnc
+            /usr/lib/linuxcnc
+            /home/ninja/linuxcnc/src
+        REQUIRED
+    )
+    set(HAL_INCLUDE_DIRS "${LINUXCNC_INCLUDE_DIR}")
+endif()
 
 set(LINUXCNC_RT_MODULE_DIR "/usr/lib/linuxcnc/modules" CACHE PATH
     "Install directory for LinuxCNC realtime HAL modules")
@@ -57,6 +71,16 @@ function(add_linuxcnc_rt_module module_name source_name)
         message(FATAL_ERROR "Missing HAL driver source: ${module_source}")
     endif()
 
+    if(LINUXCNC_SOURCE_DIR)
+        add_library(${module_name} OBJECT EXCLUDE_FROM_ALL "${module_source}")
+        target_include_directories(${module_name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" ${HAL_INCLUDE_DIRS})
+        target_compile_definitions(${module_name} PRIVATE
+            USPACE RTAPI _GNU_SOURCE realtime __MODULE__ SIM MODULE_NAME="${module_name}")
+        target_compile_options(${module_name} PRIVATE
+            -Werror=implicit-function-declaration -Werror=incompatible-pointer-types)
+        return()
+    endif()
+
     set(module_build_dir "${CMAKE_CURRENT_BINARY_DIR}/${module_name}")
     set(module_makefile "${module_build_dir}/Makefile")
     set(module_output "${module_build_dir}/${module_name}.so")
@@ -67,6 +91,7 @@ include @LINUXCNC_MODINC@
 EXTRA_CFLAGS += -I@CMAKE_CURRENT_SOURCE_DIR@
 EXTRA_CFLAGS += -I@LINUXCNC_INCLUDE_DIR@
 EXTRA_CFLAGS += -DMODULE_NAME=\"@module_name@\"
+EXTRA_CFLAGS += -Werror=implicit-function-declaration -Werror=incompatible-pointer-types
 EXTRA_CFLAGS += @GPIOD_CFLAGS_STR@
 LDFLAGS += @GPIOD_LDFLAGS_STR@
 
@@ -106,11 +131,17 @@ LDFLAGS += @GPIOD_LDFLAGS_STR@
 endfunction()
 
 add_linuxcnc_rt_module(stepgen-ninja stepgen-ninja.c)
-
+add_linuxcnc_rt_module(lubrication-guard lubrication-guard.c)
 
 add_custom_target(hal-modules)
-add_dependencies(hal-modules stepgen-ninja)
+add_dependencies(hal-modules stepgen-ninja lubrication-guard)
 
-message(STATUS "LinuxCNC include dir: ${LINUXCNC_INCLUDE_DIR}")
+message(STATUS "LinuxCNC include dirs: ${HAL_INCLUDE_DIRS}")
 message(STATUS "LinuxCNC modinc: ${LINUXCNC_MODINC}")
 message(STATUS "LinuxCNC module install dir: ${LINUXCNC_RT_MODULE_DIR}")
+
+option(BUILD_TESTING "Build contract tests for the default Board-0 UDP configuration" OFF)
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

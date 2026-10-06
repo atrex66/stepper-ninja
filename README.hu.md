@@ -104,3 +104,5 @@ CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake ..
 
 - A kvadratúrás encoder PIO program a Raspberry Pi (Trading) Ltd. BSD-3 licencét használja.
 - Az `ioLibrary_Driver` a Wiznet MIT licencével érhető el.
+
+A LinuxCNC 2.9/2.10 HAL API kompatibilitási patch [Frederic Müller (FredericM88)](https://github.com/FredericM88) [linuxcnc-sim](https://github.com/FredericM88/linuxcnc-sim/tree/42ef3723da83b8ed88c123138c60437093255a22/compat/stepper-ninja) projektben közzétett kódján alapul, amelyet MIT-licenc alatt igazítottunk ehhez a driverhez. Lásd a [kompatibilitási leírást](hal-driver/hal-api-compatibility.md) és az [eredeti licencet](hal-driver/LICENSE.hal-compat.txt).

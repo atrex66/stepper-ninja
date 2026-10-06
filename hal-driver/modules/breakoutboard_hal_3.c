@@ -53,58 +53,58 @@ static int bb_hal_setup_pins(module_data_t *d, int j, int comp_id,
     for (int i = 0; i < ANALOG_CH; i++) {
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.analog.%d.enable", j, i);
-        r = hal_pin_bit_newf(HAL_IN, &d->analog_enable[i], comp_id, name, j);
+        r = sn_new_bit(HAL_IN, &d->analog_enable[i], comp_id, name);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR,
                 module_name ".%d: ERROR: analog enable pin %d export failed err=%i\n",
                 j, i, r);
             return r;
         }
-        *d->analog_enable[i] = 0;
+        sn_set_bit(d->analog_enable[i], 0);
 
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.analog.%d.minimum", j, i);
-        r = hal_pin_float_newf(HAL_IN, &d->analog_min[i], comp_id, name, j);
+        r = sn_new_float(HAL_IN, &d->analog_min[i], comp_id, name);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR,
                 module_name ".%d: ERROR: analog minimum pin %d export failed err=%i\n",
                 j, i, r);
             return r;
         }
-        *d->analog_min[i] = 0.0;
+        sn_set_float(d->analog_min[i], 0.0);
 
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.analog.%d.maximum", j, i);
-        r = hal_pin_float_newf(HAL_IN, &d->analog_max[i], comp_id, name, j);
+        r = sn_new_float(HAL_IN, &d->analog_max[i], comp_id, name);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR,
                 module_name ".%d: ERROR: analog maximum pin %d export failed err=%i\n",
                 j, i, r);
             return r;
         }
-        *d->analog_max[i] = 0.0;
+        sn_set_float(d->analog_max[i], 0.0);
 
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.analog.%d.offset", j, i);
-        r = hal_pin_s32_newf(HAL_IN, &d->analog_offset[i], comp_id, name, j);
+        r = sn_new_s32(HAL_IN, &d->analog_offset[i], comp_id, name);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR,
                 module_name ".%d: ERROR: analog offset pin %d export failed err=%i\n",
                 j, i, r);
             return r;
         }
-        *d->analog_offset[i] = 0;
+        sn_set_s32(d->analog_offset[i], 0);
 
         memset(name, 0, nsize);
         snprintf(name, nsize, module_name ".%d.analog.%d.value", j, i);
-        r = hal_pin_float_newf(HAL_IN, &d->analog_value[i], comp_id, name, j);
+        r = sn_new_float(HAL_IN, &d->analog_value[i], comp_id, name);
         if (r < 0) {
             rtapi_print_msg(RTAPI_MSG_ERR,
                 module_name ".%d: ERROR: analog value pin %d export failed err=%i\n",
                 j, i, r);
             return r;
         }
-        *d->analog_value[i] = 0.0;
+        sn_set_float(d->analog_value[i], 0.0);
     }
 
     return 0;
@@ -134,12 +134,12 @@ static void bb_hal_process_send(module_data_t *d)
 
     for (int i = 0; i < ANALOG_CH; i++) {
         tx_buffer->analog_out[i] = bb3_bipolar_to_dac(
-            *d->analog_value[i],
-            *d->analog_min[i],
-            *d->analog_max[i],
-            (int8_t)*d->analog_offset[i]);
+            sn_get_float(d->analog_value[i]),
+            sn_get_float(d->analog_min[i]),
+            sn_get_float(d->analog_max[i]),
+            (int8_t)sn_get_s32(d->analog_offset[i]));
 
-        if (*d->analog_enable[i]) {
+        if (sn_get_bit(d->analog_enable[i])) {
             tx_buffer->outputs[0] |= (1u << i);
         }
     }

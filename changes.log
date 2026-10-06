@@ -1,4 +1,30 @@
 Stepper-Ninja Source-Only Change Log
+
+Date: 2026-10-06
+
+LinuxCNC 2.9 / 2.10 HAL API compatibility
+- Added hal-driver/hal_compat.h and migrated stepgen-ninja pin types,
+  creation, value access and callback registration to the shared adapter.
+- Based on Frederic Müller (FredericM88)'s MIT-licensed compatibility code:
+  https://github.com/FredericM88/linuxcnc-sim
+  Preserved the original license in hal-driver/LICENSE.hal-compat.txt and
+  added attribution to LICENSE.txt and all language variants of README.
+- Migrated Board 0, 1, 2, 3 and 100 helpers, the custom-board template,
+  PWM and Raspberry Pi SPI pin accesses; retained test-branch spidev/libgpiod.
+- Fixed checksum-error handling to clear the connected pin value while
+  retaining its reference; fixed compilation of encoder-free Board 2.
+- Migrated lubrication-guard.c and hal_util.c/.h to the same HAL adapter.
+  Retained lubrication pin contracts, inversion, timing and fault/reset logic.
+- Added the lubrication-guard CMake module target and included it in
+  hal-modules, with separate component installation support.
+- Added module and utility contract tests, creation/export/ready failure
+  checks, profile compilation and cross-version transcript comparisons.
+- Validation on x86-64: LinuxCNC 2.9.10 produced both loadable modules and
+  passed 30/30 tests; real 2.10.0-pre2 headers compiled both module objects
+  and passed 33/33 tests. Lubrication and utility transcripts also matched
+  their unchanged original 2.9 sources.
+- Live Raspberry Pi/HAL hardware validation remains pending.
+
 Date: 2026-04-04
 
 Intent

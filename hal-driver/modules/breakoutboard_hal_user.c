@@ -30,8 +30,8 @@ static int bb_hal_setup_pins(module_data_t *d, int j, int comp_id,
 
     // TODO: Export all board-specific HAL pins here
     // Example:
-    //   r = hal_pin_bit_newf(HAL_IN, &d->output[0], comp_id,
-    //                        module_name ".%d.output.0", j);
+    //   snprintf(name, nsize, module_name ".%d.output.0", j);
+    //   r = sn_new_bit(HAL_IN, &d->output[0], comp_id, name);
     //   if (r < 0) return r;
 
     (void)d;
@@ -45,7 +45,7 @@ static int bb_hal_setup_pins(module_data_t *d, int j, int comp_id,
 static void bb_hal_process_recv(module_data_t *d)
 {
     // TODO: Map incoming packet fields from rx_buffer to HAL pins
-    // Example: *d->input[i] = (rx_buffer->inputs[word] >> bit) & 1;
+    // Example: sn_set_bit(d->input[i], (rx_buffer->inputs[word] >> bit) & 1);
 
     (void)d;
 }

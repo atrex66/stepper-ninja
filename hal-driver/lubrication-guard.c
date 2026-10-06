@@ -1,7 +1,7 @@
 #include "rtapi.h"
 #include "rtapi_app.h"
 #include "rtapi_errno.h"
-#include "hal.h"
+#include "hal_compat.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,22 +15,22 @@ MODULE_LICENSE("MIT");
 
 typedef struct {
     /* inputs */
-    hal_bit_t *enable_in;            /* request lubrication cycle */
-    hal_bit_t *pressure_ok_in;       /* pressure switch */
-    hal_bit_t *fault_reset_in;       /* reset latched fault */
+    sn_bit_pin enable_in;            /* request lubrication cycle */
+    sn_bit_pin pressure_ok_in;       /* pressure switch */
+    sn_bit_pin fault_reset_in;       /* reset latched fault */
 
     /* outputs */
-    hal_bit_t *motor_out;            /* lubrication motor command */
-    hal_bit_t *fault_out;            /* latched fault */
-    hal_bit_t *pressure_timeout_out; /* timeout event status */
-    hal_bit_t *busy_out;             /* cycle active */
+    sn_bit_pin motor_out;            /* lubrication motor command */
+    sn_bit_pin fault_out;            /* latched fault */
+    sn_bit_pin pressure_timeout_out; /* timeout event status */
+    sn_bit_pin busy_out;             /* cycle active */
 
     /* parameters */
-    hal_float_t *hold_seconds;       /* lubrication hold time after pressure ok */
-    hal_float_t *timeout_seconds;    /* pressure wait timeout */
+    sn_float_pin hold_seconds;       /* lubrication hold time after pressure ok */
+    sn_float_pin timeout_seconds;    /* pressure wait timeout */
 
     /* internal state */
-    hal_u32_t *state_dbg_out;        /* 0=IDLE,1=WAIT_PRESSURE,2=HOLD */
+    sn_u32_pin state_dbg_out;        /* 0=IDLE,1=WAIT_PRESSURE,2=HOLD */
 } module_data_t;
 
 static int comp_id = -1;
@@ -47,23 +47,23 @@ static double pressure_wait_elapsed_s = 0.0;
 static double hold_elapsed_s = 0.0;
 
 /* Optional per-signal inversion like cycle-start-guard style */
-static hal_bit_t *inv_enable = 0;
-static hal_bit_t *inv_pressure_ok = 0;
-static hal_bit_t *inv_fault_reset = 0;
+static sn_bit_pin inv_enable = 0;
+static sn_bit_pin inv_pressure_ok = 0;
+static sn_bit_pin inv_fault_reset = 0;
 
-static int read_inverted_bit(hal_bit_t *value_pin, hal_bit_t *invert_pin) {
-    int value = (*value_pin != 0);
-    int invert = (*invert_pin != 0);
+static int read_inverted_bit(sn_bit_pin value_pin, sn_bit_pin invert_pin) {
+    int value = (sn_get_bit(value_pin) != 0);
+    int invert = (sn_get_bit(invert_pin) != 0);
     return invert ? !value : value;
 }
 
-static int create_bit_pin(hal_bit_t **pin, int dir, const char *suffix) {
+static int create_bit_pin(sn_bit_pin *pin, sn_pin_dir dir, const char *suffix) {
     int r;
     char name[96];
 
     memset(name, 0, sizeof(name));
     snprintf(name, sizeof(name), module_name ".%s", suffix);
-    r = hal_pin_bit_newf(dir, pin, comp_id, name);
+    r = sn_new_bit(dir, pin, comp_id, name);
     if (r < 0) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": failed to create pin %s (err=%d)\n", name, r);
         return r;
@@ -71,13 +71,13 @@ static int create_bit_pin(hal_bit_t **pin, int dir, const char *suffix) {
     return 0;
 }
 
-static int create_u32_pin(hal_u32_t **pin, int dir, const char *suffix) {
+static int create_u32_pin(sn_u32_pin *pin, sn_pin_dir dir, const char *suffix) {
     int r;
     char name[96];
 
     memset(name, 0, sizeof(name));
     snprintf(name, sizeof(name), module_name ".%s", suffix);
-    r = hal_pin_u32_newf(dir, pin, comp_id, name);
+    r = sn_new_u32(dir, pin, comp_id, name);
     if (r < 0) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": failed to create pin %s (err=%d)\n", name, r);
         return r;
@@ -85,13 +85,13 @@ static int create_u32_pin(hal_u32_t **pin, int dir, const char *suffix) {
     return 0;
 }
 
-static int create_float_pin(hal_float_t **pin, int dir, const char *suffix) {
+static int create_float_pin(sn_float_pin *pin, sn_pin_dir dir, const char *suffix) {
     int r;
     char name[96];
 
     memset(name, 0, sizeof(name));
     snprintf(name, sizeof(name), module_name ".%s", suffix);
-    r = hal_pin_float_newf(dir, pin, comp_id, name);
+    r = sn_new_float(dir, pin, comp_id, name);
     if (r < 0) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": failed to create pin %s (err=%d)\n", name, r);
         return r;
@@ -142,18 +142,18 @@ static int create_pins(void) {
     if (r < 0) return r;
 
     /* defaults */
-    *hal_data->motor_out = 0;
-    *hal_data->fault_out = 0;
-    *hal_data->pressure_timeout_out = 0;
-    *hal_data->busy_out = 0;
-    *hal_data->state_dbg_out = 0;
+    sn_set_bit(hal_data->motor_out, 0);
+    sn_set_bit(hal_data->fault_out, 0);
+    sn_set_bit(hal_data->pressure_timeout_out, 0);
+    sn_set_bit(hal_data->busy_out, 0);
+    sn_set_u32(hal_data->state_dbg_out, 0);
 
-    *hal_data->hold_seconds = 1.0f;    /* default hold */
-    *hal_data->timeout_seconds = 5.0f; /* default timeout */
+    sn_set_float(hal_data->hold_seconds, 1.0f);    /* default hold */
+    sn_set_float(hal_data->timeout_seconds, 5.0f); /* default timeout */
 
-    *inv_enable = 0;
-    *inv_pressure_ok = 0;
-    *inv_fault_reset = 0;
+    sn_set_bit(inv_enable, 0);
+    sn_set_bit(inv_pressure_ok, 0);
+    sn_set_bit(inv_fault_reset, 0);
 
     return 0;
 }
@@ -173,42 +173,42 @@ static void process(void *arg, long period) {
     int reset_fault = read_inverted_bit(d->fault_reset_in, inv_fault_reset);
 
     /* clamp parameters */
-    double hold_s = (double)(*d->hold_seconds);
-    double timeout_s = (double)(*d->timeout_seconds);
+    double hold_s = (double)(sn_get_float(d->hold_seconds));
+    double timeout_s = (double)(sn_get_float(d->timeout_seconds));
     if (hold_s < 0.0) hold_s = 0.0;
     if (timeout_s < 0.0) timeout_s = 0.0;
 
     /* reset latched fault only by explicit reset input */
     if (reset_fault) {
-        *d->fault_out = 0;
-        *d->pressure_timeout_out = 0;
+        sn_set_bit(d->fault_out, 0);
+        sn_set_bit(d->pressure_timeout_out, 0);
         if (!enable) {
             set_state(LUBE_IDLE);
         }
     }
 
     /* Fault latched: force motor off until reset */
-    if (*d->fault_out) {
-        *d->motor_out = 0;
-        *d->busy_out = 0;
-        *d->state_dbg_out = (hal_u32_t)LUBE_IDLE;
+    if (sn_get_bit(d->fault_out)) {
+        sn_set_bit(d->motor_out, 0);
+        sn_set_bit(d->busy_out, 0);
+        sn_set_u32(d->state_dbg_out, (rtapi_u32)LUBE_IDLE);
         return;
     }
 
     switch (lube_state) {
         case LUBE_IDLE:
-            *d->motor_out = 0;
-            *d->busy_out = 0;
+            sn_set_bit(d->motor_out, 0);
+            sn_set_bit(d->busy_out, 0);
 
             if (enable) {
-                *d->pressure_timeout_out = 0;
+                sn_set_bit(d->pressure_timeout_out, 0);
                 set_state(LUBE_WAIT_PRESSURE);
             }
             break;
 
         case LUBE_WAIT_PRESSURE:
-            *d->motor_out = 1;
-            *d->busy_out = 1;
+            sn_set_bit(d->motor_out, 1);
+            sn_set_bit(d->busy_out, 1);
 
             if (pressure_ok) {
                 set_state(LUBE_HOLD);
@@ -217,10 +217,10 @@ static void process(void *arg, long period) {
 
             pressure_wait_elapsed_s += dt_s;
             if (pressure_wait_elapsed_s >= timeout_s) {
-                *d->fault_out = 1;
-                *d->pressure_timeout_out = 1;
-                *d->motor_out = 0;
-                *d->busy_out = 0;
+                sn_set_bit(d->fault_out, 1);
+                sn_set_bit(d->pressure_timeout_out, 1);
+                sn_set_bit(d->motor_out, 0);
+                sn_set_bit(d->busy_out, 0);
                 rtapi_print_msg(
                     RTAPI_MSG_ERR,
                     module_name ": pressure did not arrive before timeout (timeout=%.3fs)\n",
@@ -230,25 +230,25 @@ static void process(void *arg, long period) {
             break;
 
         case LUBE_HOLD:
-            *d->motor_out = 1;
-            *d->busy_out = 1;
+            sn_set_bit(d->motor_out, 1);
+            sn_set_bit(d->busy_out, 1);
 
             hold_elapsed_s += dt_s;
             if (hold_elapsed_s >= hold_s) {
-                *d->motor_out = 0;
-                *d->busy_out = 0;
+                sn_set_bit(d->motor_out, 0);
+                sn_set_bit(d->busy_out, 0);
                 set_state(LUBE_IDLE);
             }
             break;
 
         default:
             set_state(LUBE_IDLE);
-            *d->motor_out = 0;
-            *d->busy_out = 0;
+            sn_set_bit(d->motor_out, 0);
+            sn_set_bit(d->busy_out, 0);
             break;
     }
 
-    *d->state_dbg_out = (hal_u32_t)lube_state;
+    sn_set_u32(d->state_dbg_out, (rtapi_u32)lube_state);
 }
 
 int rtapi_app_main(void) {
@@ -281,7 +281,7 @@ int rtapi_app_main(void) {
 
     memset(funct_name, 0, sizeof(funct_name));
     snprintf(funct_name, sizeof(funct_name), module_name ".process");
-    r = hal_export_funct(funct_name, process, hal_data, 1, 0, comp_id);
+    r = sn_export_funct(funct_name, process, hal_data, 1, 0, comp_id);
     if (r < 0) {
         rtapi_print_msg(RTAPI_MSG_ERR, module_name ": hal_export_funct failed (%d)\n", r);
         hal_exit(comp_id);

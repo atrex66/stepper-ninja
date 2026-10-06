@@ -1,13 +1,6 @@
 MIT License
 
-Copyright (c) 2025 Zsolt Viola
-Copyright (c) 2026 Frederic Müller (adapted HAL API compatibility code)
-
-The LinuxCNC 2.9/2.10 HAL API compatibility patch is based on code by
-Frederic Müller (FredericM88) from linuxcnc-sim:
-https://github.com/FredericM88/linuxcnc-sim
-The imported code is MIT-licensed; its original license is retained in
-hal-driver/LICENSE.hal-compat.txt.
+Copyright (c) 2026 Frederic Müller
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
