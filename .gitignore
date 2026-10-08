@@ -87,3 +87,6 @@ utility/osd.c
 
 # Local baseline snapshot (old version copy)
 stepper-ninja/
+
+# Local PLC node-editor prototype (not for publishing yet)
+/plc-node-prototype/
