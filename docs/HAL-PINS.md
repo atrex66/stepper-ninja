@@ -23,12 +23,12 @@ module_name.j.stepgen.i.enable - (BIT, IN) - Enable channel
 ## Encoder Pins (per channel)
 
 ``` .hal
-module_name.j.encoder.i.raw-count - (S32, IN) - Raw encoder counts
+module_name.j.encoder.i.raw-count - (S32, OUT) - Continuous raw encoder counts
 module_name.j.encoder.i.scaled-count - (S32, OUT) - Scaled encoder counts
 module_name.j.encoder.i.scale - (FLOAT, IN) - Encoder scaling factor
 module_name.j.encoder.i.position - (FLOAT, OUT) - Scaled position value
 module_name.j.encoder.i.velocity - (FLOAT, OUT) - Scaled velocity value
-module_name.j.encoder.i.index-enable - (BIT, IN) - Encoder index-enable
+module_name.j.encoder.i.index-enable - (BIT, I/O) - Motion arms; encoder driver clears after index latch
 ```
 
 ## Digital I/O Pins
@@ -91,3 +91,4 @@ ip_address - Array of IP:port strings (e.g. "192.168.1.100:5000;192.168.1.101:50
 5. Stepgen supports both position and velocity modes
 6. PWM frequency range: 1907Hz to 1MHz
 7. Digital I/O pins are configurable via input_pins/output_pins arrays
+Encoder index protocol and matched-update requirements: [ENCODER-INDEX.md](ENCODER-INDEX.md).

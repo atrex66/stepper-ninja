@@ -65,3 +65,9 @@ foreach(component lubrication hal-util)
             "${CMAKE_CURRENT_SOURCE_DIR}/compare.py" "${baseline}" "$<TARGET_FILE:${component}-contract>")
     endif()
 endforeach()
+
+# Execute the exact firmware handshake helper on the host.
+add_executable(encoder-index-contract encoder_index_contract.c)
+target_include_directories(encoder-index-contract PRIVATE "${PROJECT_SOURCE_DIR}/../firmware/inc")
+target_compile_options(encoder-index-contract PRIVATE -UNDEBUG -Wall -Wextra -Werror)
+add_test(NAME encoder-index-contract COMMAND encoder-index-contract)

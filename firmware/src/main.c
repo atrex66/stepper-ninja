@@ -1,4 +1,5 @@
 #include "main.h"
+#include "encoder_index.h"
 #include "quadrature_encoder_substep.h"
 #define ENCODER_IDLE_STOP_SAMPLES 2500
 
@@ -153,41 +154,19 @@ PIO_def_t stepgen_pio[stepgens];
     uint8_t encoder_base[encoders] = enc_pins;
     uint32_t encoder[encoders] = {0,};
     // volatile int32_t encoder_latched[encoders] = {0, };
-    volatile uint8_t index_reset_flags = 0;
+    static sn_index_state index_state[encoders];
+    static volatile uint8_t index_disconnect_pending;
 
     static uint8_t encoder_indexes[encoders] = enc_index_pins;
     static uint8_t indexes = sizeof(encoder_indexes);
     static uint8_t enc_index_lvl[encoders] = enc_index_active_level;
-    static uint8_t enc_index_enabled[encoders] = {0,};
+
     PIO_def_t encoder_pio[encoders];
 
     #if encoder_pio_version == ENCODER_PIO_SUBSTEP
     substep_state_t substep_state[encoders];
     #endif
 
-    static inline void reset_encoder_counter(uint8_t i) {
-#if use_stepcounter == 0
-        pio_sm_exec(encoder_pio[i].pio, encoder_pio[i].sm, pio_encode_set(pio_y, 0));
-        encoder[i] = 0;
-        #if encoder_pio_version == ENCODER_PIO_SUBSTEP
-        substep_state[i].raw_step = 0;
-        substep_state[i].position = 0;
-        substep_state[i].speed = 0;
-        substep_state[i].speed_2_20 = 0;
-        substep_state[i].stopped = 1;
-        substep_state[i].idle_stop_sample_count = 0;
-        uint now_us = time_us_32();
-        substep_state[i].prev_step_us = now_us;
-        substep_state[i].prev_trans_us = now_us;
-        substep_state[i].prev_trans_pos = 0;
-        substep_state[i].prev_low = 0;
-        substep_state[i].prev_high = 0;
-        #endif
-#else
-        pio_sm_exec(pio1, i, pio_encode_set(pio_y, 0));
-        encoder[i] = 0;
-#endif
-    }
 
 #endif
 
@@ -318,14 +297,9 @@ void core1_entry() {
                 connected = 0;
                 stop_timer();
 #if encoders >0
-                    for (int i = 0; i < encoders; i++) {
-                        reset_encoder_counter((uint8_t)i);
-    #if use_stepcounter == 0
-                        printf("Encoder %d reset\n", i);
-    #else
-                        printf("Step counter %d reset\n", i);
-    #endif
-                    }
+                    /* Core 0 owns encoder IRQs and sampling. Never reset its
+                       PIO/substep state from the watchdog running on core 1. */
+                    index_disconnect_pending = 1;
 #endif
                 // ==================== BREAKOUT BOARD: Disconnected state handler ====================
                 #if breakout_board > 0
@@ -359,36 +333,6 @@ void core1_entry() {
         else {
             timeout_error = 0;
             connected = 1;
-            // enable disable encoder index interrupts based on the enc_control pins
-            #if encoders > 0
-                if (indexes > 0){
-                    for (int i=0;i<indexes;i++){
-                        if (encoder_indexes[i]!=PIN_NULL){
-                            if (((rx_buffer->enc_control >> i) & 0x01u) == 1u){
-                                if (enc_index_enabled[i] == 0){
-                                    if (enc_index_lvl[i] == high){
-                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
-                                    }
-                                    else{
-                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
-                                    }
-                                    enc_index_enabled[i] = 1;
-                                }
-                            }else {
-                                if (enc_index_enabled[i] == 1){
-                                    if (enc_index_lvl[i] == high){
-                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
-                                    }
-                                    else{
-                                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
-                                    }
-                                    enc_index_enabled[i] = 0;
-                                }
-                            }
-                        }
-                    }
-                }
-            #endif
 
             #if stepgens > 0
             sety = pio_settings[rx_buffer->pio_timing].sety & 31;
@@ -806,7 +750,19 @@ void handle_data(){
         checksum_error = 0;  // recover from transient checksum errors
     }
 
+    if (rx_buffer->protocol_magic != SN_PROTOCOL_MAGIC) { checksum_error = 1; return; }
+
     if (!checksum_error) {
+        #if encoders > 0
+        uint32_t index_irq = save_and_disable_interrupts();
+        for (uint8_t i=0;i<indexes;i++) {
+            if (encoder_indexes[i]==PIN_NULL) continue;
+            sn_index_command(&index_state[i], (rx_buffer->enc_control >> i) & 1u, rx_buffer->encoder_index_tag[i]);
+            uint32_t edge=enc_index_lvl[i]==high ? GPIO_IRQ_EDGE_RISE : GPIO_IRQ_EDGE_FALL;
+            gpio_set_irq_enabled_with_callback(encoder_indexes[i], edge, index_state[i].armed, &gpio_callback);
+        }
+        restore_interrupts(index_irq);
+        #endif
 
         #if stepgens > 0
         // Buffer only the step commands when timer-interrupt mode is enabled.
@@ -833,6 +789,7 @@ void handle_data(){
 #endif
 
     #if encoders > 0
+        uint32_t irq_state = save_and_disable_interrupts();
         #if use_stepcounter == 0
         // update encoders
             for (int i = 0; i < encoders; i++) {
@@ -845,7 +802,7 @@ void handle_data(){
                 int32_t encoder_count = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
                 tx_buffer->encoder_timestamp[i] = time_us_32();
                 tx_buffer->encoder_counter[i] = encoder_count;
-                tx_buffer->encoder_velocity[i] = encoder_count - (int32_t)encoder[i];
+                tx_buffer->encoder_velocity[i] = (int32_t)((uint32_t)encoder_count - encoder[i]);
                 encoder[i] = (uint32_t)encoder_count;
                 #endif
                 //tx_buffer->encoder_latched[i] = encoder_latched[i];
@@ -861,9 +818,12 @@ void handle_data(){
             }
         #endif
 
-        uint32_t irq_state = save_and_disable_interrupts();
-        tx_buffer->interrupt_data = index_reset_flags;
-        index_reset_flags = 0;
+        tx_buffer->interrupt_data = 0;
+        for (uint8_t i=0;i<encoders;i++) {
+            tx_buffer->encoder_index_count[i] = index_state[i].count;
+            tx_buffer->encoder_index_tag[i] = index_state[i].tag;
+            if (index_state[i].hit) tx_buffer->interrupt_data |= (uint8_t)(1u << i);
+        }
         restore_interrupts(irq_state);
     #endif
 
@@ -906,6 +866,7 @@ void handle_data(){
         }
     #endif
     
+    tx_buffer->protocol_magic = SN_PROTOCOL_MAGIC;
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
 }
@@ -923,18 +884,18 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
     for (int i=0;i<indexes;i++){
         if (gpio == encoder_indexes[i]) {
             if (events & (GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL)) {
-                // Reset the selected encoder exactly on the index edge.
-                reset_encoder_counter((uint8_t)i);
-                index_reset_flags |= (uint8_t)(1u << i);
-
-                if (enc_index_enabled[i] == 1) {
-                    if (enc_index_lvl[i] == high){
-                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_RISE, false, &gpio_callback);
-                    } else {
-                        gpio_set_irq_enabled_with_callback(encoder_indexes[i], GPIO_IRQ_EDGE_FALL, false, &gpio_callback);
-                    }
-                    enc_index_enabled[i] = 0;
-                }
+                if (!index_state[i].armed) continue;
+                int32_t count;
+                #if use_stepcounter == 1
+                count = step_counter_get_count(pio1, i);
+                #elif encoder_pio_version == ENCODER_PIO_SUBSTEP
+                count = substep_read_raw_count(&substep_state[i]);
+                #else
+                count = quadrature_encoder_get_count(encoder_pio[i].pio, encoder_pio[i].sm);
+                #endif
+                sn_index_hit(&index_state[i], count);
+                uint32_t edge=enc_index_lvl[i]==high ? GPIO_IRQ_EDGE_RISE : GPIO_IRQ_EDGE_FALL;
+                gpio_set_irq_enabled_with_callback(encoder_indexes[i], edge, false, &gpio_callback);
             }
         }
     }
@@ -1000,6 +961,17 @@ void __not_in_flash_func(handle_udp)() {
     memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
     last_packet_time = get_absolute_time();
     while (1){
+        #if encoders > 0
+        if (index_disconnect_pending) {
+            uint32_t index_irq = save_and_disable_interrupts();
+            for (uint8_t i=0;i<encoders;i++) {
+                if (encoder_indexes[i]!=PIN_NULL) gpio_set_irq_enabled(encoder_indexes[i], GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, false);
+                index_state[i]=(sn_index_state){0};
+            }
+            index_disconnect_pending=0;
+            restore_interrupts(index_irq);
+        }
+        #endif
         if (consume_save_config_request()) {
             save_config_to_flash();
         }

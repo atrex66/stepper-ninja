@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include "config.h"
 
+#define SN_PROTOCOL_MAGIC 0x534e4902u /* index-latch protocol v2: matched firmware/driver required */
+
 // first encoder index
 #define CTRL_SPINDEX 0
 
@@ -23,10 +25,12 @@ typedef struct{
     uint16_t pio_timing;
     #if encoders > 0
     uint8_t enc_control;  // enables encoder index 1st bit encoder 0 2nd encoder 1
+    uint8_t encoder_index_tag[encoders];
     #endif
     #if ANALOG_CH > 0
     uint32_t analog_out[ANALOG_CH];
     #endif
+    uint32_t protocol_magic;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pc_pico_t;
@@ -37,16 +41,23 @@ typedef struct{
     int32_t encoder_counter[encoders];
     int32_t encoder_velocity[encoders];
     uint32_t encoder_timestamp[encoders];
+    int32_t encoder_index_count[encoders];
+    uint8_t encoder_index_tag[encoders];
     uint8_t interrupt_data;
     #endif
     uint32_t inputs[4];
     uint32_t jitter;
     uint8_t step_ring_fill;
     uint8_t step_ring_status;
+    uint32_t protocol_magic;
     uint8_t packet_id;
     uint8_t checksum;
 } transmission_pico_pc_t;
 #pragma pack(pop)
+
+_Static_assert(sizeof(transmission_pc_pico_t) <= 255, "PC packet exceeds byte-sized length");
+_Static_assert(sizeof(transmission_pico_pc_t) <= 255, "Pico packet exceeds byte-sized length");
+_Static_assert(encoders <= 8, "Index flags support at most eight encoders");
 
 #define SPI_TRANSFER_SIZE ((sizeof(transmission_pc_pico_t) > sizeof(transmission_pico_pc_t)) \
     ? sizeof(transmission_pc_pico_t) \

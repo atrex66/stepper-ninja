@@ -105,7 +105,7 @@ static void snapshot(const char *label)
 {
     printf("snapshot %s %d\n", label, pin_count);
     for (int i = 0; i < pin_count; ++i) {
-        printf("%s %s %c ", pins[i].name, pins[i].direction == HAL_IN ? "in" : "out", pins[i].kind);
+        printf("%s %s %c ", pins[i].name, pins[i].direction == HAL_IN ? "in" : pins[i].direction == HAL_IO ? "io" : "out", pins[i].kind);
         switch (pins[i].kind) {
         case 'b': printf("%d", pins[i].value.bit); break;
         case 's': printf("%" PRId32, pins[i].value.s32); break;
@@ -117,6 +117,7 @@ static void snapshot(const char *label)
 }
 static void receive_packet(transmission_pico_pc_t *packet)
 {
+    packet->protocol_magic = SN_PROTOCOL_MAGIC;
     packet->checksum = calculate_checksum(packet, sizeof(*packet) - 1);
     memcpy(incoming, packet, sizeof(*packet));
     incoming_size = sizeof(*packet);
@@ -188,10 +189,34 @@ int main(int argc, char **argv)
     sn_set_bit(d->enc_reset[0], 1);
     receive_packet(&packet);
     snapshot("encoder-feedback");
+    for (int i=0;i<pin_count;i++) if (strstr(pins[i].name, ".index-enable")) assert(pins[i].direction == HAL_IO);
     sn_set_bit(d->enc_index[0], 1);
+    udp_io_process_send(d, 1000000);
+    assert(tx_buffer->enc_control & 1);
+    packet.encoder_index_tag[0]=tx_buffer->encoder_index_tag[0];
+    packet.encoder_counter[0]+=30;packet.encoder_timestamp[0]+=1000;
+    packet.encoder_index_count[0]=packet.encoder_counter[0]-7;
     packet.interrupt_data = 1;
     receive_packet(&packet);
     assert(sn_get_bit(d->enc_index[0]) == 0);
+    assert(d->delta_count[0] == 30 && sn_get_float(d->enc_velocity[0]) > 0);
+    assert(sn_get_s32(d->raw_count[0]) == packet.encoder_counter[0]);
+    assert(fabs(sn_get_float(d->enc_position[0])-7/sn_get_float(d->enc_scale[0])) < 1e-9);
+    int32_t index_offset=d->enc_offset[0];
+    /* A new HAL request must wait for firmware's low acknowledgement. */
+    sn_set_bit(d->enc_index[0], 1);
+    receive_packet(&packet); /* repeated old event cannot clear the new request */
+    assert(sn_get_bit(d->enc_index[0]) == 1 && d->enc_offset[0] == index_offset);
+    udp_io_process_send(d, 1000000);assert(!(tx_buffer->enc_control & 1));
+    packet.interrupt_data = 0;
+    receive_packet(&packet);
+    udp_io_process_send(d, 1000000);assert(tx_buffer->enc_control & 1);
+    uint8_t next_tag=tx_buffer->encoder_index_tag[0];
+    packet.interrupt_data=1; /* delayed old-generation event must be ignored */
+    receive_packet(&packet);assert(sn_get_bit(d->enc_index[0]) == 1);
+    packet.encoder_index_tag[0]=next_tag;
+    d->enc_timestamp[0]=0; /* first feedback sample still completes index */
+    receive_packet(&packet);assert(sn_get_bit(d->enc_index[0]) == 0);
     packet.interrupt_data = 0;
     for (int i = 0; i < encoders; ++i) packet.encoder_timestamp[i] += 3000000;
     receive_packet(&packet);
@@ -227,6 +252,12 @@ int main(int argc, char **argv)
     udp_io_process_recv(d, 1000000);
     assert(d->connected != NULL && sn_get_bit(d->connected) == 1);
     snapshot("checksum-recovery");
+    sn_set_bit(d->connected,1);
+    packet.protocol_magic=0;
+    packet.checksum=calculate_checksum(&packet,sizeof(packet)-1);
+    memcpy(incoming,&packet,sizeof(packet));incoming_size=sizeof(packet);
+    udp_io_process_recv(d,1000000);
+    assert(sn_get_bit(d->connected)==0 && sn_get_bit(d->io_ready_out)==0 && d->protocol_error==1);
     rtapi_app_exit();
     free(tx_buffer); free(rx_buffer); free(component_storage);
     return 0;

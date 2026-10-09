@@ -301,3 +301,10 @@ void substep_set_calibration_data(substep_state_t *state, uint step0, uint step1
     state->calibration_data[3] = step2;
 }
 
+
+/* IRQ-safe when serialized with the regular sampler: no state mutation. */
+int32_t substep_read_raw_count(substep_state_t *state) {
+    uint step, us; int cycles;
+    quadrature_encoder_substep_get_counts(state->pio, state->sm, &step, &cycles, &us);
+    return (int32_t)step;
+}

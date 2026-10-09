@@ -1,5 +1,22 @@
 Stepper-Ninja Source-Only Change Log
 
+Date: 2026-10-09
+
+Encoder index latch protocol v2
+- Keep raw PIO counts continuous; latch the IRQ count and calculate position
+  using a host offset, following LinuxCNC encoder/HostMot2 semantics.
+- Use HAL_IO index-enable, persistent completion and request tags to prevent
+  repeated high commands, delayed replies and lost responses from rearming
+  or completing the wrong request.
+- Synchronize command/snapshot with the core-0 index IRQ; core-1 watchdog
+  requests disarming rather than resetting PIO/substep state concurrently.
+- Calculate velocity from matching raw-count/time deltas across packet loss.
+- Packet format changed: update firmware AND driver together. Reject a
+  mismatched protocol marker; no automatic legacy fallback or deployment.
+- Add shared firmware state-machine and full-driver regression coverage.
+- Physical latch accuracy, live homing and any reported segfault still need
+  actual hardware validation. See docs/ENCODER-INDEX.md (Hungarian: .hu.md).
+
 Date: 2026-10-06
 
 LinuxCNC 2.9 / 2.10 HAL API compatibility

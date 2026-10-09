@@ -182,6 +182,7 @@ typedef struct {
     long long last_received_time;
     long long watchdog_timeout;
     int watchdog_expired;
+    int protocol_error;
     long long current_time;
     int index;
     uint8_t checksum_index;
@@ -190,6 +191,10 @@ typedef struct {
     float enc_prev_pos[encoders];
     uint32_t enc_timestamp[encoders];
     int32_t enc_offset[encoders];
+    uint8_t enc_index_tag[encoders];
+    uint8_t enc_index_wait_clear[encoders];
+    uint8_t enc_index_active[encoders];
+    uint8_t enc_index_synced[encoders];
     uint32_t delta_time[encoders];
     int64_t prev_pos[6];
     int64_t curr_pos[6];
@@ -455,6 +460,12 @@ void watchdog_process(void *arg, long period)
             rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: No transmission, check connection settings and restart Linuxcnc\n", d->index);
             d->checksum_index_in = 1;
             d->checksum_index = 1;
+            #if encoders > 0
+            for (uint8_t i=0;i<encoders;i++) {
+                d->enc_index_synced[i]=0; d->enc_index_active[i]=0;
+                d->enc_index_wait_clear[i]=1; d->enc_timestamp[i]=0; d->enc_offset[i]=0;
+            }
+            #endif
         }
         d->watchdog_expired = 1;
     } else {
@@ -603,6 +614,14 @@ void udp_io_process_recv(void *arg, long period)
             sn_set_bit(d->io_ready_out, 0);
             return;
         }
+        if (rx_buffer->protocol_magic != SN_PROTOCOL_MAGIC) {
+            if (!d->protocol_error) rtapi_print_msg(RTAPI_MSG_ERR, module_name ".%d: firmware/driver protocol mismatch; update both together\n", d->index);
+            d->protocol_error=1;
+            sn_set_bit(d->connected, 0);
+            sn_set_bit(d->io_ready_out, 0);
+            return; /* Different firmware protocol: do not consume encoder feedback. */
+        }
+        d->protocol_error=0;
         sn_set_bit(d->connected, 1);
         d->last_received_time = d->current_time;
         sn_set_s32(d->jitter, 1000 - rx_buffer->jitter);
@@ -622,7 +641,21 @@ void udp_io_process_recv(void *arg, long period)
                 int32_t encoder_count = rx_buffer->encoder_counter[i];
                 uint8_t index_reset_event = (rx_buffer->interrupt_data >> i) & 0x01u;
 
-                sn_set_float(d->enc_position[i], (float)encoder_count / sn_get_float(d->enc_scale[i]));
+                uint8_t tag=rx_buffer->encoder_index_tag[i];
+                if (!d->enc_index_synced[i]) {
+                    d->enc_index_tag[i]=tag;
+                    if (!index_reset_event) { d->enc_index_synced[i]=1; d->enc_index_wait_clear[i]=0; }
+                } else if (tag==d->enc_index_tag[i]) {
+                    if (!index_reset_event) d->enc_index_wait_clear[i]=0;
+                    else if (d->enc_index_active[i] && !d->enc_index_wait_clear[i]) {
+                        d->enc_offset[i]=rx_buffer->encoder_index_count[i];
+                        sn_set_bit(d->enc_index[i], 0);
+                        d->enc_index_active[i]=0;
+                        d->enc_index_wait_clear[i]=1;
+                    }
+                }
+                int32_t relative=(int32_t)((uint32_t)encoder_count-(uint32_t)d->enc_offset[i]);
+                sn_set_float(d->enc_position[i], (double)relative / sn_get_float(d->enc_scale[i]));
 
                 if (d->enc_timestamp[i] == 0) {
                     sn_set_s32(d->raw_count[i], encoder_count);
@@ -635,39 +668,13 @@ void udp_io_process_recv(void *arg, long period)
                     continue;
                 }
 
-                if (index_reset_event) {
-                    // Rebase encoder timing/count state on index-reset event so
-                    // one-shot index-enable reset does not inject a velocity spike.
-                    sn_set_s32(d->raw_count[i], encoder_count);
-                    d->enc_timestamp[i] = encoder_ts;
-                    d->delta_count[i] = 0;
-                    d->delta_count_accum[i] = 0;
-                    d->delta_time[i] = 0;
-                    d->delta_pos[i] = 0.0f;
-                    d->enc_prev_pos[i] = sn_get_float(d->enc_position[i]);
-                    sn_set_bit(d->enc_index[i], 0);
-                    continue;
-                }
-
-                if (sn_get_bit(d->enc_index[i]) == 1) {
-                    d->delta_count[i] = encoder_count - sn_get_s32(d->raw_count[i]);
-                    if (d->delta_count[i] < -(sn_get_float(d->enc_scale[i]) / 2)) {
-                        d->delta_count[i] += (int32_t)sn_get_float(d->enc_scale[i]);
-                    } else if (d->delta_count[i] > (sn_get_float(d->enc_scale[i]) / 2)) {
-                        d->delta_count[i] -= (int32_t)sn_get_float(d->enc_scale[i]);
-                    }
-                } else {
-                    d->delta_count[i] = (int32_t)((uint32_t)encoder_count - (uint32_t)sn_get_s32(d->raw_count[i]));
-                }
+                /* Index changes position offset, never the raw count or velocity. */
+                d->delta_count[i] = (int32_t)((uint32_t)encoder_count - (uint32_t)sn_get_s32(d->raw_count[i]));
 
                 sn_set_s32(d->raw_count[i], encoder_count);
                 d->delta_time[i] = encoder_ts - d->enc_timestamp[i];
                 d->delta_count_accum[i] = d->delta_count[i];
-                #if use_stepcounter == 0
-                    if (rx_buffer->encoder_velocity[i] != 0 || d->delta_count[i] == 0) {
-                        d->delta_count_accum[i] = rx_buffer->encoder_velocity[i];
-                    }
-                #endif
+                /* Count delta and elapsed time span the same received samples, including packet loss. */
 
                 update_encoder_velocity_from_deltas(d, i);
 
@@ -710,7 +717,11 @@ static void udp_io_process_send(void *arg, long period)
     #if encoders > 0
     tx_buffer->enc_control = 0;
     for (int i = 0; i < encoders; i++) {
-        tx_buffer->enc_control |= (uint8_t)(1 * sn_get_bit(d->enc_index[i])) << (CTRL_SPINDEX + i);
+        int request=sn_get_bit(d->enc_index[i]) && d->enc_index_synced[i] && !d->enc_index_wait_clear[i];
+        if (request && !d->enc_index_active[i]) { ++d->enc_index_tag[i]; d->enc_index_active[i]=1; }
+        if (!request) d->enc_index_active[i]=0;
+        tx_buffer->encoder_index_tag[i]=d->enc_index_tag[i];
+        tx_buffer->enc_control |= (uint8_t)request << (CTRL_SPINDEX + i);
     }
     #endif
 
@@ -844,6 +855,7 @@ static void udp_io_process_send(void *arg, long period)
     }
     #endif
 
+    tx_buffer->protocol_magic = SN_PROTOCOL_MAGIC;
     tx_buffer->packet_id = d->tx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
     _send(d);
@@ -1052,11 +1064,12 @@ int rtapi_app_main(void)
                 #define e_name module_name ".%d.encoder"
             #endif
             hal_data[j].enc_offset[i] = 0;
+            hal_data[j].enc_index_wait_clear[i] = 1;
             PIN_S32(&hal_data[j].raw_count[i], HAL_OUT, e_name ".%d.raw-count", j, i);
             PIN_FLOAT(&hal_data[j].enc_position[i], HAL_OUT, e_name ".%d.position", j, i);
             PIN_FLOAT_INIT(&hal_data[j].enc_scale[i], HAL_IN, 1, e_name ".%d.scale", j, i);
             PIN_FLOAT(&hal_data[j].enc_velocity[i], HAL_OUT, e_name ".%d.velocity-rps", j, i);
-            PIN_BIT(&hal_data[j].enc_index[i], HAL_IN, e_name ".%d.index-enable", j, i);
+            PIN_BIT_INIT(&hal_data[j].enc_index[i], HAL_IO, 0, e_name ".%d.index-enable", j, i);
             PIN_FLOAT(&hal_data[j].enc_rpm[i], HAL_OUT, e_name ".%d.velocity-rpm", j, i);
             #if debug == 1
             PIN_BIT_INIT(&hal_data[j].enc_reset[i], HAL_IN, 0, e_name ".%d.debug-reset", j, i);
