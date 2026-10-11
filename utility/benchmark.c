@@ -2,169 +2,204 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/time.h>
+#include <time.h>
 #include <errno.h>
-#include <fcntl.h>
+#include <limits.h>
 
 #include "transmission.h"
 #include "transmission.c"
 
 #define NUM_CYCLES 100000
-#define TIMEOUT_SEC 2  // Increased timeout
-
-static transmission_pc_pico_t *tx_buffer;
-static transmission_pico_pc_t *rx_buffer;
+#define TIMEOUT_MS 2000
 
 #if raspberry_pi_spi == 0
-    #include <sys/socket.h>
-    #include <netinet/in.h>
-    #include "jump_table.h"
-    #include <arpa/inet.h>
-
-    static int sockfd;
-    static struct sockaddr_in local_addr, remote_addr;
-    static uint8_t jump_table_index = 1;
-    char *ip_addr = "192.168.0.177";
-    uint16_t port = 8888;
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <poll.h>
 #else
-    #include "bcm2835.h"
-    #include "bcm2835.c"
-    #define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_128
-    const uint8_t rpi_inputs[] = raspi_inputs;
-    const uint8_t rpi_outputs[] = raspi_outputs;
-    const uint8_t rpi_input_pullup[] = raspi_input_pullups;
-    const uint8_t rpi_inputs_no = sizeof(rpi_inputs);
-    const uint8_t rpi_outputs_no = sizeof(rpi_outputs);
-#endif 
-uint8_t counter = 0;
+#include "bcm2835.h"
+#include "bcm2835.c"
+#define SPI_SPEED BCM2835_SPI_CLOCK_DIVIDER_128
+#endif
 
-long long get_time_ms() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000LL + tv.tv_usec / 1000LL;
+static long long get_time_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000000LL + ts.tv_nsec;
 }
 
-static void init_socket(void) {
-    #if raspberry_pi_spi == 0
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        local_addr.sin_family = AF_INET;
-        local_addr.sin_port = htons(port);
-        local_addr.sin_addr.s_addr = INADDR_ANY;
-        bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr));
-
-        int flags = fcntl(sockfd, F_GETFL, 0);
-        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-
-        remote_addr.sin_family = AF_INET;
-        remote_addr.sin_port = htons(port);
-        inet_pton(AF_INET, ip_addr, &remote_addr.sin_addr);
-    #else
-        if (!bcm2835_init()) {
-            printf("bcm2835 init failed\n");
-            return ;
-        }
-        // SPI inicializálása
-        bcm2835_spi_begin();
-        bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);
-        bcm2835_spi_setDataMode(BCM2835_SPI_MODE3);
-        bcm2835_spi_setClockDivider(SPI_SPEED);
-        bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
-        bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
-
-        bcm2835_gpio_fsel(raspi_int_out, BCM2835_GPIO_FSEL_OUTP);
-        bcm2835_gpio_set(raspi_int_out);
-    #endif
+static void usage(const char *program) {
+#if raspberry_pi_spi == 0
+    printf("Usage: %s IP [PORT [CYCLES]]\n"
+           "  IP: target IPv4 address (required)\n"
+           "  PORT: target and local UDP port (default: %d)\n"
+           "  CYCLES: number of exchanges (default: %d)\n"
+           "  Response timeout: %d ms\n"
+           "Example: %s 192.168.0.177 8888 10000\n",
+           program, DEFAULT_PORT, NUM_CYCLES, TIMEOUT_MS, program);
+#else
+    printf("Usage: %s [CYCLES]\nDefault cycles: %d\n", program, NUM_CYCLES);
+#endif
 }
 
-int main() {
-    long long start_time, end_time, elapsed_time;
+static int parse_positive(const char *text, long maximum, int *value) {
+    char *end;
+    errno = 0;
+    long parsed = strtol(text, &end, 10);
+    if (errno || end == text || *end || parsed < 1 || parsed > maximum) {
+        fprintf(stderr, "Invalid number: %s (expected 1..%ld)\n", text, maximum);
+        return -1;
+    }
+    *value = (int)parsed;
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    int cycles = NUM_CYCLES;
     int cycles_completed = 0;
+    int failed = 0;
     long long total_latency = 0;
-    size_t ssize = sizeof(transmission_pc_pico_t);
-    char *readbuff = malloc(ssize);
-    uint8_t tx_size = sizeof(transmission_pc_pico_t);
-    uint8_t rx_size = sizeof(transmission_pico_pc_t);
+    transmission_pc_pico_t tx_buffer;
+    transmission_pico_pc_t rx_buffer;
 
-    rx_buffer = (transmission_pico_pc_t *)malloc(rx_size);
-    if (rx_buffer == NULL) {
-        printf("rx_buffer allocation failed\n");
-        return -1;
-    }
-    tx_buffer = (transmission_pc_pico_t *)malloc(tx_size);
-    if (tx_buffer == NULL) {
-        printf("tx_buffer allocation failed\n");
-        return -1;
+    if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+        usage(argv[0]);
+        return EXIT_SUCCESS;
     }
 
-    #if raspberry_pi_spi == 0
-        // Create UDP socket
-        if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-            perror("Socket creation failed");
-            exit(EXIT_FAILURE);
+#if raspberry_pi_spi == 0
+    int port = DEFAULT_PORT;
+    struct sockaddr_in local_addr = {0}, remote_addr = {0};
+    if (argc < 2 || argc > 4) {
+        usage(argv[0]);
+        return EXIT_FAILURE;
+    }
+    if ((argc >= 3 && parse_positive(argv[2], 65535, &port)) ||
+        (argc == 4 && parse_positive(argv[3], INT_MAX, &cycles))) {
+        return EXIT_FAILURE;
+    }
+    remote_addr.sin_family = AF_INET;
+    remote_addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, argv[1], &remote_addr.sin_addr) != 1) {
+        fprintf(stderr, "Invalid IPv4 address: %s\n", argv[1]);
+        return EXIT_FAILURE;
+    }
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("Socket creation failed");
+        return EXIT_FAILURE;
+    }
+    local_addr.sin_family = AF_INET;
+    local_addr.sin_port = htons(port);
+    local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sockfd, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
+        perror("UDP bind failed (is LinuxCNC or another benchmark using this port?)");
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+    /* Connect UDP to accept responses only from the selected target. */
+    if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(remote_addr)) < 0) {
+        perror("UDP connect failed");
+        close(sockfd);
+        return EXIT_FAILURE;
+    }
+    printf("UDP target: %s:%d; local port: %d\n", argv[1], port, port);
+#else
+    if (argc > 2 || (argc == 2 && parse_positive(argv[1], INT_MAX, &cycles))) {
+        usage(argv[0]);
+        return EXIT_FAILURE;
+    }
+    if (!bcm2835_init()) {
+        fprintf(stderr, "bcm2835 init failed\n");
+        return EXIT_FAILURE;
+    }
+    if (!bcm2835_spi_begin()) {
+        fprintf(stderr, "bcm2835 SPI init failed\n");
+        bcm2835_close();
+        return EXIT_FAILURE;
+    }
+    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_MSBFIRST);
+    bcm2835_spi_setDataMode(BCM2835_SPI_MODE3);
+    bcm2835_spi_setClockDivider(SPI_SPEED);
+    bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
+    bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
+    bcm2835_gpio_fsel(RASPI_INT_OUT_GPIO, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_set(RASPI_INT_OUT_GPIO);
+#endif
+
+    printf("Benchmark started. Running %d cycles...\n", cycles);
+    fflush(stdout);
+    long long start_time = get_time_ns();
+    for (int i = 0; i < cycles; i++) {
+        long long cycle_start = get_time_ns();
+        memset(&tx_buffer, 0, sizeof(tx_buffer));
+        tx_buffer.protocol_magic = SN_PROTOCOL_MAGIC;
+        tx_buffer.packet_id = (uint8_t)i;
+        tx_buffer.checksum = calculate_checksum(&tx_buffer, sizeof(tx_buffer) - 1);
+#if raspberry_pi_spi == 0
+        if (send(sockfd, &tx_buffer, sizeof(tx_buffer), 0) != sizeof(tx_buffer)) {
+            perror("Send failed");
+            failed = 1;
+            break;
         }
-    #endif
-
-    init_socket();
-
-    #if raspberry_pi_spi == 0
-        printf("UDP socket created (%s:%d), connected to target.\n", ip_addr, port);
-    #endif
-
-    // Benchmark loop
-    start_time = get_time_ms();
-    printf("Benchmark started. Running %d cycles...\n", NUM_CYCLES);
-    long long cycle_start = get_time_ms();
-
-    for (int i = 0; i < NUM_CYCLES; i++) {
-        long long cycle_start = get_time_ms();
-        memset(tx_buffer, 0, tx_size);
-        // Send packet
-        tx_buffer->packet_id = counter++;
-        tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1); // Exclude checksum byte itself
-
-        #if raspberry_pi_spi == 0
-            if (sendto(sockfd, tx_buffer, tx_size, 0, (struct sockaddr*)&remote_addr, sizeof(remote_addr)) < 0) {
-                perror("Send failed");
+        struct pollfd response = {.fd = sockfd, .events = POLLIN};
+        int ready;
+        do {
+            long long remaining = TIMEOUT_MS * 1000000LL - (get_time_ns() - cycle_start);
+            if (remaining <= 0) {
+                ready = 0;
                 break;
             }
-        #else
-            // working full duplex
-            bcm2835_gpio_clr(raspi_int_out);
-            memset(readbuff, 0, ssize);
-            bcm2835_spi_transfernb((char *)tx_buffer, readbuff, ssize);
-            memcpy(rx_buffer, readbuff , sizeof(transmission_pico_pc_t));
-            bcm2835_gpio_set(raspi_int_out);
-        #endif
-        // counter++;
-
-        #if raspberry_pi_spi == 0
-            // Receive response
-            socklen_t addr_len = sizeof(ip_addr);
-            int recv_len = -1;
-            while (recv_len < 0) {recv_len = recvfrom(sockfd, rx_buffer, rx_size, 0, NULL, NULL);}
-        #endif
-        long long cycle_end = get_time_ms();
-        total_latency += (cycle_end - cycle_start);
+            ready = poll(&response, 1, (int)((remaining + 999999) / 1000000));
+        } while (ready < 0 && errno == EINTR);
+        if (ready <= 0) {
+            if (ready == 0) fprintf(stderr, "Response timeout (%d ms), cycle %d\n", TIMEOUT_MS, i + 1);
+            else perror("Response wait failed");
+            failed = 1;
+            break;
+        }
+        ssize_t received = recv(sockfd, &rx_buffer, sizeof(rx_buffer), MSG_TRUNC | MSG_DONTWAIT);
+        if (received < 0) {
+            perror("Receive failed");
+            failed = 1;
+            break;
+        }
+        if (received != sizeof(rx_buffer)) {
+            fprintf(stderr, "Unexpected response size: %zd (expected %zu)\n", received, sizeof(rx_buffer));
+            failed = 1;
+            break;
+        }
+#else
+        char writebuff[SPI_TRANSFER_SIZE] = {0};
+        char readbuff[SPI_TRANSFER_SIZE] = {0};
+        memcpy(writebuff, &tx_buffer, sizeof(tx_buffer));
+        bcm2835_gpio_clr(RASPI_INT_OUT_GPIO);
+        bcm2835_spi_transfernb(writebuff, readbuff, SPI_TRANSFER_SIZE);
+        bcm2835_gpio_set(RASPI_INT_OUT_GPIO);
+        memcpy(&rx_buffer, readbuff, sizeof(rx_buffer));
+#endif
+        if (rx_buffer.protocol_magic != SN_PROTOCOL_MAGIC || !tx_checksum_ok(&rx_buffer)) {
+            fprintf(stderr, "Invalid response protocol or checksum, cycle %d\n", i + 1);
+            failed = 1;
+            break;
+        }
+        total_latency += get_time_ns() - cycle_start;
         cycles_completed++;
     }
-
-    // Results
-    end_time = get_time_ms();
-    elapsed_time = end_time - start_time;
-
+    long long elapsed = get_time_ns() - start_time;
     printf("\nBenchmark results:\n");
-    printf("Cycles attempted: %d\n", NUM_CYCLES);
-    printf("Cycles completed: %d\n", cycles_completed);
-    printf("Total time: %lld ms\n", elapsed_time);
-    printf("Average cycle time (write + read): %.4f ms\n", (double)total_latency / cycles_completed);
-    printf("Throughput: %d cycles/s\n", (uint32_t)(cycles_completed / (elapsed_time / 1000.0)));
-
-    #if raspberry_pi_spi == 0
-        close(sockfd);
-        printf("Socket closed. Exiting...\n");
-    #endif
-    free(readbuff);
-    free(rx_buffer);
-    free(tx_buffer);
-    return 0;
+    printf("Cycles requested: %d\nCycles completed: %d\n", cycles, cycles_completed);
+    printf("Total time: %.3f ms\n", elapsed / 1000000.0);
+    if (cycles_completed > 0) {
+        printf("Average cycle time (write + read): %.4f ms\n", total_latency / (1000000.0 * cycles_completed));
+        printf("Throughput: %.2f cycles/s\n", cycles_completed * 1000000000.0 / elapsed);
+    }
+#if raspberry_pi_spi == 0
+    close(sockfd);
+#else
+    bcm2835_spi_end();
+    bcm2835_close();
+#endif
+    return failed ? EXIT_FAILURE : EXIT_SUCCESS;
 }

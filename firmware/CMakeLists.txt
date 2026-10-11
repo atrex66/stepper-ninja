@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.12)
-set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk")
+# Respect an explicit SDK path on all hosts; retain the Linux default.
+if(NOT PICO_SDK_PATH AND NOT DEFINED ENV{PICO_SDK_PATH} AND DEFINED ENV{HOME})
+    set(PICO_SDK_PATH "$ENV{HOME}/pico-sdk")
+endif()
 set(CMAKE_BUILD_TYPE Release) # Release mód
 
 # WIZnet chip típusának beállítása (alapértelmezett: W5100S)
@@ -13,6 +16,12 @@ endif()
 
 set(WIZCHIP_TYPE "W5100S" CACHE STRING "WIZnet chip type (W5100S or W5500)")
 set_property(CACHE WIZCHIP_TYPE PROPERTY STRINGS "W5100S" "W5500")
+
+set(STEPPER_NINJA_PROFILE "linuxcnc" CACHE STRING "Host profile: linuxcnc or mach3-3axis")
+set_property(CACHE STEPPER_NINJA_PROFILE PROPERTY STRINGS linuxcnc mach3-3axis)
+if(NOT STEPPER_NINJA_PROFILE MATCHES "^(linuxcnc|mach3-3axis)$")
+    message(FATAL_ERROR "Unknown STEPPER_NINJA_PROFILE: ${STEPPER_NINJA_PROFILE}")
+endif()
 
 option(STEPPER_NINJA_RUN_FROM_RAM "Copy the firmware from flash to SRAM before execution" OFF)
 
@@ -68,6 +77,7 @@ add_executable(stepper-ninja
     modules/breakoutboard_100.c
     modules/flash_config.c
     modules/serial_terminal.c
+    modules/udp_transport.c
     modules/transmission.c
     modules/pwm.c
     modules/pio_utils.c
@@ -75,6 +85,14 @@ add_executable(stepper-ninja
     quadrature_encoder_substep/quadrature_encoder_substep.c
     ${WIZNET_SOURCES}
 )
+
+if(STEPPER_NINJA_PROFILE STREQUAL "mach3-3axis")
+    target_compile_definitions(stepper-ninja PRIVATE SN_HOST_MACH3=1)
+    target_sources(stepper-ninja PRIVATE ../common/protocol/mach3_probe.c
+        ../common/protocol/mach3_control.c ../common/motion/controller.c modules/mach3_runtime.c)
+    pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/mach3_step.pio)
+    message(STATUS "Mach3 3-axis profile: UDP controller, I/O, PWM, jog, homing and buffered motion")
+endif()
 
 if(STEPPER_NINJA_RUN_FROM_RAM)
     pico_set_binary_type(stepper-ninja copy_to_ram)
@@ -119,6 +137,10 @@ if(RASPBERRY_PI_SPI_ENABLED)
     set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-spi")
 else()
     set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}")
+endif()
+
+if(STEPPER_NINJA_PROFILE STREQUAL "mach3-3axis")
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}-mach3-3axis")
 endif()
 
 set_target_properties(stepper-ninja PROPERTIES OUTPUT_NAME ${TARGET_NAME_WITH_CHIP})

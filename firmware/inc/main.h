@@ -24,6 +24,7 @@
 #include "socket.h"
 #include "jump_table.h"
 #include "transmission.h"
+#include "udp_transport.h"
 #include "flash_config.h"
 #include "pio_settings.h"
 #include "pwm.h"
@@ -63,8 +64,6 @@ void cs_deselect();
 uint8_t spi_read();
 void reset_with_watchdog();
 void spi_write(uint8_t data);
-int32_t _sendto(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t port);
-int32_t _recvfrom(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port);
 void update_speed(uint8_t enc_index);
 void handle_udp();
 void w5100s_interrupt_init();

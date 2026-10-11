@@ -2,6 +2,10 @@
 
 Nyílt forráskódú, ingyenes, nagy teljesítményű step-generátor, kvadratúrás enkóderszámláló, digitális I/O és PWM interfész LinuxCNC-hez.
 
+Külön **prototípus Mach3 driver** is elérhető, fix háromtengelyes UDP
+firmware-profillal. A Windows DLL fordítása/betöltése és a fizikai gép működése
+még nincs igazolva. A LinuxCNC marad az alapértelmezett, rugalmas profil.
+
 Az encoder modul lehetővé teszi a főorsó-szinkron mozgások használatát is, például a menetvágást és más főorsóhoz szinkronizált mozgásokat.
 
 A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Egy olcsó printer-port breakout board is elég lehet, és más konfigurációk is használhatók.
@@ -14,6 +18,10 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 - [Konfigurációs útmutató](docs/CONFIG.hu.md)
 - [IP konfiguráció](docs/IPCONFIG.hu.md)
 - [Saját breakout board készítése](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.hu.md)
+- [Mach3 prototípus áttekintés](docs/MACH3.hu.md) ([English](docs/MACH3.en.md))
+- [Mach3 fordítási útmutató](docs/MACH3-BUILD.hu.md) ([English](docs/MACH3-BUILD.en.md))
+- [Mach3 protokoll és végrehajtási reportok](docs/MACH3-PROTOCOL.hu.md)
+- [Mach3 Feed Hold és G31](docs/MACH3-FEEDHOLD-G31.hu.md)
 
 ## Nyelvek
 
@@ -54,6 +62,41 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 - **Open source**: a kód és a dokumentáció MIT licenc alatt érhető el.
 
 - **minta KiCad breakout board**: egy egyszerű, filléres DIY breakout board KiCad projekt érhető el a `configurations/RaspberryPi` könyvtárban. Egy Pico/Pico2-t köt össze a Raspberry Pi-vel SPI-on keresztül, és csupán egy Pico vagy Pico2, egy szabványos 40 pólusú GPIO csatlakozó és 2,54 mm-es nyákos sorkapcsok szükségesek hozzá.
+
+## Mach3 prototípus driver
+
+A `mach3-driver/` Mach3 SDK adaptert és hordozható vezérlő/kliens magot tartalmaz.
+A hozzá tartozó firmware fordításakor `STEPPER_NINJA_PROFILE=mach3-3axis` kell.
+A profil kiosztása fix: három STEP/DIR tengely, hét digitális bemenet,
+hat digitális kimenet és egy főorsó PWM kimenet.
+
+A prototípusban megvalósított funkciók:
+
+- Pufferelt, 1 ms-os XYZ mozgás, fizikai STEP számlálás szerinti reportokkal.
+- Helyi gyorsuláskorlátozott jog, homing és dwell.
+- Digitális I/O, főorsó RUN/DIR/PWM és hűtéskimenetek.
+- Session, ACK, ismételt kérés kiszűrése, watchdog, E-stop és limitkezelés.
+- Mach3 konfigurációs ablak IP/port, időzítés, polaritás és homing beállításokkal.
+- Natív Mach3 Feed Hold: a fékezési pálya továbbítása; Cycle Startkor a Mach3
+  új indulópályájának továbbítása.
+- Koordinált G31 külön érintési és megállási pozícióval, sikertelen keresés
+  felismerésével és kontrollált megszakítással.
+
+**Prototípus státusz:** a Linux tesztek mozgást, reportokat és UDP működést
+ellenőriznek, helyettesített Mach3 pályatervezővel. A Win32 MFC DLL fordítása,
+a valódi Mach3 Feed Hold/G31 integráció és a hardveridőzítés még ellenőrizendő.
+USB mozgástranszport nincs megvalósítva. A Mach3 profilnak nincs encodere;
+a LinuxCNC fent felsorolt teljesítmény- és konfigurációs lehetőségei nem ennek
+a profilnak a korlátait írják le. A 3-as mozgásprotokoll-verzióhoz egyező Mach3
+driver és firmware build szükséges.
+A Pico firmware natívan Windows alatt is fordítható; a firmware és a Mach3 DLL
+elkészítéséhez nem szükséges Linux gép. Amikor a valódi Mach3- és hardvertesztek
+igazolták a megbízható működést, tervezett release készül előre fordított
+firmware-rel és driverrel. Ez az igazolt release még nem érhető el.
+
+Lásd a [magyar fordítási útmutatót](docs/MACH3-BUILD.hu.md) vagy az
+[angol változatot](docs/MACH3-BUILD.en.md). A külön Mach3 profil megőrzi
+az alapértelmezett LinuxCNC konfigurálhatóságát és protokollját.
 
 ## PIO-konfiguráció és erőforrás-korlátok
 

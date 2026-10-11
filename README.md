@@ -2,6 +2,11 @@
 
 An open-source, free, high-performance step generator, quadrature encoder counter, digital I/O, and PWM interface for LinuxCNC.
 
+A separate **prototype Mach3 driver** is available for a fixed three-axis UDP
+firmware profile. Windows DLL compilation/loading and physical machine operation
+are not validated yet. LinuxCNC remains the default profile with flexible
+configuration.
+
 The encoder module also enables spindle-synchronized motion use cases, for example threading and other spindle-synchronous moves.
 
 You definitely do not need the official breakout board to use stepper-ninja. A cheap printer-port breakout board is enough, and other configurations are also possible.
@@ -14,6 +19,10 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 - [Configuration Guide](docs/CONFIG.md)
 - [IP Configuration Guide](docs/IPCONFIG.MD)
 - [Make Your Own Breakout Board](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.md)
+- [Mach3 prototype overview](docs/MACH3.en.md) ([Magyar](docs/MACH3.hu.md))
+- [Mach3 build guide](docs/MACH3-BUILD.en.md) ([Magyar](docs/MACH3-BUILD.hu.md))
+- [Mach3 protocol and execution reports](docs/MACH3-PROTOCOL.en.md)
+- [Mach3 Feed Hold and G31](docs/MACH3-FEEDHOLD-G31.en.md)
 
 ## Languages
 
@@ -66,6 +75,40 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 
 - **Open-Source**: code and docs under MIT License.
 
+
+## Mach3 prototype driver
+
+The `mach3-driver/` directory contains a Mach3 SDK adapter and a portable
+controller/client core. Select `STEPPER_NINJA_PROFILE=mach3-3axis` when building
+the matching firmware. This profile has a fixed pinout: three STEP/DIR axes,
+seven digital inputs, six digital outputs, and one spindle PWM output.
+
+Implemented in the prototype:
+
+- Buffered 1 ms XYZ motion and execution reports from physical STEP counts.
+- Local acceleration-limited jog, homing, and dwell.
+- Digital I/O, spindle RUN/DIR/PWM, and coolant outputs.
+- Sessions, ACKs, duplicate-request suppression, watchdog, E-stop and limit handling.
+- A Mach3 configuration dialog for IP/port, timing, polarity, and homing settings.
+- Native Mach3 Feed Hold forwarding the planned braking trajectory; Cycle Start
+  forwards Mach3's new startup trajectory.
+- Coordinated G31 with separate contact and stopping positions, missed-contact
+  detection, and controlled cancellation.
+
+**Prototype status:** portable Linux tests cover motion, reports, and UDP behavior;
+these use a substitute Mach3 planner. The Windows Win32 MFC DLL build, real Mach3
+Feed Hold/G31 integration, and hardware timing still need validation. USB motion
+transport is not implemented. The Mach3 profile has no encoder; the LinuxCNC
+performance and configuration features listed above do not describe its limits.
+Motion protocol version 3 requires matching Mach3 driver and firmware builds.
+The Pico firmware can also be built natively on Windows; no Linux machine is
+required to build the firmware and Mach3 DLL. Once real Mach3 and hardware
+testing has confirmed reliable operation, a release is planned with prebuilt
+firmware and driver binaries. That validated release is not available yet.
+
+See the [English build guide](docs/MACH3-BUILD.en.md) or
+[Hungarian build guide](docs/MACH3-BUILD.hu.md). The separate Mach3 profile
+preserves LinuxCNC's existing flexible configuration and protocol.
 
 ## Contributors
 

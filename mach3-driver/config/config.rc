@@ -1,0 +1,42 @@
+#include <winres.h>
+#include "resource.h"
+IDD_SN_CONFIG DIALOGEX 0, 0, 340, 375
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "StepperNinja configuration"
+FONT 9, "Segoe UI"
+BEGIN
+    LTEXT "Controller IPv4:", -1, 10, 12, 90, 12
+    EDITTEXT IDC_SN_IP, 115, 10, 120, 14, ES_AUTOHSCROLL
+    LTEXT "UDP port:", -1, 10, 34, 90, 12
+    EDITTEXT IDC_SN_PORT, 115, 32, 70, 14, ES_NUMBER
+    LTEXT "Reply timeout (ms):", -1, 10, 56, 100, 12
+    EDITTEXT IDC_SN_TIMEOUT, 115, 54, 70, 14, ES_NUMBER
+    LTEXT "Watchdog (ms):", -1, 10, 78, 100, 12
+    EDITTEXT IDC_SN_WATCHDOG, 115, 76, 70, 14, ES_NUMBER
+    LTEXT "PWM frequency (Hz):", -1, 10, 100, 100, 12
+    EDITTEXT IDC_SN_PWM, 115, 98, 70, 14, ES_NUMBER
+    LTEXT "STEP pulse (ns):", -1, 10, 122, 100, 12
+    EDITTEXT IDC_SN_PULSE, 115, 120, 70, 14, ES_NUMBER
+    LTEXT "DIR setup (ns):", -1, 10, 144, 100, 12
+    EDITTEXT IDC_SN_SETUP, 115, 142, 70, 14, ES_NUMBER
+    LTEXT "DI active-low mask:", -1, 10, 166, 100, 12
+    EDITTEXT IDC_SN_INPUT_INVERT, 115, 164, 35, 14, ES_NUMBER
+    LTEXT "DO active-low mask:", -1, 175, 166, 105, 12
+    EDITTEXT IDC_SN_OUTPUT_INVERT, 285, 164, 35, 14, ES_NUMBER
+    LTEXT "DIR invert mask (XYZ):", -1, 10, 188, 105, 12
+    EDITTEXT IDC_SN_DIR_INVERT, 115, 186, 35, 14, ES_NUMBER
+    LTEXT "Home +dir mask (XYZ):", -1, 175, 188, 105, 12
+    EDITTEXT IDC_SN_HOME_POSITIVE, 285, 186, 35, 14, ES_NUMBER
+    LTEXT "Home slow (% fast):", -1, 10, 210, 105, 12
+    EDITTEXT IDC_SN_HOME_SLOW, 115, 208, 70, 14, ES_NUMBER
+    LTEXT "Home backoff (units):", -1, 10, 232, 105, 12
+    EDITTEXT IDC_SN_HOME_BACKOFF, 115, 230, 70, 14, ES_AUTOHSCROLL
+    LTEXT "Home max travel (units):", -1, 10, 254, 105, 12
+    EDITTEXT IDC_SN_HOME_TRAVEL, 115, 252, 70, 14, ES_AUTOHSCROLL
+    LTEXT "X: GP0/1  Y: GP2/3  Z: GP4/5  PWM: GP6", -1, 10, 276, 320, 12
+    LTEXT "DO: GP7..12  DI: GP13..15,22,26..28; Mach3 port 1", -1, 10, 292, 320, 12
+    PUSHBUTTON "Test connection", IDC_SN_TEST, 10, 313, 90, 16
+    LTEXT "Motor tuning and fast home percentage come from Mach3.", IDC_SN_STATUS, 10, 334, 320, 22
+    DEFPUSHBUTTON "Save", IDOK, 210, 355, 55, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 275, 355, 55, 14
+END

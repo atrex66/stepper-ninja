@@ -2,6 +2,11 @@
 #include "encoder_index.h"
 #include "quadrature_encoder_substep.h"
 #define ENCODER_IDLE_STOP_SAMPLES 2500
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+#include "mach3_runtime.h"
+#include "udp_transport.h"
+
+#endif
 
 // Name: Stepper-Ninja
 
@@ -288,6 +293,9 @@ void core1_entry() {
     #endif
     // =======================================================================
 
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+    while(1) { gpio_put(LED_GPIO,sn_mach3_runtime_armed());sleep_ms(10); }
+#else
     while(1){
         gpio_put(LED_GPIO, !timeout_error);
         time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
@@ -369,6 +377,7 @@ void core1_entry() {
             #endif
         }
     }
+#endif
 }
 
 int main() {
@@ -515,7 +524,7 @@ int main() {
         printf("\n");
     #endif
 
-    #if stepgens > 0
+    #if stepgens > 0 && (!defined(SN_HOST_MACH3) || !SN_HOST_MACH3)
 
     uint32_t offset[2] = {0, };
     uint8_t step_inverts[] = step_invert;
@@ -612,6 +621,9 @@ int main() {
 
     printf("Pio init done....\n");
 
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+    sn_mach3_runtime_init();
+#endif
     handle_udp();
 }
 
@@ -637,33 +649,6 @@ uint8_t __time_critical_func(spi_read)() {
 
 void __time_critical_func(spi_write)(uint8_t data) {
     spi_write_blocking(SPI_PORT, &data, 1);
-}
-
-int32_t __time_critical_func(_sendto)(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t port) {
-    uint16_t freesize;
-    uint32_t taddr;
-
-    if (first_send) {
-        setSn_DIPR(sn, addr);
-        setSn_DPORT(sn, port);
-        first_send = 0;
-    }
-
-    wiz_send_data(sn, buf, len);
-    setSn_CR(sn, Sn_CR_SEND);
-    while (getSn_CR(sn));
-
-    while (1) {
-        uint8_t tmp = getSn_IR(sn);
-        if (tmp & Sn_IR_SENDOK) {
-            setSn_IR(sn, Sn_IR_SENDOK);
-            break;
-        } else if (tmp & Sn_IR_TIMEOUT) {
-            setSn_IR(sn, Sn_IR_TIMEOUT);
-            return SOCKERR_TIMEOUT;
-        }
-    }
-    return (int32_t)len;
 }
 
 void __not_in_flash_func(core0_wait)(void) {
@@ -701,39 +686,11 @@ void __not_in_flash_func(core0_wait)(void) {
     }
 }
 
-int32_t __time_critical_func(_recvfrom)(uint8_t sn, uint8_t *buf, uint16_t len, uint8_t *addr, uint16_t *port) {
-    static uint8_t head[8];
-    static uint16_t pack_len = 0;
-
-    while ((pack_len = getSn_RX_RSR(sn)) == 0) {
-        if (getSn_SR(sn) == SOCK_CLOSED) return SOCKERR_SOCKCLOSED;
-    }
-
-    wiz_recv_data(sn, head, 8);
-    setSn_CR(sn, Sn_CR_RECV);
-    while (getSn_CR(sn));
-
-    memset(addr, 0, 4);
-
-    addr[0] = head[0];
-    addr[1] = head[1];
-    addr[2] = head[2];
-    addr[3] = head[3];
-    *port = (head[4] << 8) | head[5];
-
-    uint16_t data_len = (head[6] << 8) | head[7];
-
-    if (len < data_len) pack_len = len;
-    else pack_len = data_len;
-
-    wiz_recv_data(sn, buf, pack_len);
-    setSn_CR(sn, Sn_CR_RECV);
-    while (getSn_CR(sn));
-
-    return (int32_t)pack_len;
-}
-
 void handle_data(){
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+    /* Mach3 variable-length datagrams are handled by its own runtime. */
+    return;
+#else
     tx_buffer->jitter = get_absolute_time() - last_packet_time;
     //printf("%d Received bytes: %d\n", rx_counter, len);
     last_packet_time = get_absolute_time();
@@ -869,6 +826,7 @@ void handle_data(){
     tx_buffer->protocol_magic = SN_PROTOCOL_MAGIC;
     tx_buffer->packet_id = rx_counter;
     tx_buffer->checksum = calculate_checksum(tx_buffer, tx_size - 1);
+#endif
 }
 
 void printbuf(uint8_t *buf, size_t len) {
@@ -978,7 +936,12 @@ void __not_in_flash_func(handle_udp)() {
         if (!gpio_get(GPIO_INT)){
             #if raspberry_pi_spi == 0
                 setSn_IR(0, Sn_IR_RECV);
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+                sn_mach3_runtime_poll();
+                int len = 0;
+#else
                 int len = _recvfrom(0, (uint8_t *)rx_buffer, rx_size, src_ip, &src_port);
+#endif
             #else 
                 memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
                 memcpy(packet_buffer, (uint8_t *)tx_buffer, tx_size);

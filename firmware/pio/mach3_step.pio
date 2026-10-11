@@ -1,0 +1,22 @@
+; Mach3 per-frame pulse train at a 10 MHz PIO clock.
+; FIFO: number-of-pulses minus one, high counter, low counter.
+; IRQ relative to SM signals completion. Counters on PIO1 measure actual pins.
+.program mach3_step
+.wrap_target
+    pull block
+    mov x, osr
+    pull block
+    mov isr, osr
+    pull block
+pulse:
+    mov y, isr
+    set pins, 1
+high:
+    jmp y--, high
+    set pins, 0
+    mov y, osr
+low:
+    jmp y--, low
+    jmp x--, pulse
+    irq set 0 rel
+.wrap

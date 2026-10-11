@@ -80,6 +80,10 @@
 
     #define KBMATRIX
 
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+#include "mach3_profile.h"
+#endif
+
 #include "footer.h"
 #include "kbmatrix.h"
 #endif

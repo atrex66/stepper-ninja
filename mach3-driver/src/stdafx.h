@@ -1,0 +1,10 @@
+#pragma once
+#define VC_EXTRALEAN
+#define _AFX_NO_DAO_SUPPORT
+#include <afxwin.h>
+#include <afxext.h>
+#include <afxole.h>
+#include <afxdisp.h>
+#include <afxcmn.h>
+#include <afxsock.h>
+#include <atlbase.h>
