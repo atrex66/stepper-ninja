@@ -71,3 +71,5 @@ add_executable(encoder-index-contract encoder_index_contract.c)
 target_include_directories(encoder-index-contract PRIVATE "${PROJECT_SOURCE_DIR}/../firmware/inc")
 target_compile_options(encoder-index-contract PRIVATE -UNDEBUG -Wall -Wextra -Werror)
 add_test(NAME encoder-index-contract COMMAND encoder-index-contract)
+add_test(NAME firmware-step-ring-contract COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/step_ring_contract.py" "${CMAKE_C_COMPILER}")

@@ -109,11 +109,18 @@ uint32_t total_steps[stepgens] = {0,};
     volatile uint8_t step_ring_head = 0;
     volatile uint8_t step_ring_tail = 0;
     volatile uint8_t step_ring_count = 0;
-    volatile uint32_t step_timer_period_us = 1000;
-    volatile uint32_t last_step_packet_us = 0;
+    // Keep fractional microseconds: integer rounding made the consumer clock
+    // drift from the producer even when packet jitter had zero mean.
+    volatile uint64_t step_timer_period_q16 = 1000ull << 16;
+    uint32_t step_timer_fraction = 0;
+    uint32_t step_period_start_us = 0;
+    uint8_t step_period_samples = 0;
+    uint8_t step_period_window = 2;
+    volatile bool have_step_packet_time = false;
     volatile uint64_t next_step_alarm_us = 0;
     volatile bool step_ring_overflow = false;
     volatile bool step_ring_underflow = false;
+    volatile bool step_timer_stop_pending = false;
     #endif
 #endif
 
@@ -203,14 +210,41 @@ void __time_critical_func(stepgen_update_handler)() {
         step_ring_head = 0;
         step_ring_tail = 0;
         step_ring_count = 0;
-        last_step_packet_us = 0;
+        step_period_start_us = 0;
+        step_period_samples = 0;
+        step_period_window = 2;
+        have_step_packet_time = false;
+        step_timer_period_q16 = 1000ull << 16;
+        step_timer_fraction = 0;
         step_ring_overflow = false;
         step_ring_underflow = false;
         restore_interrupts(irq_state);
     }
 
-    static void arm_step_timer(void) {
+    static void __time_critical_func(schedule_step_timer)(void) {
+        uint64_t period = step_timer_period_q16;
+        // Keep the three-slot ring centred. Arrival-clock estimation alone
+        // cannot correct the phase offset left by startup jitter or a late IRQ.
+        if (step_ring_count >= 2) period -= period / 16u;
+        else if (step_ring_count == 0) period += period / 16u;
+        period += step_timer_fraction;
+        uint32_t period_us = (uint32_t)(period >> 16);
+        step_timer_fraction = (uint32_t)(period & 0xffffu);
+        next_step_alarm_us += period_us;
         uint64_t now_us = time_us_64();
+        if (next_step_alarm_us <= now_us) {
+            // A late IRQ must not leave ACTIVE set with no alarm armed.
+            // Resume from now rather than burst-executing overdue motion.
+            next_step_alarm_us = now_us + period_us;
+        }
+        if (hardware_alarm_set_target((uint)alarm_num,
+                from_us_since_boot(next_step_alarm_us))) {
+            // Also cover the race where the target passes during SDK setup.
+            hardware_alarm_force_irq((uint)alarm_num);
+        }
+    }
+
+    static void arm_step_timer(void) {
 
         if (alarm_num < 0) {
             alarm_num = hardware_alarm_claim_unused(false);
@@ -221,9 +255,11 @@ void __time_critical_func(stepgen_update_handler)() {
             hardware_alarm_set_callback((uint)alarm_num, timer_callback);
         }
 
-        next_step_alarm_us = now_us + step_timer_period_us;
-        hardware_alarm_set_target((uint)alarm_num, from_us_since_boot(next_step_alarm_us));
+        next_step_alarm_us = time_us_64();
         timer_started = 1;
+        // The three records already provide two periods of prefill. Waiting
+        // another period here would overflow on the fourth packet with jitter.
+        hardware_alarm_force_irq((uint)alarm_num);
     }
 
     static void enqueue_stepgen_commands(const uint32_t *step_commands) {
@@ -231,13 +267,25 @@ void __time_critical_func(stepgen_update_handler)() {
         uint8_t should_arm_timer = 0;
         uint32_t irq_state = save_and_disable_interrupts();
 
-        if (last_step_packet_us != 0) {
-            uint32_t measured_period_us = now_us - last_step_packet_us;
-            if (measured_period_us > 50 && measured_period_us < TIMEOUT_US) {
-                step_timer_period_us = (step_timer_period_us * 3u + measured_period_us + 2u) / 4u;
+        if (have_step_packet_time) {
+            step_period_samples++;
+            if (step_period_samples == step_period_window) {
+                uint32_t elapsed_us = now_us - step_period_start_us;
+                uint32_t measured_period_us = elapsed_us / step_period_window;
+                if (measured_period_us > 50 && measured_period_us < TIMEOUT_US) {
+                    // Bootstrap from the two prefill intervals, then average
+                    // 32 intervals. Following each short/long arrival interval
+                    // directly modulated the consumer clock and emptied the ring.
+                    step_timer_period_q16 = ((uint64_t)elapsed_us << 16) / step_period_window;
+                }
+                step_period_start_us = now_us;
+                step_period_samples = 0;
+                if (step_period_window < 32) step_period_window *= 2;
             }
+        } else {
+            step_period_start_us = now_us;
         }
-        last_step_packet_us = now_us;
+        have_step_packet_time = true;
 
         if (step_ring_count < STEP_RING_BUFFER_SIZE) {
             for (int i = 0; i < stepgens; i++) {
@@ -245,7 +293,6 @@ void __time_critical_func(stepgen_update_handler)() {
             }
             step_ring_head = (uint8_t)((step_ring_head + 1u) % STEP_RING_BUFFER_SIZE);
             step_ring_count++;
-            step_ring_overflow = false;
             if (!timer_started && step_ring_count == STEP_RING_BUFFER_SIZE) {
                 should_arm_timer = 1;
                 step_ring_underflow = false;
@@ -259,6 +306,24 @@ void __time_critical_func(stepgen_update_handler)() {
         if (should_arm_timer) {
             arm_step_timer();
         }
+    }
+
+    static void service_step_timer_stop(void) {
+        if (!step_timer_stop_pending) return;
+        // Alarm callbacks and ring storage belong to core 0. The watchdog on
+        // core 1 only posts a request; disabling its IRQs cannot protect core 0.
+        uint32_t irq_state = save_and_disable_interrupts();
+        if (alarm_num >= 0) {
+            hardware_alarm_cancel((uint)alarm_num);
+            hardware_alarm_set_callback((uint)alarm_num, NULL);
+            hardware_alarm_unclaim((uint)alarm_num);
+            alarm_num = -1;
+        }
+        timer_started = 0;
+        reset_step_ring_buffer();
+        step_timer_stop_pending = false;
+        restore_interrupts(irq_state);
+        printf("Timer stopped\n");
     }
     #endif
 #endif
@@ -864,7 +929,7 @@ void __not_in_flash_func(gpio_callback)(uint gpio, uint32_t events) {
 void __time_critical_func(timer_callback)(uint triggered_alarm_num) {
     uint32_t step_commands[stepgens] = {0,};
 
-    if ((int)triggered_alarm_num != alarm_num) {
+    if ((int)triggered_alarm_num != alarm_num || step_timer_stop_pending) {
         return;
     }
 
@@ -878,28 +943,36 @@ void __time_critical_func(timer_callback)(uint triggered_alarm_num) {
     for (int i = 0; i < stepgens; i++) {
         step_commands[i] = step_command_ring[step_ring_tail][i];
     }
+    // Check every axis before consuming the record. Only this core writes the
+    // step FIFOs in buffered mode, and the PIO can only free space meanwhile.
+    // Never wait on a full FIFO inside the timer IRQ: UDP runs on the same core.
+    for (int i = 0; i < stepgens; i++) {
+        if (step_commands[i] != 0 &&
+                pio_sm_is_tx_fifo_full(stepgen_pio[i].pio, stepgen_pio[i].sm)) {
+            schedule_step_timer();
+            return;
+        }
+    }
     step_ring_tail = (uint8_t)((step_ring_tail + 1u) % STEP_RING_BUFFER_SIZE);
     step_ring_count--;
 
-    next_step_alarm_us += step_timer_period_us;
-    hardware_alarm_set_target(triggered_alarm_num, from_us_since_boot(next_step_alarm_us));
-
-    apply_stepgen_commands(step_commands);
+    // Records were checksum-validated on enqueue. A later bad packet must not
+    // discard already accepted motion, and these writes cannot block.
+    for (int i = 0; i < stepgens; i++) {
+        if (step_commands[i] != 0) {
+            gpio_put(dir_pin[i], step_commands[i] >> 31);
+            pio_sm_put(stepgen_pio[i].pio, stepgen_pio[i].sm,
+                step_commands[i] & 0x7fffffffu);
+        }
+    }
+    schedule_step_timer();
 }
 #endif
 
 // Timer leállítása
 void stop_timer() {
     #if use_timer_interrupt == 1 && stepgens > 0
-        if (alarm_num >= 0) {
-            hardware_alarm_cancel((uint)alarm_num);
-            hardware_alarm_set_callback((uint)alarm_num, NULL);
-            hardware_alarm_unclaim((uint)alarm_num);
-            alarm_num = -1;
-        }
-        timer_started = 0;
-        reset_step_ring_buffer();
-        printf("Timer stopped\n");
+        step_timer_stop_pending = true;
     #endif
 }
 
@@ -919,6 +992,9 @@ void __not_in_flash_func(handle_udp)() {
     memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
     last_packet_time = get_absolute_time();
     while (1){
+        #if use_timer_interrupt == 1 && stepgens > 0
+        service_step_timer_stop();
+        #endif
         #if encoders > 0
         if (index_disconnect_pending) {
             uint32_t index_irq = save_and_disable_interrupts();
