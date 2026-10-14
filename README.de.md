@@ -1,8 +1,11 @@
 # stepper-ninja
 
-Eine freie, quelloffene und leistungsstarke Step-Generator-, Quadratur-Encoder-, Digital-I/O- und PWM-Schnittstelle für LinuxCNC.
+Eine freie, quelloffene und leistungsstarke Step-Generator-, Digital-I/O- und PWM-Schnittstelle für LinuxCNC und Mach3.
 
-Das Encoder-Modul ermöglicht außerdem hauptsynchronisierte Bewegungen, zum Beispiel Gewindeschneiden und andere spindelsynchrone Abläufe.
+**NEU — erste Version des 3-Achsen-Mach3-Treibers (USB):**
+[StepperNinja Mach3 USB-Paket](configurations/StepperNinja-Mach3-USB).
+Enthält Pico/Pico-2-Firmware, das Windows-Plugin, Maschinenprofile und eine
+[Installationsanleitung auf Englisch](configurations/StepperNinja-Mach3-USB/README.en.md).
 
 Du brauchst das offizielle Breakout-Board nicht, um stepper-ninja zu verwenden. Ein günstiges Parallelport-Breakout-Board reicht aus, und andere Konfigurationen sind ebenfalls möglich.
 
@@ -23,7 +26,9 @@ Du brauchst das offizielle Breakout-Board nicht, um stepper-ninja zu verwenden. 
 - [Magyar](README.hu.md)
 - [Português (Brasil)](README.pt-BR.md)
 
-## Funktionen
+## LinuxCNC-Funktionen
+
+Das LinuxCNC-Profil unterstützt Quadratur-Encoder und spindelsynchrone Bewegungen, zum Beispiel Gewindeschneiden. Encoder-Unterstützung ist im Mach3-Treiber noch nicht implementiert.
 
 - **Unterstützte Konfigurationen**:
 

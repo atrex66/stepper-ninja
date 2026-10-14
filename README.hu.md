@@ -1,12 +1,14 @@
 # stepper-ninja
 
-Nyílt forráskódú, ingyenes, nagy teljesítményű step-generátor, kvadratúrás enkóderszámláló, digitális I/O és PWM interfész LinuxCNC-hez.
+Nyílt forráskódú, ingyenes, nagy teljesítményű step-generátor, digitális I/O és PWM interfész LinuxCNC-hez és Mach3-hoz.
+
+**ÚJ — a 3 tengelyes Mach3 driver első verziója (USB):**
+[StepperNinja Mach3 USB csomag](configurations/StepperNinja-Mach3-USB).
+Pico/Pico 2 firmware, Windows plugin, gépprofilok és
+[telepítési útmutató](configurations/StepperNinja-Mach3-USB/README.hu.md).
 
 Külön **prototípus Mach3 driver** is elérhető, fix háromtengelyes USB/UDP
-firmware-profillal. A Windows DLL fordítása/betöltése és a fizikai gép működése
-még nincs igazolva. A LinuxCNC marad az alapértelmezett, rugalmas profil.
-
-Az encoder modul lehetővé teszi a főorsó-szinkron mozgások használatát is, például a menetvágást és más főorsóhoz szinkronizált mozgásokat.
+firmware-profillal. A LinuxCNC marad az alapértelmezett, rugalmas profil.
 
 A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Egy olcsó printer-port breakout board is elég lehet, és más konfigurációk is használhatók.
 
@@ -31,7 +33,9 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 - [Magyar](README.hu.md)
 - [Português (Brasil)](README.pt-BR.md)
 
-## Főbb jellemzők
+## LinuxCNC jellemzők
+
+A LinuxCNC profil támogatja a kvadratúrás enkódereket és a főorsó-szinkron mozgásokat, például a menetvágást. A Mach3 driverben az enkódertámogatás még nincs megvalósítva.
 
 - **Támogatott konfigurációk**:
 
@@ -83,10 +87,11 @@ A prototípusban megvalósított funkciók:
   felismerésével és kontrollált megszakítással.
 
 **Prototípus státusz:** a Linux tesztek mozgást, reportokat és UDP működést
-ellenőriznek, helyettesített Mach3 pályatervezővel. A Win32 MFC DLL fordítása,
-a valódi Mach3 Feed Hold/G31 integráció és a hardveridőzítés még ellenőrizendő.
+ellenőriznek, helyettesített Mach3 pályatervezővel. A projekt készítőjének visszajelzése szerint
+Windows alatt a Mach3-ból USB-n már működik a STEP-jelkimenet.
+A teljes Mach3 Feed Hold/G31 integráció és a hardveridőzítés még ellenőrizendő.
 USB CDC mozgástranszport automatikus konzolátadással megvalósított;
-a Windows és fizikai USB ellenőrzés még hátravan. A Mach3 profilnak nincs encodere;
+a teljes Windows- és fizikai gépteszt még hátravan. A Mach3 profilnak nincs encodere;
 a LinuxCNC fent felsorolt teljesítmény- és konfigurációs lehetőségei nem ennek
 a profilnak a korlátait írják le. A 3-as mozgásprotokoll-verzióhoz egyező Mach3
 driver és firmware build szükséges.

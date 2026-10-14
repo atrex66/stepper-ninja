@@ -1,13 +1,14 @@
 # stepper-ninja
 
-An open-source, free, high-performance step generator, quadrature encoder counter, digital I/O, and PWM interface for LinuxCNC.
+An open-source, free, high-performance step generator, digital I/O, and PWM interface for LinuxCNC and Mach3.
+
+**NEW — first version of the 3-axis Mach3 driver (USB):**
+[StepperNinja Mach3 USB package](configurations/StepperNinja-Mach3-USB).
+Includes Pico/Pico 2 firmware, the Windows plugin, machine profiles, and
+[setup instructions](configurations/StepperNinja-Mach3-USB/README.en.md).
 
 A separate **prototype Mach3 driver** is available for a fixed three-axis USB/UDP
-firmware profile. Windows DLL compilation/loading and physical machine operation
-are not validated yet. LinuxCNC remains the default profile with flexible
-configuration.
-
-The encoder module also enables spindle-synchronized motion use cases, for example threading and other spindle-synchronous moves.
+firmware profile. LinuxCNC remains the default profile with flexible configuration.
 
 You definitely do not need the official breakout board to use stepper-ninja. A cheap printer-port breakout board is enough, and other configurations are also possible.
 
@@ -32,7 +33,9 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 - [Magyar](README.hu.md)
 - [Português (Brasil)](README.pt-BR.md)
 
-## Features
+## LinuxCNC features
+
+LinuxCNC supports quadrature encoders and spindle-synchronized motion, including threading. Encoder support is not implemented in the Mach3 driver.
 
 - **Supported configurations**:
 
@@ -96,9 +99,10 @@ Implemented in the prototype:
   detection, and controlled cancellation.
 
 **Prototype status:** portable Linux tests cover motion, reports, and UDP behavior;
-these use a substitute Mach3 planner. The Windows Win32 MFC DLL build, real Mach3
-Feed Hold/G31 integration, and hardware timing still need validation. USB CDC motion transport is implemented
-with automatic console handover; Windows and physical USB validation remain pending. The Mach3 profile has no encoder; the LinuxCNC
+these use a substitute Mach3 planner. USB STEP output from Mach3 on Windows has been reported working by the project author.
+Full Mach3 Feed Hold/G31 integration and hardware timing still need validation.
+USB CDC motion transport is implemented with automatic console handover; full
+Windows and physical machine validation remain pending. The Mach3 profile has no encoder; the LinuxCNC
 performance and configuration features listed above do not describe its limits.
 Motion protocol version 3 requires matching Mach3 driver and firmware builds.
 The Pico firmware can also be built natively on Windows; no Linux machine is

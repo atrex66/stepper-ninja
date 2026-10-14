@@ -1,8 +1,11 @@
 # stepper-ninja
 
-Uma interface open-source, gratuita e de alto desempenho de step generator, contador de encoder em quadratura, I/O digital e PWM para LinuxCNC.
+Uma interface open-source, gratuita e de alto desempenho de step generator, I/O digital e PWM para LinuxCNC e Mach3.
 
-O módulo de encoder também permite movimentos sincronizados com o spindle, por exemplo roscamento e outros movimentos síncronos ao eixo-árvore.
+**NOVO — primeira versão do driver Mach3 de 3 eixos (USB):**
+[Pacote StepperNinja Mach3 USB](configurations/StepperNinja-Mach3-USB).
+Inclui firmware para Pico/Pico 2, plugin para Windows, perfis de máquina e
+[instruções de instalação em inglês](configurations/StepperNinja-Mach3-USB/README.en.md).
 
 Você não precisa da breakout board oficial para usar o stepper-ninja. Uma breakout board simples de porta paralela já pode ser suficiente, e outras configurações também são possíveis.
 
@@ -23,7 +26,9 @@ Você não precisa da breakout board oficial para usar o stepper-ninja. Uma brea
 - [Magyar](README.hu.md)
 - [Português (Brasil)](README.pt-BR.md)
 
-## Recursos
+## Recursos do LinuxCNC
+
+O perfil LinuxCNC suporta encoders em quadratura e movimentos sincronizados com o spindle, como roscamento. O suporte a encoders ainda não está implementado no driver Mach3.
 
 - **Configurações suportadas**:
 
