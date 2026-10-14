@@ -1,5 +1,79 @@
 Stepper-Ninja Source-Only Change Log
 
+Date: 2026-10-14
+
+StepperNinja Mach3 USB - first development version available for testing
+- Provide an installable test package in configurations/StepperNinja-Mach3-USB/
+  with a Win32 x86 Mach3 plugin and USB-only UF2 firmware for Pico/RP2040
+  and Pico 2/RP2350 (ARM). USB operation does not require WIZnet hardware.
+- Introduce a separate mach3-3axis firmware profile with three STEP/DIR axes,
+  seven digital inputs, six digital outputs and one spindle PWM output.
+  The default LinuxCNC profile retains its existing flexible configuration.
+
+Motion and controller implementation
+- Stream Mach3 XYZ trajectories as buffered 1 ms step records through a
+  256-record controller queue. Track accepted and executed records separately;
+  report emitted STEP counts and the executed program line back to Mach3.
+  STEP counts are pulse feedback, not encoder-based mechanical position.
+- Generate synchronised axis pulse trains with PIO. Support up to 200 steps
+  per millisecond per axis (200 kHz average), subject to STEP high/low time
+  and DIR setup checks; reject incompatible Motor Tuning settings.
+- Implement local acceleration/deceleration for jog and controller-side moves,
+  sequential axis homing with fast search, backoff and slow re-approach,
+  configurable homing travel limits/offsets, and controller-side dwell.
+- Integrate normal Feed Hold with Mach3's planned deceleration: drain the
+  braking trajectory and accept the new trajectory supplied by Cycle Start.
+- Implement XYZ G31 probing with contact capture separate from the braking
+  endpoint. Publish work-coordinate results to ProbeX/Y/Z and parameters
+  #2000..#2002; handle probe cancellation and failure to reach contact.
+- Map spindle enable/direction, mist, flood and an auxiliary output, with
+  spindle speed ratio driving PWM. Support input/output and DIR inversion.
+- Handle E-stop, limits, watchdog expiry, queue underflow and pulse timing
+  faults in the controller; propagate faults to Mach3 Reset/E-stop handling.
+  Reconnection starts with E-stop asserted and requires a Reset cycle.
+
+Communication and Mach3 integration
+- Use motion protocol v3 with session ownership, CRC, ordered commands,
+  acknowledgements, retries and duplicate-command suppression. USB CDC uses
+  framed binary messages and session-based handover from the serial console.
+  The driver also supports UDP with the corresponding network firmware;
+  the packaged UF2 files are USB-only. Install matching firmware and DLL.
+- Add profile-specific USB/COM or UDP settings, timeouts, watchdog, PWM,
+  STEP/DIR timing and homing parameters. Read axis scale, velocity and
+  acceleration from Mach3 Motor Tuning.
+- Add seven named input-inversion checkboxes and synchronise Mach3 Active Low
+  for all signals mapped to each DI, including shared home/limit assignments.
+- Add an approximately 50 ms live input monitor showing physical H/L and
+  logical ON/off states with immediate inversion preview. The selected
+  controller reuses its existing connection; Save applies settings and
+  Cancel preserves them. Monitoring leaves the controller disarmed.
+- Use the official Plugin Wizard plain-data ABI for Mach3-owned structures,
+  with compile-time layout checks to correct Motor Tuning/input access.
+  Fix MFC startup state handling, use an XML-safe plugin identifier and
+  disable the wrapper's request to start Mach3's parallel-port engine.
+- Show the last runtime driver error and Win32 COM errors in diagnostics.
+  Include sn-mach3-usb-check.exe for CLAIM/POLL/RELEASE connection checks
+  without configuring, arming or moving the controller.
+
+Ready-to-try profiles and validation status
+- Include separate XYZ mill and XZ radius-mode lathe profiles, launchers and
+  macro folders; manual M6 tool changes do not perform an automatic traverse.
+  Base profiles use 100 steps/mm, 10,000 mm/min and 250 mm/s^2; separate
+  Mill1000/Turn1000 presets use 1000 steps/mm for higher step-rate testing.
+- Include English/Hungarian setup instructions, wiring PDFs, a GPIO table,
+  build metadata and SHA256 checksums. Add targeted Git ignore exceptions
+  for the packaged DLL and both UF2 files so the test package is complete.
+- The package records 10/10 Windows tests passing, x86 DLL startup/loading,
+  physical RP2040 USB communication and live input monitoring, and Mach3
+  Motor Tuning plus E-stop/Reset integration checks. See the package README
+  and package-info.json for the recorded validation scope.
+- This is the first version packaged for user trials, not a machine-validated
+  release. Physical motion, homing, G31, full lathe operation and the 200 kHz
+  waveform still require hardware validation; physical input-switch toggling
+  and RP2350 operation are also unverified. Spindle encoder feedback and
+  synchronised threading are not implemented; spindle calibration remains
+  machine-specific.
+
 Date: 2026-10-09
 
 Encoder index latch protocol v2

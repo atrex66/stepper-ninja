@@ -25,6 +25,10 @@ hal-driver/build-cmake/
 *.bin
 *.uf2
 *.map
+# Packaged Mach3 USB binaries distributed with this configuration
+!/configurations/StepperNinja-Mach3-USB/driver/StepperNinja.dll
+!/configurations/StepperNinja-Mach3-USB/firmware/stepper-ninja-pico-usb-mach3-3axis.uf2
+!/configurations/StepperNinja-Mach3-USB/firmware/stepper-ninja-pico2-usb-mach3-3axis.uf2
 benchmark_udp
 utility/osd
 
