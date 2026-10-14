@@ -2,7 +2,7 @@
 
 An open-source, free, high-performance step generator, quadrature encoder counter, digital I/O, and PWM interface for LinuxCNC.
 
-A separate **prototype Mach3 driver** is available for a fixed three-axis UDP
+A separate **prototype Mach3 driver** is available for a fixed three-axis USB/UDP
 firmware profile. Windows DLL compilation/loading and physical machine operation
 are not validated yet. LinuxCNC remains the default profile with flexible
 configuration.
@@ -97,8 +97,8 @@ Implemented in the prototype:
 
 **Prototype status:** portable Linux tests cover motion, reports, and UDP behavior;
 these use a substitute Mach3 planner. The Windows Win32 MFC DLL build, real Mach3
-Feed Hold/G31 integration, and hardware timing still need validation. USB motion
-transport is not implemented. The Mach3 profile has no encoder; the LinuxCNC
+Feed Hold/G31 integration, and hardware timing still need validation. USB CDC motion transport is implemented
+with automatic console handover; Windows and physical USB validation remain pending. The Mach3 profile has no encoder; the LinuxCNC
 performance and configuration features listed above do not describe its limits.
 Motion protocol version 3 requires matching Mach3 driver and firmware builds.
 The Pico firmware can also be built natively on Windows; no Linux machine is

@@ -20,8 +20,8 @@ Mach3 konfigurációs ablak és SDK adapterforrás.
 A Windows DLL fordítása/betöltése és a hardveres működés még ellenőrizendő.
 A G31 SDK reportjait és a valódi Mach3 Feed Hold / Cycle Start útvonalat
 Windows alatt kell igazolni. [Működés és példák](MACH3-FEEDHOLD-G31.hu.md).
-USB lehetséges bővítés,
-a jelenlegi implementáció UDP-t használ.
+USB CDC és UDP is megvalósított; az USB a konfigurációs konzol portját
+használja automatikus session alapú átadással. A Windows és fizikai USB ellenőrzés még hátravan.
 
 A pontos adatmezők, állapotátmenetek, Mach3 reportok, I/O szerepek és ismert
 korlátok: [Mach3 végrehajtás és protokoll](MACH3-PROTOCOL.hu.md).

@@ -124,5 +124,5 @@ cancellation, and work-coordinate conversion.
 
 The default LinuxCNC profile and its configurability remain unchanged:
 the Mach3 state machine and probing implementation are included in the firmware
-only for a `mach3-3axis` build. USB motion transport is not implemented;
-the current transport is UDP.
+only for a `mach3-3axis` build. USB CDC and UDP use the same buffered motion protocol;
+Windows and physical USB validation remain pending.

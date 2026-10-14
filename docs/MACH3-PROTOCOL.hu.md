@@ -340,20 +340,60 @@ Ez időablakon belüli impulzuselosztás, nem tökéletesen egyenletes, folyamat
 DDS frekvenciagenerátor. A határidőt és DIR hold időt hardveren mérni kell.
 Aszinkron leállítás után irányváltás előtt legalább 20 µs hold van.
 
-## 9. USB lehetőség
+## 9. USB kapcsolat és a konzol átadása
 
-Mach3 külső mozgásvezérlő-plugin használhat USB-t is: az SDK ncPod mintája
-USB-s mozgásvezérlőhöz készült. A Pico jelenlegi `pico_stdio_usb` kapcsolata
-konzol, ezen még nincs Mach3 parancsfogadás/report küldés.
+A Mach3 profil USB CDC és UDP kapcsolatot is támogat. A Config Plugins ablakban
+jelöld be a **USB connection** mezőt, és add meg a Windows port nevét, például
+`COM3` vagy `COM12`. Kikapcsolt USB mezővel a meglévő UDP IP/port beállítás működik.
+Mach3 csatlakoztatása előtt zárd be a terminálprogramot: a plugin kizárólagosan
+nyitja meg a COM portot. A soros beállítás 115200, 8N1, aktív DTR, hardveres és
+szoftveres flow control nélkül. A CDC mozgásidőzítését a pufferelt vezérlő adja,
+nem a beállított soros baud rate.
 
-Következő bővítésként USB CDC külön vezérlési interfész/COM port használható.
-A közös csomagkódoló és vezérlő megmaradhat; PC oldalon a socket helyett COM
-transport kell, firmware oldalon külön USB transport. A soros bájtfolyamba
-keretezés és újraszinkronizálás kell (például hossz + COBS delimiter), mert a
-CDC nem UDP-datagramot szállít. A printf konzol nem keverhető a bináris vezérlési
-csatornával. USB-n is helyi puffer, watchdog, session és végrehajtási report kell.
-Egyidejű USB/UDP esetén a közös vezérlő egyetlen tulajdonost engedhet, transport
-azonosítóval kiegészítve a peer kulcsot. USB implementáció még nincs ebben a változatban.
+Ugyanaz a CDC port induláskor konfigurációs konzol. Egy teljes, helyes CRC-jű,
+3-as protokollverziójú `SN_CLAIM` lefoglalja az eszközt, és bináris
+mozgáskommunikációra kapcsol. A félbehagyott konzolbevitel törlődik. Amíg USB
+vagy UDP session birtokolja a vezérlőt, a konzolbevitel és a szokásos USB `printf`
+kimenet tiltott, álló gépnél, E-stop és Feed Hold alatt is. A konzolparancsokat
+és a bináris USB-bevitelt kizárólag core0 kezeli; core1 a Mach3 LED feladatot végzi.
+
+USB-n a változatlan SNC3 csomagokat SLIP keretezés veszi körül: `C0` indítja/zárja
+a keretet, az adatbeli `C0` helyett `DB DC`, a `DB` helyett `DB DD` megy.
+A maximális csomagméret 512 bájt, a maximális kódolt keret 1026 bájt.
+Feldolgozás előtt ellenőrzött a fejléc, verzió, profil, hossz és CRC. Hibás escape,
+túl hosszú keret és hibás CRC elutasított; a dekóder határolónál újraszinkronizál.
+Az USB saját transportazonosítós peer kulcsot használ, ezért aktív UDP sessiont
+nem vehet át. Mindkét kapcsolatra érvényes a meglévő sequence/ACK, újraküldés,
+végrehajtási report és watchdog.
+
+Normál pluginleállításkor `SN_DISARM`, majd `SN_RELEASE` megy, beérkezik az utolsó
+bináris válasz, és a port bezárul. A firmware a konzol átadása előtt leállítja
+a mozgást és a kimeneteket. USB-s kapcsolatnál a kihúzás/DTR megszűnése azonnal
+hibát jelez és felszabadítja a vezérlőt; lefagyott vagy összeomlott hostnál a
+beállított watchdog is működik (alapérték 500 ms). Az USB bezárása UDP tulajdonost
+nem szabadít fel. Felszabadítás után a maradék bemenet eldobódik, és 100 ms
+beviteli csend után visszatér a konzol. Újracsatlakozáshoz új claim/konfiguráció
+kell, a kapcsolat E-stop állapotból indul.
+
+A plugin konfigurációs ablaka szünetelteti a frissítést és felszabadítja a
+kapcsolatot, majd bezárás után újracsatlakozik. Az USB kapcsolatteszt átmenetileg
+lefoglalja/felszabadítja az eszközt, engedélyezés nélkül; UDP-n továbbra is
+diagnosztikai probe működik. A kapcsolatteszt nem igazolja a mozgást vagy a fizikai I/O-t.
+
+WIZnet hardver nélküli Pico esetén a
+`-DSTEPPER_NINJA_PROFILE=mach3-3axis` mellé add meg a
+`-DSTEPPER_NINJA_MACH3_USB_ONLY=ON` opciót. Ez kihagyja a hálózati hardver
+inicializálását és lekérdezését; `BOARD=pico` esetén a kimenet
+`stepper-ninja-pico-usb-mach3-3axis.uf2`. Az alap Mach3 build mindkét kapcsolatot
+megtartja, és WIZnet hardvert vár; USB használathoz Ethernet kábel nem kell.
+Mindkét build megtartja a fix Mach3 lábkiosztást. LinuxCNC profilnál az USB-only
+opció elutasított; az eredeti USB-konzol, protokoll, konfiguráció és alap build
+megmarad. Mach3 esetén a CDC 1200 baudos reset gyorsbillentyűje tiltott,
+a bináris kimenethez pedig korlátozott SDK írási timeout tartozik.
+
+A Windows COM-olvasás a dokumentált
+[COMMTIMEOUTS első bájtra váró/pufferelt olvasását](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-commtimeouts)
+használja.
 
 ## 10. Ellenőrzések és fennmaradó munka
 
@@ -363,8 +403,9 @@ pozíciót, a hibákat/watchdogot, a jog/homing/dwell/hold/move működést,
 a tényleges WIZ wrapper kódját regiszter/FIFO helyettesítővel, és a PIO program
 utasításainak impulzusszámát/időzítését szoftveres modellel.
 A Pico/W5500 firmware mindkét profilja külön fordítható.
-Helyi eredmény (2026-10-11): 8/8 Mach3/transport/PIO/probe teszt és 31/31 LinuxCNC HAL
-regressziós teszt sikeres; Pico/W5500 LinuxCNC és Mach3 firmware build sikeres.
+Helyi eredmény (2026-10-14): 11/11 Mach3/USB/UDP/PIO/probe teszt és 32/32 LinuxCNC HAL
+regressziós teszt sikeres; Pico/W5500 LinuxCNC és Mach3 firmware build sikeres,
+ahogy a Pico USB-only Mach3 build is.
 Ez nem helyettesíti a Windows SDK- és hardverellenőrzést.
 
 Windows alatt: Win32 MFC DLL build; plugin betöltése; XML/config; Reset/reconnect;

@@ -117,4 +117,5 @@ a megszakítást és a munkakoordináta-átváltást.
 
 A LinuxCNC alapértelmezett profil és konfigurálhatósága változatlan:
 a Mach3 saját állapotgépe/probe-je csak `mach3-3axis` buildben kerül a firmware-be.
-USB mozgástranszport nincs megvalósítva; jelenleg UDP működik.
+USB CDC és UDP ugyanazt a pufferelt mozgásprotokollt használja;
+a Windows és fizikai USB ellenőrzés még hátravan.

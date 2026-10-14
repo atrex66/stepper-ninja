@@ -62,6 +62,8 @@ static CString double_text(double value) {
 }
 static sn::Settings load(CXMLProfile *profile) {
   sn::Settings value;
+  value.usb = profile->GetProfileInt(section, "USB", 0) != 0;
+  value.serial_port = (LPCSTR)profile->GetProfileString(section, "COMPort", "COM3");
   value.ip = (LPCSTR)profile->GetProfileString(section, "IP", value.ip.c_str());
   for (const auto &field : fields)
     value.*(field.member) =
@@ -79,6 +81,8 @@ public:
       : CDialog(IDD_SN_CONFIG), value(initial) {}
   BOOL OnInitDialog() override {
     CDialog::OnInitDialog();
+    CheckDlgButton(IDC_SN_USB, value.usb ? BST_CHECKED : BST_UNCHECKED);
+    SetDlgItemText(IDC_SN_COM, value.serial_port.c_str());
     SetDlgItemText(IDC_SN_IP, value.ip.c_str());
     for (const auto &field : fields)
       SetDlgItemInt(field.control, value.*(field.member));
@@ -87,6 +91,10 @@ public:
     return TRUE;
   }
   bool read() {
+    value.usb = IsDlgButtonChecked(IDC_SN_USB) == BST_CHECKED;
+    CString com;
+    GetDlgItemText(IDC_SN_COM, com);
+    value.serial_port = (LPCSTR)com;
     CString ip;
     GetDlgItemText(IDC_SN_IP, ip);
     value.ip = (LPCSTR)ip;
@@ -112,7 +120,13 @@ public:
     if (!read())
       return;
     GetDlgItem(IDC_SN_TEST)->EnableWindow(FALSE);
-    std::string error = sn::probe_controller(value);
+    std::string error;
+    if (value.usb) {
+      sn::ControllerClient test_client;
+      error = test_client.open(value);
+      if (error.empty()) error = test_client.command(SN_RELEASE);
+      test_client.close();
+    } else error = sn::probe_controller(value);
     SetDlgItemText(IDC_SN_STATUS,
                    error.empty() ? "Matching StepperNinja profile responded."
                                  : error.c_str());
@@ -493,7 +507,7 @@ static VOID CALLBACK update_timer(HWND, UINT, UINT_PTR, DWORD) {
 }
 CString myProfileInit(CString, CXMLProfile *profile) {
   settings = load(profile);
-  return " StepperNinja UDP 0.2 (3-axis development)";
+  return " StepperNinja USB/UDP 0.3 (3-axis development)";
 }
 void myInitControl() {
   if (MachView)
@@ -532,6 +546,8 @@ void myConfig(CXMLProfile *profile) {
   ConfigDialog dialog(load(profile));
   if (dialog.DoModal() == IDOK) {
     settings = dialog.value;
+    profile->WriteProfileInt(section, "USB", settings.usb ? 1 : 0);
+    profile->WriteProfileString(section, "COMPort", settings.serial_port.c_str());
     profile->WriteProfileString(section, "IP", settings.ip.c_str());
     for (const auto &field : fields)
       profile->WriteProfileInt(section, field.key, settings.*(field.member));

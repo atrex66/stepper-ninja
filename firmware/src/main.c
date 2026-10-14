@@ -484,7 +484,7 @@ int main() {
         }
     }
     
-    #if raspberry_pi_spi == 0
+    #if raspberry_pi_spi == 0 && !defined(SN_MACH3_USB_ONLY)
 
         //clock_configure(clk_peri,
         //                0,
@@ -505,6 +505,7 @@ int main() {
     load_configuration();
 
     #if raspberry_pi_spi == 0
+      #if !defined(SN_MACH3_USB_ONLY)
         #if _WIZCHIP_==W5100S
             #pragma message "W5100S init"
             w5100s_init();
@@ -516,6 +517,7 @@ int main() {
             w5500_interrupt_init();
         #endif
     network_init();
+      #endif
     #else
     printf("Raspberry PI spi communication.\n");
     spi_init(SPI_PORT, 1000 * 1000);
@@ -992,6 +994,9 @@ void __not_in_flash_func(handle_udp)() {
     memset(packet_buffer, 0, SPI_TRANSFER_SIZE);
     last_packet_time = get_absolute_time();
     while (1){
+#if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+        sn_mach3_usb_poll();
+#endif
         #if use_timer_interrupt == 1 && stepgens > 0
         service_step_timer_stop();
         #endif
@@ -1009,6 +1014,7 @@ void __not_in_flash_func(handle_udp)() {
         if (consume_save_config_request()) {
             save_config_to_flash();
         }
+        #if !defined(SN_MACH3_USB_ONLY)
         if (!gpio_get(GPIO_INT)){
             #if raspberry_pi_spi == 0
                 setSn_IR(0, Sn_IR_RECV);
@@ -1035,6 +1041,7 @@ void __not_in_flash_func(handle_udp)() {
                 rx_counter += 1;
             }
         }
+        #endif
         if (multicore_fifo_rvalid()) {
             uint32_t signal = multicore_fifo_pop_blocking();
             printf("Core1 signal: %08X\n", signal);

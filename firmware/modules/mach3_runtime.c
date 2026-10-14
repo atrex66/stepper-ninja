@@ -9,6 +9,29 @@
 #include "pico/stdlib.h"
 #include "step_counter.pio.h"
 #include "udp_transport.h"
+#include "../../common/protocol/mach3_usb.h"
+#include "serial_terminal.h"
+#include "pico/stdio_usb.h"
+#include "pico/stdio/driver.h"
+#include <string.h>
+#include <stdio.h>
+#define USB_PEER (UINT64_C(1) << 63)
+static sn_usb_decoder usb_decoder;
+static bool usb_suppressed;
+static uint64_t usb_last_byte;
+static char console_line[64];
+static unsigned console_size;
+
+/* Core0 exclusively owns USB input, console commands and mode transitions.
+ * Timer IRQ owns watchdog expiry; controller accesses below are IRQ protected. */
+static void suppress_console(void) {
+  if (!usb_suppressed) {
+    stdio_set_driver_enabled(&stdio_usb, false);
+    usb_suppressed = true;
+    console_size = 0;
+  }
+}
+
 static sn_controller controller;
 static struct repeating_timer timer;
 static const uint8_t step_pins[3] = SN_MACH3_STEP_PINS,
@@ -245,10 +268,92 @@ void sn_mach3_runtime_poll(void) {
   if (controller.epoch != before_epoch)
     stop_steps();
   apply_io();
+  if (controller.session) suppress_console();
   sn_controller_status(&controller, report, result);
   restore_interrupts(irq);
   size_t length =
       sn_control_encode(tx, packet.command | 0x8000u, packet.session,
                         packet.sequence, report, sizeof(report));
   sn_udp_send(0, tx, (uint16_t)length, &peer);
+}
+
+void sn_mach3_usb_poll(void) {
+  uint32_t irq = save_and_disable_interrupts();
+  if (controller.session && controller.peer == USB_PEER && !stdio_usb_connected()) {
+    sn_controller_fault(&controller, SN_FAULT_WATCHDOG);
+    controller.session = 0;
+    controller.peer = 0;
+    controller.configured = 0;
+    stop_steps();
+    apply_io();
+  }
+  bool owned = controller.session != 0;
+  restore_interrupts(irq);
+  if (owned) suppress_console();
+  /* Keep discarding binary residue until the receive stream has been quiet.
+   * This also prevents delayed packets becoming console commands on release. */
+  if (!owned && time_us_64() - usb_last_byte > 100000) {
+    memset(&usb_decoder, 0, sizeof(usb_decoder));
+    if (usb_suppressed) {
+      stdio_set_driver_enabled(&stdio_usb, true);
+      usb_suppressed = false;
+      console_size = 0;
+    }
+  }
+  for (unsigned budget = 0; budget < 1024; ++budget) {
+    char input;
+    if (stdio_usb.in_chars(&input, 1) != 1) break;
+    uint8_t byte = (uint8_t)input;
+    usb_last_byte = time_us_64();
+    if (byte == SN_USB_END || usb_decoder.active || usb_suppressed) {
+      console_size = 0;
+      sn_packet packet;
+      if (!sn_usb_feed(&usb_decoder, byte, &packet)) continue;
+      /* Keep packet buffers off the Pico core0 stack (timer IRQ shares it). */
+      static uint8_t report[SN_CONTROL_STATUS_SIZE], raw[SN_CONTROL_MAX_PACKET];
+      static uint8_t frame[SN_USB_MAX_FRAME];
+      irq = save_and_disable_interrupts();
+      /* Only a fully validated CLAIM can acquire a console-mode device. */
+      if (!controller.session && packet.command != SN_CLAIM) {
+        restore_interrupts(irq);
+        continue;
+      }
+      controller.raw_inputs = input_bits();
+      controller.inputs = controller.raw_inputs ^ controller.config.input_invert;
+      uint32_t epoch = controller.epoch;
+      uint32_t result = sn_controller_command(&controller, &packet, USB_PEER);
+      if (controller.epoch != epoch) stop_steps();
+      apply_io();
+      if (controller.session) suppress_console();
+      sn_controller_status(&controller, report, result);
+      restore_interrupts(irq);
+      size_t n = sn_control_encode(raw, packet.command | 0x8000u,
+                       packet.session, packet.sequence, report, sizeof(report));
+      n = sn_usb_encode(frame, raw, n);
+      /* Bypass stdio translation and suppression for binary replies only.
+       * SDK output timeout is bounded in the Mach3 build; never called in IRQ. */
+      stdio_usb.out_chars((const char *)frame, (int)n);
+    } else if (!owned) {
+      if (byte == '\r' || byte == '\n') {
+        if (console_size) {
+          console_line[console_size] = 0;
+          printf("\n");
+          process_command(console_line);
+          console_size = 0;
+        }
+      } else if (byte == 8 || byte == 127) {
+        if (console_size) --console_size;
+      } else if (byte >= 32 && byte <= 126) {
+        if (console_size < sizeof(console_line) - 1) {
+          console_line[console_size++] = (char)byte;
+          putchar(byte);
+        } else {
+          /* An overlong command is discarded in full, never executed truncated. */
+          memset(&usb_decoder, 0, sizeof(usb_decoder));
+          usb_decoder.active = usb_decoder.invalid = 1;
+          console_size = 0;
+        }
+      }
+    }
+  }
 }

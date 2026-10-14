@@ -21,7 +21,8 @@ dialog and SDK adapter source.
 Windows DLL compilation/loading and physical hardware operation still need
 validation. G31 SDK reports and the actual Mach3 Feed Hold / Cycle Start path
 must be verified on Windows. See [operation and examples](MACH3-FEEDHOLD-G31.en.md).
-USB is a possible extension; the current implementation uses UDP.
+USB CDC and UDP are implemented; USB shares the configuration console port
+with automatic session-based handover. Windows and physical USB validation remain pending.
 
 For exact data fields, state transitions, Mach3 reports, I/O roles, and known
 limitations, see [execution and protocol](MACH3-PROTOCOL.en.md).

@@ -23,6 +23,11 @@ if(NOT STEPPER_NINJA_PROFILE MATCHES "^(linuxcnc|mach3-3axis)$")
     message(FATAL_ERROR "Unknown STEPPER_NINJA_PROFILE: ${STEPPER_NINJA_PROFILE}")
 endif()
 
+option(STEPPER_NINJA_MACH3_USB_ONLY "Mach3 USB without initializing WIZnet hardware" OFF)
+if(STEPPER_NINJA_MACH3_USB_ONLY AND NOT STEPPER_NINJA_PROFILE STREQUAL "mach3-3axis")
+    message(FATAL_ERROR "USB-only option requires the mach3-3axis profile")
+endif()
+
 option(STEPPER_NINJA_RUN_FROM_RAM "Copy the firmware from flash to SRAM before execution" OFF)
 
 if(NOT WIZCHIP_TYPE MATCHES "^(W5100S|W5500)$")
@@ -87,11 +92,16 @@ add_executable(stepper-ninja
 )
 
 if(STEPPER_NINJA_PROFILE STREQUAL "mach3-3axis")
-    target_compile_definitions(stepper-ninja PRIVATE SN_HOST_MACH3=1)
+    target_compile_definitions(stepper-ninja PRIVATE SN_HOST_MACH3=1
+        PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE=0
+        PICO_STDIO_USB_STDOUT_TIMEOUT_US=2000)
     target_sources(stepper-ninja PRIVATE ../common/protocol/mach3_probe.c
-        ../common/protocol/mach3_control.c ../common/motion/controller.c modules/mach3_runtime.c)
+        ../common/protocol/mach3_control.c ../common/protocol/mach3_usb.c ../common/motion/controller.c modules/mach3_runtime.c)
+    if(STEPPER_NINJA_MACH3_USB_ONLY)
+        target_compile_definitions(stepper-ninja PRIVATE SN_MACH3_USB_ONLY=1)
+    endif()
     pico_generate_pio_header(stepper-ninja ${CMAKE_CURRENT_LIST_DIR}/pio/mach3_step.pio)
-    message(STATUS "Mach3 3-axis profile: UDP controller, I/O, PWM, jog, homing and buffered motion")
+    message(STATUS "Mach3 3-axis profile: USB/UDP controller, I/O, PWM, jog, homing and buffered motion")
 endif()
 
 if(STEPPER_NINJA_RUN_FROM_RAM)
@@ -141,6 +151,10 @@ endif()
 
 if(STEPPER_NINJA_PROFILE STREQUAL "mach3-3axis")
     set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-${WIZCHIP_TYPE}-mach3-3axis")
+endif()
+
+if(STEPPER_NINJA_MACH3_USB_ONLY)
+    set(TARGET_NAME_WITH_CHIP "stepper-ninja-${BOARD}-usb-mach3-3axis")
 endif()
 
 set_target_properties(stepper-ninja PROPERTIES OUTPUT_NAME ${TARGET_NAME_WITH_CHIP})

@@ -135,7 +135,7 @@ ctest --test-dir build/mach3-windows -C Release --output-on-failure
 ```
 
 Expected DLL: `build/mach3-windows/Release/StepperNinja.dll`. Windows currently
-has three portable tests; the five Linux-only tests are not registered there.
+has four portable tests; the seven Linux-only tests are not registered there.
 The build stages the official SDK wrapper and XML code in the build directory
 and combines them with our adapter and configuration dialog.
 
@@ -144,6 +144,18 @@ ActiveX/Flash-related headers; compatibility with the chosen MSVC/MFC/Windows
 SDK must be checked. Linux core tests cannot resolve those compatibility issues.
 After a successful build, DLL loading and Config Plugins must be tested in a
 separate Mach3 test profile. See the [validation sequence](MACH3-FEEDHOLD-G31.en.md).
+
+For a Pico without WIZnet hardware, use this USB-only build (same fixed pinout).
+It also works in a Windows Pico development terminal; use the SDK path there.
+
+```sh
+cmake -S firmware -B build/mach3-usb-firmware -DBOARD=pico -DSTEPPER_NINJA_PROFILE=mach3-3axis -DSTEPPER_NINJA_MACH3_USB_ONLY=ON -DPICO_SDK_PATH=/path/to/pico-sdk
+cmake --build build/mach3-usb-firmware --parallel
+```
+
+Output: `build/mach3-usb-firmware/stepper-ninja-pico-usb-mach3-3axis.uf2`.
+Select **USB connection** and the COM port in Config Plugins. Close the terminal
+application first. See [console handover and watchdog](MACH3-PROTOCOL.en.md#9-usb-connection-and-console-handover).
 
 ## 6. Optional LinuxCNC regression checks
 
@@ -176,7 +188,7 @@ a Linux machine for Windows firmware/DLL development.
 - Generator/platform mismatch: use a new build directory for a different generator
   or architecture.
 
-Recorded Linux results on 2026-10-11: 8/8 Mach3 tests and 31/31 LinuxCNC HAL
+Recorded Linux results on 2026-10-14: 11/11 Mach3 tests and 32/32 LinuxCNC HAL
 regression tests passed; both Pico/W5500 firmware profiles built successfully.
 Windows firmware/DLL commands and actual hardware operation still need validation.
 The planned binary release follows those real Mach3 and hardware tests.

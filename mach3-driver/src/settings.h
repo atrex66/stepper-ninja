@@ -4,6 +4,8 @@
 #include <string>
 namespace sn {
 struct Settings {
+    bool usb = false;
+    std::string serial_port = "COM3";
     std::string ip = "192.168.0.177";
     unsigned port = 8888;
     unsigned timeout_ms = 500;

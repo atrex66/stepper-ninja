@@ -23,11 +23,12 @@ existing protocol. Explicit `mach3-3axis` selects 3 axes, 7 DI, 6 DO and GP6 PWM
 GPIO mapping: `common/profiles/mach3_3axis.h`. UDP firmware transport is isolated
 in `firmware/modules/udp_transport.c`; motion state is in `common/motion`.
 
-Detailed operation, report mapping, wire format, known limitations and proposed
-USB extension: [English protocol documentation](../docs/MACH3-PROTOCOL.en.md)
+Detailed operation, report mapping, wire format, known limitations and
+USB connection: [English protocol documentation](../docs/MACH3-PROTOCOL.en.md)
 ([Hungarian](../docs/MACH3-PROTOCOL.hu.md)).
 Overview: [English](../docs/MACH3.en.md) / [Hungarian](../docs/MACH3.hu.md).
-USB is not implemented; the current Pico USB interface is a console.
+USB CDC shares the console port with automatic session-based handover.
+The USB-only build also supports a Pico without WIZnet hardware.
 
 ## Building
 
@@ -45,13 +46,14 @@ binaries is planned; that validated release is not available yet.
 
 ## Configuration
 
-Config Plugins stores IP/port, reply timeout, watchdog, PWM frequency, STEP/DIR
+Config Plugins stores USB/UDP selection, COM port, IP/port, reply timeout, watchdog, PWM frequency, STEP/DIR
 timing, inversion masks and homing parameters in `StepperNinjaMach3` in the
 current Mach3 XML profile. Axis scale/velocity/acceleration come from Motor
 Tuning. Configuration requires Reset. Input Signals port 1/pins 1..7 represent
 the fixed DI order, not physical GPIO numbers; firmware home/limit roles remain
 fixed. Output roles and polarity details are in the protocol document.
 
-The connection test uses a separate nonmoving diagnostic probe. It validates
+The UDP connection test uses a separate nonmoving diagnostic probe.
+The USB test claims/releases the device without arming it. It validates
 nonce/CRC/version/profile/counts; success proves a diagnostic receiver answered,
 not that motion, spindle or homing works. It does not renew the motion watchdog.

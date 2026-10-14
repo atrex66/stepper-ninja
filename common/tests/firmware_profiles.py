@@ -31,12 +31,14 @@ with tempfile.TemporaryDirectory(prefix="sn-profile-contract-") as directory:
     path = pathlib.Path(directory)
     (path / "profile.c").write_text(source)
     outputs = []
-    for defines in ([], ["-DSN_HOST_MACH3=0"], ["-DSN_HOST_MACH3=1"]):
+    for defines in ([], ["-DSN_HOST_MACH3=0"], ["-DSN_HOST_MACH3=1"],
+                    ["-DSN_HOST_MACH3=1", "-DSN_MACH3_USB_ONLY=1"]):
         subprocess.run([sys.argv[1], "-std=c11", "-Wall", "-Wextra", "-Werror",
                         "-I" + str(root / "firmware/inc"),
                         "-I" + str(root / "firmware/modules/inc"), *defines,
                         str(path / "profile.c"), "-o", str(path / "profile")], check=True)
         outputs.append(subprocess.check_output([str(path / "profile")], text=True).strip())
     assert outputs[0] == outputs[1], outputs
+    assert outputs[2] == outputs[3], outputs
     print("LinuxCNC default and explicit OFF:", outputs[0])
     print("Mach3:", outputs[2])

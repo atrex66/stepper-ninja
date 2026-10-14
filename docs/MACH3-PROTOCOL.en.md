@@ -353,22 +353,56 @@ perfectly uniform continuous DDS frequency generator. Deadlines and DIR hold
 time must be measured on hardware. After an asynchronous stop, there is at least
 20 µs of hold time before changing direction.
 
-## 9. USB option
+## 9. USB connection and console handover
 
-A Mach3 external motion-controller plugin can also use USB: the SDK's ncPod
-sample was written for a USB motion controller. The Pico's current
-`pico_stdio_usb` connection is a console; it does not yet receive Mach3 commands
-or send reports.
+The Mach3 profile now supports USB CDC and UDP. In Config Plugins select
+**USB connection** and enter the Windows port name, for example `COM3` or
+`COM12`. Leaving USB unchecked preserves the existing UDP IP/port settings.
+Close the terminal application before connecting Mach3: the plugin opens the
+COM port exclusively. The serial line is configured to 115200, 8N1, with DTR
+asserted and no hardware/software flow control. CDC motion timing uses the
+buffered controller, not the selected line baud rate.
 
-A future extension could use a separate USB CDC control interface/COM port.
-The shared packet encoder and controller can remain; the PC needs a COM transport
-instead of the socket, and the firmware needs a separate USB transport.
-The serial byte stream needs framing and resynchronization, such as length plus
-a COBS delimiter, because CDC does not carry UDP datagrams. The printf console
-must not be mixed with the binary control channel. USB still needs a local buffer,
-watchdog, session, and execution reports. With simultaneous USB/UDP, the shared
-controller must allow only one owner, extending the peer key with a transport
-identifier. USB is not implemented in this version.
+The same CDC port starts as a configuration console. A complete, CRC-valid
+protocol-v3 `SN_CLAIM` acquires the device and switches it to binary motion
+communication. Partial console input is discarded. While either a USB or UDP
+session owns the controller, console input and ordinary USB `printf` output
+are disabled, including idle, E-stop and Feed Hold. Core0 alone handles console
+commands and binary USB input; core1 keeps its Mach3 LED task.
+
+USB wraps the unchanged SNC3 packets in SLIP: `C0` starts/ends a frame,
+`C0` in data becomes `DB DC`, and `DB` becomes `DB DD`. Maximum packet size
+is 512 bytes, maximum encoded frame size 1026 bytes. Header, version, profile,
+length and CRC are checked before dispatch. Malformed escapes, overlong frames
+and bad CRCs are rejected; decoding resynchronizes at a delimiter. USB uses a
+transport-specific peer identity, so it cannot steal an active UDP session.
+Existing sequence/ACK, retries, execution reports and watchdog apply to both.
+
+Normal plugin cleanup sends `SN_DISARM`, then `SN_RELEASE`, receives its final
+binary reply, and closes the port. The firmware clears motion and outputs before
+handing back the console. USB disconnection/DTR loss immediately faults and
+releases a USB owner; a hung or crashed host is also covered by the configured
+watchdog (default 500 ms). Closing USB does not release a UDP owner. After release,
+remaining input is discarded until 100 ms of receive silence, then the console
+returns. Reconnection requires a new claim/configuration and starts in E-stop.
+
+The plugin configuration dialog pauses updates and releases its connection,
+then reconnects after the dialog closes. Its USB connection test temporarily
+claims/releases the device without arming it; the UDP test remains a diagnostic
+probe. Connection tests do not validate motion or physical I/O.
+
+For a Pico without WIZnet hardware, build with
+`-DSTEPPER_NINJA_MACH3_USB_ONLY=ON` as well as
+`-DSTEPPER_NINJA_PROFILE=mach3-3axis`. This skips network hardware initialization
+and polling and produces `stepper-ninja-pico-usb-mach3-3axis.uf2` for `BOARD=pico`.
+The default Mach3 build retains both transports and expects its WIZnet hardware;
+an Ethernet cable is not needed for USB. Both builds keep the fixed Mach3 pinout.
+The USB-only option is rejected for LinuxCNC, which keeps its original USB console,
+protocol, configuration and build default. For Mach3, CDC's 1200-baud reset shortcut
+is disabled and binary output uses a bounded SDK write timeout.
+
+Windows COM reads use the documented
+[COMMTIMEOUTS first-byte/buffered-read behavior](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-commtimeouts).
 
 ## 10. Validation and remaining work
 
@@ -378,9 +412,9 @@ accepted position, faults/watchdog, jog/homing/dwell/hold/move behavior,
 the actual WIZ wrapper code with substitute registers/FIFOs, and PIO instruction
 pulse counts/timing using a software model. Both Pico/W5500 firmware profiles
 can be built separately.
-Recorded local result (2026-10-11): 8/8 Mach3/transport/PIO/probe tests and
-31/31 LinuxCNC HAL regression tests passed; Pico/W5500 LinuxCNC and Mach3
-firmware builds succeeded. This does not replace Windows SDK and hardware validation.
+Recorded local result (2026-10-14): 11/11 Mach3/USB/UDP/PIO/probe tests and
+32/32 LinuxCNC HAL regression tests passed; Pico/W5500 LinuxCNC and Mach3
+firmware builds succeeded, as did the Pico USB-only Mach3 build. This does not replace Windows SDK and hardware validation.
 
 On Windows: Win32 MFC DLL build; plugin loading; XML/config; Reset/reconnect;
 SDK units and jog/spindle direction; basic XYZ G-code and arc decomposition in

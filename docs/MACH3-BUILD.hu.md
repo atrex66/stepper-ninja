@@ -137,7 +137,7 @@ ctest --test-dir build/mach3-windows -C Release --output-on-failure
 ```
 
 Várt DLL: `build/mach3-windows/Release/StepperNinja.dll`. Windowson jelenleg
-három hordozható teszt van; az öt Linux-specifikus teszt ott nem regisztrálódik.
+négy hordozható teszt van; a hét Linux-specifikus teszt ott nem regisztrálódik.
 A build a hivatalos SDK wrapperét és XML kódját a buildkönyvtárba másolja,
 és a saját adapterrel, illetve konfigurációs ablakkal együtt fordítja.
 
@@ -147,6 +147,18 @@ ellenőrizni kell. A Linux magtesztek ezeket a kompatibilitási problémákat ne
 oldják meg. Sikeres fordítás után külön Mach3 tesztprofilban kell ellenőrizni
 a DLL betöltését és a Config Plugins működését.
 Lásd az [ellenőrzési sorrendet](MACH3-FEEDHOLD-G31.hu.md).
+
+WIZnet hardver nélküli Pico esetén az USB-only build használható (azonos fix lábkiosztás).
+Windows Pico fejlesztői terminálban is működik; az ottani SDK útvonalat add meg.
+
+```sh
+cmake -S firmware -B build/mach3-usb-firmware -DBOARD=pico -DSTEPPER_NINJA_PROFILE=mach3-3axis -DSTEPPER_NINJA_MACH3_USB_ONLY=ON -DPICO_SDK_PATH=/path/to/pico-sdk
+cmake --build build/mach3-usb-firmware --parallel
+```
+
+Kimenet: `build/mach3-usb-firmware/stepper-ninja-pico-usb-mach3-3axis.uf2`.
+A Config Plugins ablakban válaszd a **USB connection** mezőt és a COM portot.
+Előtte zárd be a terminálprogramot. Lásd a [konzolátadást és watchdogot](MACH3-PROTOCOL.hu.md#9-usb-kapcsolat-és-a-konzol-átadása).
 
 ## 6. Opcionális LinuxCNC regressziós ellenőrzések
 
@@ -180,7 +192,7 @@ nem szükséges miattuk Linux gép.
 - Generátor/platform eltérés: más generátorhoz vagy architektúrához új
   buildkönyvtárat használj.
 
-Rögzített Linux eredmények, 2026-10-11: 8/8 Mach3 teszt és 31/31 LinuxCNC HAL
+Rögzített Linux eredmények, 2026-10-14: 11/11 Mach3 teszt és 32/32 LinuxCNC HAL
 regressziós teszt sikeres; mindkét Pico/W5500 firmware-profil lefordult.
 A Windows firmware/DLL parancsok és a valódi hardver működése még ellenőrizendő.
 A tervezett bináris release a valódi Mach3- és hardvertesztek után következik.

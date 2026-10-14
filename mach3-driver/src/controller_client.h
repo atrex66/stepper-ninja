@@ -2,6 +2,7 @@
 #define SN_CONTROLLER_CLIENT_H
 #include "../../common/motion/controller.h"
 #include "settings.h"
+#include "serial_transport.h"
 #include <string>
 namespace sn {
 struct Report {
@@ -27,6 +28,7 @@ public:
   const Report &report() const { return report_; }
 
 private:
+  SerialTransport serial_;
   intptr_t socket_ = -1;
   bool winsock_ = false;
   uint32_t session_ = 0, sequence_ = 0;

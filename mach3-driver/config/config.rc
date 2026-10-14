@@ -1,6 +1,6 @@
 #include <winres.h>
 #include "resource.h"
-IDD_SN_CONFIG DIALOGEX 0, 0, 340, 375
+IDD_SN_CONFIG DIALOGEX 0, 0, 340, 405
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "StepperNinja configuration"
 FONT 9, "Segoe UI"
@@ -37,6 +37,9 @@ BEGIN
     LTEXT "DO: GP7..12  DI: GP13..15,22,26..28; Mach3 port 1", -1, 10, 292, 320, 12
     PUSHBUTTON "Test connection", IDC_SN_TEST, 10, 313, 90, 16
     LTEXT "Motor tuning and fast home percentage come from Mach3.", IDC_SN_STATUS, 10, 334, 320, 22
-    DEFPUSHBUTTON "Save", IDOK, 210, 355, 55, 14
-    PUSHBUTTON "Cancel", IDCANCEL, 275, 355, 55, 14
+    CONTROL "USB connection", IDC_SN_USB, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 358, 95, 14
+    LTEXT "COM port:", -1, 115, 358, 55, 12
+    EDITTEXT IDC_SN_COM, 175, 356, 90, 14, ES_AUTOHSCROLL
+    DEFPUSHBUTTON "Save", IDOK, 210, 385, 55, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 275, 385, 55, 14
 END

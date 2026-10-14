@@ -2,7 +2,7 @@
 
 Nyílt forráskódú, ingyenes, nagy teljesítményű step-generátor, kvadratúrás enkóderszámláló, digitális I/O és PWM interfész LinuxCNC-hez.
 
-Külön **prototípus Mach3 driver** is elérhető, fix háromtengelyes UDP
+Külön **prototípus Mach3 driver** is elérhető, fix háromtengelyes USB/UDP
 firmware-profillal. A Windows DLL fordítása/betöltése és a fizikai gép működése
 még nincs igazolva. A LinuxCNC marad az alapértelmezett, rugalmas profil.
 
@@ -85,7 +85,8 @@ A prototípusban megvalósított funkciók:
 **Prototípus státusz:** a Linux tesztek mozgást, reportokat és UDP működést
 ellenőriznek, helyettesített Mach3 pályatervezővel. A Win32 MFC DLL fordítása,
 a valódi Mach3 Feed Hold/G31 integráció és a hardveridőzítés még ellenőrizendő.
-USB mozgástranszport nincs megvalósítva. A Mach3 profilnak nincs encodere;
+USB CDC mozgástranszport automatikus konzolátadással megvalósított;
+a Windows és fizikai USB ellenőrzés még hátravan. A Mach3 profilnak nincs encodere;
 a LinuxCNC fent felsorolt teljesítmény- és konfigurációs lehetőségei nem ennek
 a profilnak a korlátait írják le. A 3-as mozgásprotokoll-verzióhoz egyező Mach3
 driver és firmware build szükséges.

@@ -12,8 +12,9 @@
 namespace sn {
 ControllerClient::ControllerClient() {}
 ControllerClient::~ControllerClient() { close(); }
-bool ControllerClient::connected() const { return socket_ != -1; }
+bool ControllerClient::connected() const { return socket_ != -1 || serial_.connected(); }
 void ControllerClient::close() {
+  serial_.close();
   if (socket_ != -1) {
 #ifdef _WIN32
     closesocket(static_cast<SOCKET>(socket_));
@@ -35,6 +36,15 @@ std::string ControllerClient::open(const Settings &s) {
   std::string error = validate_settings(s);
   if (!error.empty())
     return error;
+  timeout_ms_ = s.timeout_ms;
+  if (s.usb) {
+    error = serial_.open(s.serial_port);
+    if (!error.empty()) return error;
+    session_ = static_cast<uint32_t>(std::chrono::steady_clock::now().time_since_epoch().count()) | 1u;
+    error = command(SN_CLAIM);
+    if (!error.empty()) close();
+    return error;
+  }
 #ifdef _WIN32
   WSADATA data;
   if (WSAStartup(MAKEWORD(2, 2), &data))
@@ -89,7 +99,8 @@ std::string ControllerClient::command(uint16_t type, const uint8_t *payload,
 #else
     int sock = static_cast<int>(socket_);
 #endif
-    if (send(sock, reinterpret_cast<const char *>(request),
+    if (serial_.connected() ? !serial_.send(request, length, timeout_ms_ / 3) :
+        send(sock, reinterpret_cast<const char *>(request),
              static_cast<int>(length), 0) != static_cast<int>(length))
       break;
     auto retry_end = std::chrono::steady_clock::now() +
@@ -104,15 +115,17 @@ std::string ControllerClient::command(uint16_t type, const uint8_t *payload,
         break;
       fd_set ready;
       FD_ZERO(&ready);
-      FD_SET(sock, &ready);
+      if (!serial_.connected()) FD_SET(sock, &ready);
       timeval wait = {};
       wait.tv_sec = static_cast<long>(remain / 1000000);
       wait.tv_usec = static_cast<long>(remain % 1000000);
-      int received =
+      int received = serial_.connected() ? 1 :
           select(static_cast<int>(sock) + 1, &ready, nullptr, nullptr, &wait);
       if (received <= 0)
         break;
       int n =
+          serial_.connected() ? serial_.receive(response, sizeof(response),
+              static_cast<unsigned>((remain + 999) / 1000)) :
           recv(sock, reinterpret_cast<char *>(response), sizeof(response), 0);
       sn_packet packet;
       if (n < 0 ||

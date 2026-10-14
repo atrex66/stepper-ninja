@@ -17,10 +17,26 @@ bool parse_ipv4(const std::string &s, uint8_t octets[4]) {
 }
 std::string validate_settings(const Settings &s) {
     uint8_t ip[4];
-    if (!parse_ipv4(s.ip, ip) || ip[0] == 0 || ip[0] >= 224 ||
-        (ip[0] == 255 && ip[1] == 255 && ip[2] == 255 && ip[3] == 255))
+    if (s.usb) {
+#ifdef _WIN32
+      if (s.serial_port.size() < 4 || s.serial_port.compare(0, 3, "COM") != 0)
+        return "USB port must be COM followed by its number (for example COM3).";
+      unsigned number = 0;
+      for (size_t i = 3; i < s.serial_port.size(); ++i) {
+        char c = s.serial_port[i];
+        if (c < '0' || c > '9' || number > 6553)
+          return "Invalid USB COM port number.";
+        number = number * 10 + unsigned(c - '0');
+      }
+      if (!number || number > 65535) return "Invalid USB COM port number.";
+#else
+      if (s.serial_port.empty()) return "Select a USB serial port.";
+#endif
+    }
+    if (!s.usb && (!parse_ipv4(s.ip, ip) || ip[0] == 0 || ip[0] >= 224 ||
+        (ip[0] == 255 && ip[1] == 255 && ip[2] == 255 && ip[3] == 255)))
         return "Enter a unicast IPv4 address.";
-    if (!s.port || s.port > 65535) return "UDP port must be 1..65535.";
+    if (!s.usb && (!s.port || s.port > 65535)) return "UDP port must be 1..65535.";
     if (s.timeout_ms < 100 || s.timeout_ms > 2000) return "Reply timeout must be 100..2000 ms.";
     if (s.pwm_hz < 4000 || s.pwm_hz > 100000) return "PWM frequency must be 4000..100000 Hz.";
     if(s.watchdog_ms<100 || s.watchdog_ms>2000)return "Watchdog must be 100..2000 ms.";

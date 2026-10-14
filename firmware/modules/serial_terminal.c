@@ -101,7 +101,7 @@ void process_command(char* command) {
         printf("DNS: %d.%d.%d.%d\n", net_info.dns[0], net_info.dns[1], net_info.dns[2], net_info.dns[3]);
         printf("DHCP: %d   (1-Static, 2-Dinamic)\n", net_info.dhcp);
         printf("PORT: %d\n", port);
-    #if _WIZCHIP_ == W5100S
+    #if _WIZCHIP_ == W5100S && !defined(SN_MACH3_USB_ONLY)
         printf("*******************PHY status**************\n");
         uint8_t phyconf = getPHYSR();
         uint8_t speed = phyconf >> 1 & 0x01;
