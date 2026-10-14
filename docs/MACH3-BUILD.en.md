@@ -1,15 +1,19 @@
 # Building the StepperNinja Mach3 prototype
 
+**Windows update, 2026-10-14:** the Win32 DLL and USB firmware now build.
+The DLL loads in an x86 process and a physical RP2040 passes USB CLAIM/POLL/RELEASE.
+Mach3 UI integration and physical motion still need validation.
+See the [tested environment and commands (Hungarian)](MACH3-WINDOWS-VALIDATION.hu.md).
+
+
 [Magyar](MACH3-BUILD.hu.md)
 
 The Mach3 driver is a **prototype**. The portable core and Pico/W5500 firmware
-have been built and tested on Linux; the Windows DLL, actual Mach3 integration,
-and physical hardware behavior still need validation.
+have been built and tested on Linux. The Windows DLL and USB firmware now build; actual Mach3 integration and physical motion still need validation.
 
 **The Pico firmware can also be built natively on Windows. No Linux machine is
 required to build both the firmware and the Mach3 DLL.** The Windows commands
-below describe that build path; they have not yet been exercised on a Windows
-machine for this project.
+below describe that build path. See the validation note above for the tested VS2019 and USB-only commands.
 
 Once real Mach3 and hardware tests confirm reliable operation, a release with
 **prebuilt Pico firmware and Mach3 driver binaries** is planned. That validated
@@ -119,6 +123,12 @@ Download [Mach3 SDK 2.62 from the official download page](https://www.machsuppor
 Keep it outside this repository and point `MACH3_SDK_DIR` at the extracted
 `SDK` directory containing:
 
+
+The Win32 build also requires the official Mach3 Plugin Wizard 1.1a's
+MachIncludes directory as `MACH3_ABI_DIR`. It supplies the fixed plain-data
+Mach3 ABI; modern MFC CWnd/CView layouts must not be used for Mach3-owned
+objects. Download it from the same official SDK page. See [ABI details](MACH3-ABI.en.md).
+
 ```text
 SDK/
   BlankMovement/MachDevice.cpp
@@ -129,19 +139,18 @@ SDK/
 For Visual Studio 2022, use CMake ≥3.21 and run:
 
 ```powershell
-cmake -S mach3-driver -B build/mach3-windows -G "Visual Studio 17 2022" -A Win32 -DSN_BUILD_MACH3_PLUGIN=ON -DBUILD_TESTING=ON -DMACH3_SDK_DIR=C:/Mach3Development/SDK
+cmake -S mach3-driver -B build/mach3-windows -G "Visual Studio 17 2022" -A Win32 -DSN_BUILD_MACH3_PLUGIN=ON -DBUILD_TESTING=ON -DMACH3_SDK_DIR=C:/Mach3Development/SDK -DMACH3_ABI_DIR=C:/Mach3Development/MachPluginWizard/MachIncludes
 cmake --build build/mach3-windows --config Release --parallel
 ctest --test-dir build/mach3-windows -C Release --output-on-failure
 ```
 
 Expected DLL: `build/mach3-windows/Release/StepperNinja.dll`. Windows currently
-has four portable tests; the seven Linux-only tests are not registered there.
+has eight portable/plugin tests; Linux-only tests are not registered there.
 The build stages the official SDK wrapper and XML code in the build directory
 and combines them with our adapter and configuration dialog.
 
-**This DLL build is not yet validated.** The old SDK contains legacy
-ActiveX/Flash-related headers; compatibility with the chosen MSVC/MFC/Windows
-SDK must be checked. Linux core tests cannot resolve those compatibility issues.
+**The DLL builds with VS2019 and loads in an x86 process.** The old SDK contains legacy
+MFC class headers; the build uses the official Wizard plain-data structs to preserve the Mach3 ABI. Linux core tests alone cannot detect host ABI mismatches.
 After a successful build, DLL loading and Config Plugins must be tested in a
 separate Mach3 test profile. See the [validation sequence](MACH3-FEEDHOLD-G31.en.md).
 
@@ -190,5 +199,5 @@ a Linux machine for Windows firmware/DLL development.
 
 Recorded Linux results on 2026-10-14: 11/11 Mach3 tests and 32/32 LinuxCNC HAL
 regression tests passed; both Pico/W5500 firmware profiles built successfully.
-Windows firmware/DLL commands and actual hardware operation still need validation.
+Windows DLL and USB firmware builds, x86 loading and a physical USB connection check passed; actual Mach3 integration and physical motion still need validation.
 The planned binary release follows those real Mach3 and hardware tests.

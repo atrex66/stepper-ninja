@@ -9,8 +9,12 @@ extern "C" {
 #define SN_CONTROL_HEADER 24u
 #define SN_CONTROL_MAX_PACKET 512u
 #define SN_CONTROL_STATUS_SIZE 112u
+/* Optional status extension; older firmware leaves these bytes zero. */
+#define SN_STATUS_CAP_RAW_INPUTS 0x01u
+#define SN_STATUS_CAP_STEP_RATE 0x02u
 #define SN_QUEUE_CAPACITY 256u
-#define SN_MAX_STEPS_TICK 80
+#define SN_MAX_STEPS_TICK 200
+#define SN_MAX_STEP_RATE (SN_MAX_STEPS_TICK * 1000u)
 #define SN_TICK_US 1000u
 /* All payloads and headers are little endian; no native packed structs. */
 enum sn_command {

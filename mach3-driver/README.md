@@ -1,7 +1,19 @@
 # StepperNinja Mach3 prototype driver
 
-**Prototype:** Windows DLL compilation/loading, real Mach3 integration, and
-physical hardware behavior have not been validated.
+The plugin uses the official Plugin Wizard plain-data ABI for Mach3-owned objects.
+Both MACH3_SDK_DIR and MACH3_ABI_DIR are required for a Windows DLL build; see
+[ABI compatibility](../docs/MACH3-ABI.en.md).
+
+Input polarity is edited with seven per-DI Invert checkboxes, labelled with signal roles and GPIOs. Save also synchronises Mach3 Active Low for every signal assigned to those inputs; existing InputInvert masks remain compatible.
+
+
+Windows validation update (2026-10-14): the Win32 DLL and USB firmware now build;
+the DLL loads in an x86 process and the physical RP2040 passes USB CLAIM/POLL/RELEASE.
+Mach3 UI integration and physical motion still need validation.
+See [tested environment and commands (Hungarian)](../docs/MACH3-WINDOWS-VALIDATION.hu.md).
+
+
+**Prototype:** real Mach3 UI integration and physical motion have not been validated.
 
 Build instructions: [English](../docs/MACH3-BUILD.en.md) /
 [Magyar](../docs/MACH3-BUILD.hu.md).
@@ -9,8 +21,7 @@ Build instructions: [English](../docs/MACH3-BUILD.en.md) /
 A fixed three-axis Mach3 SDK adapter, portable protocol/controller core, and
 Pico firmware runtime. The implementation includes buffered XYZ execution,
 actual STEP-count reports, local ramped jog/homing/dwell, I/O/PWM, session
-ownership, retransmission suppression and watchdogs. Windows DLL build/loading
-and physical hardware behavior are not validated yet. G31 captures contact
+ownership, retransmission suppression and watchdogs. The Windows DLL builds and loads in an x86 process; real Mach3 integration and physical motion still need validation. G31 captures contact
 separately from the braking endpoint. Native Mach3 Feed Hold drains the planned
 braking path; Cycle Start supplies a new startup trajectory. The portable UDP
 tests model this behavior; actual Mach3 planner and probe reports need Windows

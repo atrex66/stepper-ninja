@@ -24,8 +24,8 @@ std::string probe_packet(uint8_t out[32], const double goal[3],
   if (!dominant || !std::isfinite(feed_per_minute) || feed_per_minute <= 0)
     return "Invalid G31 feed or zero-length endpoint.";
   double velocity = feed_per_minute / 60.0 * dominant / std::sqrt(length2);
-  if (!std::isfinite(velocity) || velocity < 1 || velocity > 80000)
-    return "G31 dominant-axis feed must be 1..80000 steps/s.";
+  if (!std::isfinite(velocity) || velocity < 1 || velocity > SN_MAX_STEP_RATE)
+    return "G31 dominant-axis feed must be 1..200000 steps/s.";
   sn_write_u32(packet + 24, static_cast<uint32_t>(velocity));
   packet[28] = 4; // Fixed DI5 / GP26.
   std::memcpy(out, packet, sizeof(packet));

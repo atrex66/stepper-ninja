@@ -1,14 +1,19 @@
 # A StepperNinja Mach3 prototípus fordítása
 
+**Windows ellenőrzés, 2026-10-14:** a 32 bites DLL és az USB firmware lefordult,
+a DLL külön x86 folyamatban betölthető, és a valódi RP2040 USB kapcsolatpróbája sikeres.
+A Mach3 felületén belüli működés és a fizikai mozgás még ellenőrizendő.
+Lásd a [tesztelt környezetet és parancsokat](MACH3-WINDOWS-VALIDATION.hu.md).
+
+
 [English](MACH3-BUILD.en.md)
 
 A Mach3 driver **prototípus**. A hordozható magot és a Pico/W5500 firmware-t
-Linuxon lefordítottuk és teszteltük; a Windows DLL, a valódi Mach3 integráció
-és a fizikai hardver működése még ellenőrizendő.
+Linuxon lefordítottuk és teszteltük. A Windows DLL és az USB firmware is lefordult; a valódi Mach3 integráció és a fizikai mozgás még ellenőrizendő.
 
 **A Pico firmware natívan Windows alatt is fordítható. A firmware és a Mach3
 DLL elkészítéséhez nem szükséges Linux gép.** Az alábbi Windows parancsok ezt
-az utat írják le; ebben a projektben még nem futtattuk őket Windows gépen.
+az utat írják le; a ténylegesen tesztelt VS2019 és USB-only parancsokat a fenti ellenőrzési jegyzet tartalmazza.
 
 Amint a valódi Mach3- és hardvertesztek igazolták a megbízható működést,
 tervezett release készül **előre fordított Pico firmware-rel és Mach3 driverrel**.
@@ -121,6 +126,12 @@ Töltsd le a [Mach3 SDK 2.62-t a hivatalos letöltési oldalról](https://www.ma
 Tartsd a repón kívül, és a `MACH3_SDK_DIR` a kicsomagolt `SDK` könyvtárra
 mutasson, amelyben ezek megtalálhatók:
 
+
+A Win32 buildhez a hivatalos Mach3 Plugin Wizard 1.1a MachIncludes
+könyvtára is kell: `MACH3_ABI_DIR`. Ez adja a rögzített Mach3 adatstruktúrákat;
+a modern MFC CWnd/CView osztályok adatelrendezése nem kompatibilis a Mach3-mal.
+A Wizard ugyanazon a hivatalos SDK-oldalon tölthető le. [Részletek](MACH3-ABI.en.md).
+
 ```text
 SDK/
   BlankMovement/MachDevice.cpp
@@ -131,17 +142,17 @@ SDK/
 Visual Studio 2022 esetén CMake ≥3.21 kell; futtasd:
 
 ```powershell
-cmake -S mach3-driver -B build/mach3-windows -G "Visual Studio 17 2022" -A Win32 -DSN_BUILD_MACH3_PLUGIN=ON -DBUILD_TESTING=ON -DMACH3_SDK_DIR=C:/Mach3Development/SDK
+cmake -S mach3-driver -B build/mach3-windows -G "Visual Studio 17 2022" -A Win32 -DSN_BUILD_MACH3_PLUGIN=ON -DBUILD_TESTING=ON -DMACH3_SDK_DIR=C:/Mach3Development/SDK -DMACH3_ABI_DIR=C:/Mach3Development/MachPluginWizard/MachIncludes
 cmake --build build/mach3-windows --config Release --parallel
 ctest --test-dir build/mach3-windows -C Release --output-on-failure
 ```
 
 Várt DLL: `build/mach3-windows/Release/StepperNinja.dll`. Windowson jelenleg
-négy hordozható teszt van; a hét Linux-specifikus teszt ott nem regisztrálódik.
+nyolc hordozható/plugin teszt van; a Linux-specifikus tesztek ott nem regisztrálódnak.
 A build a hivatalos SDK wrapperét és XML kódját a buildkönyvtárba másolja,
 és a saját adapterrel, illetve konfigurációs ablakkal együtt fordítja.
 
-**Ez a DLL build még nincs igazolva.** A régi SDK örökölt ActiveX/Flash
+**A DLL VS2019-cel lefordult, és külön x86 folyamatban betölthető.** A régi SDK örökölt ActiveX/Flash
 fejléceket tartalmaz; a választott MSVC/MFC/Windows SDK-val való kompatibilitást
 ellenőrizni kell. A Linux magtesztek ezeket a kompatibilitási problémákat nem
 oldják meg. Sikeres fordítás után külön Mach3 tesztprofilban kell ellenőrizni
@@ -194,5 +205,5 @@ nem szükséges miattuk Linux gép.
 
 Rögzített Linux eredmények, 2026-10-14: 11/11 Mach3 teszt és 32/32 LinuxCNC HAL
 regressziós teszt sikeres; mindkét Pico/W5500 firmware-profil lefordult.
-A Windows firmware/DLL parancsok és a valódi hardver működése még ellenőrizendő.
+A Windows DLL és USB firmware fordítása, az x86 betöltés és a fizikai USB kapcsolatpróba sikeres. A valódi Mach3 integráció és a fizikai mozgás még ellenőrizendő.
 A tervezett bináris release a valódi Mach3- és hardvertesztek után következik.

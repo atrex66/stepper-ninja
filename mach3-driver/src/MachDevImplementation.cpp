@@ -1,9 +1,7 @@
 #include "stdafx.h" // MFC must precede vendor SDK headers.
 
 #include "../config/resource.h"
-#include "Engine.h"
-#include "Mach4View.h"
-#include "TrajectoryControl.h"
+#include "mach3_abi.h"
 #include "XMLProfile.h"
 #include "controller_client.h"
 #include "rs274ngc.h"
@@ -27,6 +25,7 @@ static uint32_t probe_token = 0;
 static uint8_t probe_payload[32];
 static bool selected = false, paused = false, busy = false;
 static bool fault_seen = false;
+static std::string last_runtime_error;
 static UINT_PTR timer_id = 0;
 static unsigned homes_waiting = 0;
 static uint32_t dwell_waiting = 0;
@@ -36,6 +35,10 @@ struct UIntField {
   unsigned sn::Settings::*member;
   int control;
 };
+static const int input_invert_controls[SN_MACH3_INPUTS] = {
+    IDC_SN_DI1_INVERT, IDC_SN_DI2_INVERT, IDC_SN_DI3_INVERT,
+    IDC_SN_DI4_INVERT, IDC_SN_DI5_INVERT, IDC_SN_DI6_INVERT,
+    IDC_SN_DI7_INVERT};
 static const UIntField fields[] = {
     {"Port", &sn::Settings::port, IDC_SN_PORT},
     {"ReplyTimeoutMs", &sn::Settings::timeout_ms, IDC_SN_TIMEOUT},
@@ -43,7 +46,7 @@ static const UIntField fields[] = {
     {"WatchdogMs", &sn::Settings::watchdog_ms, IDC_SN_WATCHDOG},
     {"PulseNs", &sn::Settings::pulse_ns, IDC_SN_PULSE},
     {"DirSetupNs", &sn::Settings::dir_setup_ns, IDC_SN_SETUP},
-    {"InputInvert", &sn::Settings::input_invert, IDC_SN_INPUT_INVERT},
+    {"InputInvert", &sn::Settings::input_invert, 0},
     {"OutputInvert", &sn::Settings::output_invert, IDC_SN_OUTPUT_INVERT},
     {"DirectionInvert", &sn::Settings::direction_invert, IDC_SN_DIR_INVERT},
     {"HomePositive", &sn::Settings::home_positive, IDC_SN_HOME_POSITIVE},
@@ -74,20 +77,126 @@ static sn::Settings load(CXMLProfile *profile) {
       section, "HomeTravel", double_text(value.home_travel)));
   return value;
 }
+// The plugin's per-DI polarity also applies to every Mach3 signal alias
+// assigned to that DI (for example X++, X-- and X Home on the same switch).
+static void sync_runtime_input_polarity(unsigned mask) {
+  if (!Engine)
+    return;
+  for (int i = 0; i < nSigs; ++i) {
+    const unsigned pin = Engine->InSigs[i].InPin;
+    if (Engine->InSigs[i].InPort == 1 && pin >= 1 && pin <= SN_MACH3_INPUTS)
+      Engine->InSigs[i].Negated = (mask & (1u << (pin - 1))) != 0;
+  }
+}
+static void save_input_polarity(CXMLProfile *profile, unsigned mask) {
+  for (int i = 0; i < nSigs; ++i) {
+    CString key;
+    key.Format("Input%dPort", i);
+    const int port = profile->GetProfileInt("Preferences", key, 0);
+    key.Format("Input%dPin", i);
+    const int pin = profile->GetProfileInt("Preferences", key, 0);
+    if (port != 1 || pin < 1 || pin > SN_MACH3_INPUTS)
+      continue;
+    key.Format("Input%dNeg", i);
+    profile->WriteProfileInt("Preferences", key,
+                            (mask & (1u << (pin - 1))) != 0);
+  }
+  if (selected)
+    sync_runtime_input_polarity(mask);
+}
+static const int input_state_controls[SN_MACH3_INPUTS] = {
+    IDC_SN_DI1_STATE, IDC_SN_DI2_STATE, IDC_SN_DI3_STATE,
+    IDC_SN_DI4_STATE, IDC_SN_DI5_STATE, IDC_SN_DI6_STATE,
+    IDC_SN_DI7_STATE};
 class ConfigDialog : public CDialog {
+  sn::ControllerClient standalone_client_;
+  sn::ControllerClient &monitor_client_;
+  const bool shared_connection_;
+  UINT_PTR monitor_timer_ = 0;
+  bool inputs_fresh_ = false;
+  uint8_t raw_inputs_ = 0;
+  unsigned preview_invert() const {
+    unsigned mask = 0;
+    for (unsigned i = 0; i < SN_MACH3_INPUTS; ++i)
+      if (IsDlgButtonChecked(input_invert_controls[i]) == BST_CHECKED)
+        mask |= 1u << i;
+    return mask;
+  }
+  void render_inputs() {
+    const unsigned logical = raw_inputs_ ^ preview_invert();
+    for (unsigned i = 0; i < SN_MACH3_INPUTS; ++i) {
+      CString text("-- / --");
+      if (inputs_fresh_)
+        text.Format("%s / %s", (raw_inputs_ & (1u << i)) ? "H" : "L",
+                    (logical & (1u << i)) ? "ON" : "off");
+      SetDlgItemText(input_state_controls[i], text);
+    }
+  }
+  void stop_monitor() {
+    if (monitor_timer_) KillTimer(monitor_timer_);
+    monitor_timer_ = 0;
+    if (!shared_connection_) {
+      if (monitor_client_.connected()) monitor_client_.command(SN_RELEASE);
+      monitor_client_.close();
+    }
+    inputs_fresh_ = false;
+    if (GetSafeHwnd()) {
+      render_inputs();
+      SetDlgItemText(IDC_SN_MONITOR, "Start input monitor");
+    }
+  }
+  bool update_inputs() {
+    std::string error = monitor_client_.command(SN_POLL);
+    if (error.empty()) {
+      const sn::Report &report = monitor_client_.report();
+      if (!report.has_raw_inputs)
+        error = "Input monitor needs updated firmware. Install the matching UF2 from the config package.";
+      else if (report.armed || report.mode != SN_IDLE || report.pending || report.fill)
+        error = "Input monitor requires an idle, disarmed controller.";
+      else {
+        raw_inputs_ = report.raw_inputs;
+        inputs_fresh_ = true;
+        render_inputs();
+        return true;
+      }
+    }
+    stop_monitor();
+    SetDlgItemText(IDC_SN_MONITOR_STATUS, error.c_str());
+    return false;
+  }
+
 public:
   sn::Settings value;
   explicit ConfigDialog(const sn::Settings &initial)
-      : CDialog(IDD_SN_CONFIG), value(initial) {}
+      : CDialog(IDD_SN_CONFIG), monitor_client_(selected ? client : standalone_client_),
+        shared_connection_(selected), value(initial) {}
   BOOL OnInitDialog() override {
     CDialog::OnInitDialog();
     CheckDlgButton(IDC_SN_USB, value.usb ? BST_CHECKED : BST_UNCHECKED);
     SetDlgItemText(IDC_SN_COM, value.serial_port.c_str());
     SetDlgItemText(IDC_SN_IP, value.ip.c_str());
     for (const auto &field : fields)
-      SetDlgItemInt(field.control, value.*(field.member));
+      if (field.control)
+        SetDlgItemInt(field.control, value.*(field.member));
+    for (unsigned i = 0; i < SN_MACH3_INPUTS; ++i)
+      CheckDlgButton(input_invert_controls[i],
+                     (value.input_invert & (1u << i)) ? BST_CHECKED : BST_UNCHECKED);
     SetDlgItemText(IDC_SN_HOME_BACKOFF, double_text(value.home_backoff));
     SetDlgItemText(IDC_SN_HOME_TRAVEL, double_text(value.home_travel));
+    if (!last_runtime_error.empty())
+      SetDlgItemText(IDC_SN_STATUS, ("Last driver error: " + last_runtime_error).c_str());
+    if (shared_connection_) {
+      GetDlgItem(IDC_SN_MONITOR)->ShowWindow(SW_HIDE);
+      if (!monitor_client_.connected()) {
+        const std::string error = monitor_client_.open(value);
+        if (!error.empty()) SetDlgItemText(IDC_SN_MONITOR_STATUS, error.c_str());
+      }
+      if (monitor_client_.connected() && update_inputs()) {
+        monitor_timer_ = SetTimer(1, 50, nullptr);
+        SetDlgItemText(IDC_SN_MONITOR_STATUS,
+            "Live inputs from the driver's existing connection. No motion enabled.");
+      }
+    }
     return TRUE;
   }
   bool read() {
@@ -99,7 +208,12 @@ public:
     GetDlgItemText(IDC_SN_IP, ip);
     value.ip = (LPCSTR)ip;
     for (const auto &field : fields)
-      value.*(field.member) = GetDlgItemInt(field.control);
+      if (field.control)
+        value.*(field.member) = GetDlgItemInt(field.control);
+    value.input_invert = 0;
+    for (unsigned i = 0; i < SN_MACH3_INPUTS; ++i)
+      if (IsDlgButtonChecked(input_invert_controls[i]) == BST_CHECKED)
+        value.input_invert |= 1u << i;
     CString number;
     GetDlgItemText(IDC_SN_HOME_BACKOFF, number);
     value.home_backoff = parse_double(number);
@@ -113,10 +227,79 @@ public:
     return true;
   }
   void OnOK() override {
-    if (read())
+    if (read()) {
+      stop_monitor();
       CDialog::OnOK();
+    }
+  }
+  void OnCancel() override {
+    stop_monitor();
+    CDialog::OnCancel();
+  }
+  afx_msg void monitor() {
+    if (monitor_client_.connected()) {
+      stop_monitor();
+      SetDlgItemText(IDC_SN_MONITOR_STATUS, "Stopped.");
+      return;
+    }
+    if (!read()) return;
+    const std::string error = monitor_client_.open(value);
+    if (!error.empty()) {
+      stop_monitor();
+      SetDlgItemText(IDC_SN_MONITOR_STATUS, error.c_str());
+      return;
+    }
+    if (!update_inputs()) return;
+    monitor_timer_ = SetTimer(1, 50, nullptr);
+    if (!monitor_timer_) {
+      stop_monitor();
+      SetDlgItemText(IDC_SN_MONITOR_STATUS, "Cannot start input refresh timer.");
+      return;
+    }
+    SetDlgItemText(IDC_SN_MONITOR, "Stop input monitor");
+    SetDlgItemText(IDC_SN_MONITOR_STATUS, "Live inputs. Read-only; controller remains disarmed.");
+  }
+  afx_msg void invert_changed(UINT) { render_inputs(); }
+  afx_msg void connection_changed() {
+    if (!monitor_client_.connected()) return;
+    if (shared_connection_) {
+      SetDlgItemText(IDC_SN_MONITOR_STATUS,
+          "Live on current connection. Edited connection settings apply after Save.");
+      return;
+    }
+    stop_monitor();
+    SetDlgItemText(IDC_SN_MONITOR_STATUS, "Connection settings changed. Start monitoring again.");
+  }
+  afx_msg void OnTimer(UINT_PTR id) {
+    if (id == monitor_timer_) update_inputs();
+    else CDialog::OnTimer(id);
+  }
+  afx_msg void OnDestroy() {
+    stop_monitor();
+    CDialog::OnDestroy();
+  }
+  afx_msg HBRUSH OnCtlColor(CDC *dc, CWnd *window, UINT type) {
+    HBRUSH brush = CDialog::OnCtlColor(dc, window, type);
+    const int id = window->GetDlgCtrlID();
+    for (unsigned i = 0; i < SN_MACH3_INPUTS; ++i)
+      if (id == input_state_controls[i]) {
+        const bool active = ((raw_inputs_ ^ preview_invert()) & (1u << i)) != 0;
+        dc->SetTextColor(!inputs_fresh_ ? RGB(128,128,128) :
+                        active ? RGB(180,65,0) : RGB(30,115,65));
+        break;
+      }
+    return brush;
   }
   afx_msg void test() {
+    if (shared_connection_) {
+      if (monitor_client_.connected() && update_inputs())
+        SetDlgItemText(IDC_SN_STATUS, "Current driver connection responded.");
+      else
+        SetDlgItemText(IDC_SN_STATUS, "Current driver connection unavailable.");
+      return;
+    }
+    stop_monitor();
+    SetDlgItemText(IDC_SN_MONITOR_STATUS, "Stopped.");
     if (!read())
       return;
     GetDlgItem(IDC_SN_TEST)->EnableWindow(FALSE);
@@ -136,6 +319,17 @@ public:
 };
 BEGIN_MESSAGE_MAP(ConfigDialog, CDialog)
 ON_BN_CLICKED(IDC_SN_TEST, &ConfigDialog::test)
+ON_BN_CLICKED(IDC_SN_MONITOR, &ConfigDialog::monitor)
+ON_CONTROL_RANGE(BN_CLICKED, IDC_SN_DI1_INVERT, IDC_SN_DI7_INVERT,
+                 &ConfigDialog::invert_changed)
+ON_BN_CLICKED(IDC_SN_USB, &ConfigDialog::connection_changed)
+ON_EN_CHANGE(IDC_SN_IP, &ConfigDialog::connection_changed)
+ON_EN_CHANGE(IDC_SN_PORT, &ConfigDialog::connection_changed)
+ON_EN_CHANGE(IDC_SN_COM, &ConfigDialog::connection_changed)
+ON_EN_CHANGE(IDC_SN_TIMEOUT, &ConfigDialog::connection_changed)
+ON_WM_TIMER()
+ON_WM_DESTROY()
+ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 static void clear_local_motion() {
   streamer.reset();
@@ -146,6 +340,7 @@ static void clear_local_motion() {
   dwell_waiting = 0;
 }
 static void fail(const std::string &message) {
+  last_runtime_error = message;
   if (client.connected())
     client.command(SN_ABORT);
   if (Engine) {
@@ -186,10 +381,14 @@ static bool machine_config(sn_machine_config &config) {
            travel = settings.home_travel * scale;
     if (!std::isfinite(scale) || !std::isfinite(velocity) ||
         !std::isfinite(acceleration) || scale <= 0 || velocity < 1 ||
-        velocity > 80000 || acceleration < 1 || acceleration > 10000000 ||
+        velocity > SN_MAX_STEP_RATE || acceleration < 1 || acceleration > 10000000 ||
         !std::isfinite(backoff) || !std::isfinite(travel) || backoff < 1 ||
         travel > 100000000) {
       fail("Check X/Y/Z Motor Tuning and homing distances.");
+      return false;
+    }
+    if (velocity > client.report().max_step_rate) {
+      fail("Firmware step-rate limit exceeded. Install the matching high-rate UF2.");
       return false;
     }
     sn_axis_config &a = config.axis[i];
@@ -218,17 +417,12 @@ static bool machine_config(sn_machine_config &config) {
   sn_config_encode(bytes, &config);
   sn_machine_config validated;
   if (!sn_config_decode(bytes, sizeof(bytes), &validated)) {
-    fail("Motor tuning exceeds pulse timing or homing limits.");
+    fail("Motor tuning exceeds STEP high/low timing or homing limits. Reduce pulse width or rate.");
     return false;
   }
   return true;
 }
-static bool connect_controller() {
-  std::string error = client.open(settings);
-  if (!error.empty()) {
-    fail(error);
-    return false;
-  }
+static bool configure_controller() {
   sn_machine_config config;
   if (!machine_config(config)) {
     client.close();
@@ -246,6 +440,14 @@ static bool connect_controller() {
   clear_local_motion();
   return true;
 }
+static bool connect_controller() {
+  const std::string error = client.open(settings);
+  if (!error.empty()) {
+    fail(error);
+    return false;
+  }
+  return configure_controller();
+}
 static void report_to_mach() {
   const sn::Report &r = client.report();
   for (unsigned i = 0; i < 3; ++i) {
@@ -258,7 +460,8 @@ static void report_to_mach() {
   }
   Engine->DisplayLine = static_cast<int>(r.line);
   MainPlanner->ELine = static_cast<int>(r.line);
-  uint8_t raw = r.inputs ^ static_cast<uint8_t>(settings.input_invert);
+  uint8_t raw = r.has_raw_inputs ? r.raw_inputs :
+      r.inputs ^ static_cast<uint8_t>(settings.input_invert);
   for (int i = 0; i < nSigs; ++i) {
     if (Engine->InSigs[i].Active && Engine->InSigs[i].InPort == 1 &&
         Engine->InSigs[i].InPin >= 1 && Engine->InSigs[i].InPin <= 7) {
@@ -507,7 +710,8 @@ static VOID CALLBACK update_timer(HWND, UINT, UINT_PTR, DWORD) {
 }
 CString myProfileInit(CString, CXMLProfile *profile) {
   settings = load(profile);
-  return " StepperNinja USB/UDP 0.3 (3-axis development)";
+  // Mach3 also uses this identifier when persisting plugin activation in XML.
+  return "_USB_UDP_v0_3_3axis";
 }
 void myInitControl() {
   if (MachView)
@@ -520,12 +724,13 @@ void myInitControl() {
     MainPlanner->ExTime = .001;
     MainPlanner->ExBufferHi = 100;
     for (unsigned i = 0; i < 7; ++i)
-      MainPlanner->ExternalPulseRates[i] = i < 3 ? 80000 : 0;
+      MainPlanner->ExternalPulseRates[i] = i < 3 ? SN_MAX_STEP_RATE : 0;
   }
 }
 void myPostInitControl() {
   myInitControl(); // Reinstate transport capabilities after profile loading.
   selected = true;
+  sync_runtime_input_polarity(settings.input_invert);
   if (Engine)
     Engine->EStop = true;
   timer_id = SetTimer(nullptr, 0, 25, update_timer);
@@ -538,14 +743,17 @@ void myConfig(CXMLProfile *profile) {
     return;
   }
   paused = true;
-  if (client.connected()) {
-    client.command(SN_DISARM);
-    client.command(SN_RELEASE);
-    client.close();
+  // Keep the existing session while the dialog polls inputs. Runtime updates
+  // are paused, and the dialog never arms or sends a new machine configuration.
+  if (client.connected() && client.report().armed && !command(SN_DISARM)) {
+    paused = false;
+    return;
   }
+  const sn::Settings previous = settings;
   ConfigDialog dialog(load(profile));
   if (dialog.DoModal() == IDOK) {
     settings = dialog.value;
+    save_input_polarity(profile, settings.input_invert);
     profile->WriteProfileInt(section, "USB", settings.usb ? 1 : 0);
     profile->WriteProfileString(section, "COMPort", settings.serial_port.c_str());
     profile->WriteProfileString(section, "IP", settings.ip.c_str());
@@ -555,6 +763,19 @@ void myConfig(CXMLProfile *profile) {
                                 double_text(settings.home_backoff));
     profile->WriteProfileString(section, "HomeTravel",
                                 double_text(settings.home_travel));
+  }
+  if (selected) {
+    const bool transport_changed = previous.usb != settings.usb ||
+        (settings.usb ? previous.serial_port != settings.serial_port :
+         (previous.ip != settings.ip || previous.port != settings.port)) ||
+        previous.timeout_ms != settings.timeout_ms;
+    if (transport_changed) {
+      if (client.connected()) client.command(SN_RELEASE);
+      client.close();
+    } else if (client.connected() && configure_controller()) {
+      fault_seen = client.report().fault != 0;
+      report_to_mach();
+    }
   }
   paused = false;
 }
@@ -585,7 +806,7 @@ void MyJogOn(short axis, short direction, double speed) {
   else if (!(*MachView->m_ShiftState))
     velocity *= _setup->JogPercent / 100;
   velocity *= MainPlanner->StepsPerAxis[axis];
-  if (!std::isfinite(velocity) || velocity < 1 || velocity > 80000) {
+  if (!std::isfinite(velocity) || velocity < 1 || velocity > SN_MAX_STEP_RATE) {
     fail("Invalid jog velocity.");
     return;
   }

@@ -1,5 +1,33 @@
 # StepperNinja–Mach3: execution, reports, and protocol
 
+## 200 kHz Mach3 mode
+
+Update firmware and DLL together. The ceiling is 200 steps/ms/axis,
+200,000 steps/s. Both STEP high and low time are checked.
+1000 steps/mm at 10,000 mm/min needs about 166.7 kHz and fits with PulseNs=2500.
+For the full 200 kHz use PulseNs<=2000 with DirSetupNs=5000.
+Longer pulses remain supported at lower rates.
+Separate **StepperNinjaMill1000** and **StepperNinjaTurn1000** sample profiles
+use 1000 steps/mm, 10,000 mm/min and 250 mm/s^2. Use them only with matching
+mechanical/microstep calibration; changing steps/mm alone does not increase
+physical resolution. Copy their XMLs to C:\Mach3 and their macro folders to
+C:\Mach3\macros. The extra 1000 launchers open those profiles.
+Existing calibration is retained in the original profiles.
+PIO emits short pulse trains in 1 ms frames; instantaneous pulse-train frequency
+can exceed the average frame rate. Physical 200 kHz has not been scope-verified.
+
+## Per-input inversion
+
+Open Config → Config Plugins → StepperNinja CONFIG. Under **Inputs - polarity and live state**,
+each of the seven DIs has its own **Invert** checkbox, with its signal name
+and GPIO number. Checked means active low; unchecked means active high.
+**Save** stores the setting in the current profile and synchronises **Active Low**
+for every Mach3 signal mapped to that input, including limit/home aliases.
+**Cancel** preserves the settings. Mill and lathe profiles can use different
+polarities. Existing InputInvert masks automatically populate the checkboxes.
+
+
+
 [Magyar](MACH3-PROTOCOL.hu.md)
 
 This document describes the development implementation in this repository.
@@ -9,6 +37,22 @@ and local coordinated G31 with contact position capture.
 The plugin is an adapter written for Mach3 SDK 2.62, using native Mach3 Feed Hold.
 Actual SDK integration still needs Windows validation; this is a development release.
 For detailed examples, see [Feed Hold and G31](MACH3-FEEDHOLD-G31.en.md).
+
+## Live input diagnostics
+
+When StepperNinja is the selected motion controller, input diagnostics starts
+automatically in its configuration dialog using the driver's existing connection.
+It does not open another USB connection or hand over controller ownership.
+The display refreshes approximately every 50 ms. **H/L** shows the physical
+GPIO level; **ON/off** shows the active/inactive state after the Invert checkbox.
+Inversion previews immediately. **Save** updates firmware polarity and Mach3
+input polarity; **Cancel** retains the previous settings. On closing the dialog,
+the driver continues polling through the same connection. Edited connection
+settings apply only after Save. Connection failures show **-- / --**.
+The monitor never arms the controller. If the plugin is not selected as the
+motion controller, **Start input monitor** starts a standalone check.
+The updated UF2 from the preceding package is still compatible.
+Verified on a physical USB Pico; physically toggling switches was not tested.
 
 ## 1. Responsibilities and project structure
 
@@ -80,7 +124,8 @@ The Config Plugins dialog saves these fields in the current profile's
 PulseNs, DirSetupNs, InputInvert, OutputInvert, DirectionInvert, HomePositive,
 HomeSlowPercent, HomeBackoff, and HomeTravel. Cancel does not save.
 Configuration can be opened only in Reset/E-stop state; before opening, the
-plugin sends DISARM/RELEASE and closes the connection.
+plugin disarms if necessary and keeps the existing session for input polling.
+Save applies polarity while disarmed; only changed transport settings require reconnecting.
 
 Defaults: `192.168.0.177:8888`, reply timeout 500 ms, watchdog 500 ms,
 PWM 10 kHz, STEP high time 2500 ns, DIR setup 5000 ns, negative homing direction,
@@ -189,7 +234,7 @@ by the configuration of every moving axis. Reaching the target without contact
 produces a PROBE_MISS fault.
 
 BATCH record: `i32 X_delta`, `i32 Y_delta`, `i32 Z_delta`, `u32 Mach3_line`.
-Each record lasts 1 ms. Maximum ±80 steps/axis/record and the configured axis
+Each record lasts 1 ms. Maximum ±200 steps/axis/record and the configured axis
 velocity apply; the firmware validates the whole batch and never accepts it
 partially. First is the last accepted_frame+1; this increases within the session,
 even after END/ABORT. Filling the buffer while idle does not move the machine.
@@ -208,12 +253,12 @@ starting at offset 20. Within each axis record: 0 max_velocity/u32,
 33 home_input/u8, 34 limit_input/u8 (255=disabled), 35 reserved=0.
 
 Valid ranges: watchdog 100..2000 ms; PWM 4000..100000 Hz;
-pulse 1000..10000 ns; DIR setup 1000..20000 ns; velocity 1..80000 steps/s;
+pulse 1000..10000 ns; DIR setup 1000..20000 ns; velocity 1..200000 steps/s;
 acceleration 1..10000000 steps/s². HomeSlow ≤ HomeFast ≤ MaxVelocity;
 0 < backoff ≤ home_travel ≤ 100000000 steps. HomeOffset and SET_POSITION
 must be within ±10¹² steps. MOVE delta must be nonzero and within ±10⁹ steps.
 Pulse timing adds another constraint:
-`max_velocity × (2 × pulse_ns + 1000) ≤ 850000000`.
+`6 + ceil(max_velocity/1000) * 2 * ceil(pulse_ns/100) <= (900 - 25 - 30 - ceil(dir_setup_ns/1000)) * 10`.
 
 ## 6. Full report and Mach3 mapping
 
@@ -251,7 +296,10 @@ arrives in more than POLL replies. The Pico's 1 ms runtime is independent.
 | 72 / 80 / 88 | i64 / axis | Captured contact XYZ in physical steps |
 | 96 | u32 | Probe identifier = accepted PROBE sequence |
 | 100 | u8 | Probe state: NONE=0, ACTIVE=1, HIT=2, MISS=3, CANCELLED=4 |
-| 101 | 11 | Reserved = 0 |
+| 101 | 1 | Raw DI1..DI7 GPIO levels, bits 0..6 |
+| 102 | 1 | Capabilities: bit 0 = raw levels valid; bit 1 = maximum step rate valid |
+| 103 | 4 | Maximum step rate / tengelyenkenti maximum STEP frekvencia, u32 Hz |
+| 107 | 5 | Reserved = 0 |
 
 | Mach3 field | Update |
 |---|---|

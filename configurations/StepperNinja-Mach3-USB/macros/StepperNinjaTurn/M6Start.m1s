@@ -1,0 +1,2 @@
+  tool = GetSelectedTool()
+  SetCurrentTool( tool )

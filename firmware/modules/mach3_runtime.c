@@ -1,5 +1,6 @@
 #include "mach3_runtime.h"
 #include "../../common/motion/controller.h"
+#include "../../common/motion/step_timing.h"
 #include "config.h"
 #include "hardware/clocks.h"
 #include "hardware/pio.h"
@@ -163,7 +164,6 @@ static bool tick(struct repeating_timer *t) {
     return true;
   }
   active_mask = 0;
-  uint32_t high_count = (controller.config.pulse_ns + 99) / 100 - 2;
   /* Keep each burst within the first 900 us of this timer callback, including
    * its computation time. Reserve 30 us for FIFO/GPIO staging. Normal frame
    * boundaries provide >=100 us DIR hold; after an asynchronous stop enforce
@@ -173,19 +173,20 @@ static bool tick(struct repeating_timer *t) {
     busy_wait_us_32((uint32_t)(20 - stopped_elapsed));
   uint64_t elapsed = time_us_64() - now;
   uint32_t setup_us = (controller.config.dir_setup_ns + 999) / 1000;
-  if (elapsed + setup_us + 30 >= 900) {
+  if (elapsed + setup_us + SN_STEP_STAGE_US >= SN_STEP_BURST_END_US) {
     sn_controller_fault(&controller, SN_FAULT_TIMING);
     stop_steps();
     apply_io();
     return true;
   }
-  uint32_t available = (uint32_t)(900 - elapsed - setup_us - 30) * 10;
+  uint32_t available = (uint32_t)(SN_STEP_BURST_END_US - elapsed - setup_us - SN_STEP_STAGE_US) * 10;
   for (unsigned i = 0; i < 3; ++i) {
     if (!steps[i])
       continue;
     uint32_t count = (uint32_t)(steps[i] < 0 ? -steps[i] : steps[i]);
-    uint32_t period = available / count;
-    if (period < high_count + 7 + (controller.config.pulse_ns + 99) / 100) {
+    uint32_t high_count, low_count;
+    if (!sn_step_plan(controller.config.pulse_ns, count, available,
+                      &high_count, &low_count)) {
       sn_controller_fault(&controller, SN_FAULT_TIMING);
       stop_steps();
       apply_io();
@@ -197,7 +198,7 @@ static bool tick(struct repeating_timer *t) {
              (steps[i] > 0) ^ ((controller.config.dir_invert >> i) & 1));
     pio_sm_put(pio0, i, count - 1);
     pio_sm_put(pio0, i, high_count);
-    pio_sm_put(pio0, i, period - high_count - 7);
+    pio_sm_put(pio0, i, low_count);
     active_mask |= 1u << i;
   }
   if (active_mask) {
@@ -220,7 +221,7 @@ void sn_mach3_runtime_init(void) {
     pio_gpio_init(pio0, step_pins[i]);
     pio_sm_config pulse = mach3_step_program_get_default_config(program_offset);
     sm_config_set_set_pins(&pulse, step_pins[i], 1);
-    sm_config_set_clkdiv(&pulse, clock_get_hz(clk_sys) / 10000000.0f);
+    sm_config_set_clkdiv(&pulse, clock_get_hz(clk_sys) / (float)SN_STEP_CLOCK_HZ);
     pio_sm_set_consecutive_pindirs(pio0, i, step_pins[i], 1, true);
     pio_sm_init(pio0, i, program_offset, &pulse);
     /* PIO1 only samples pads: it must not steal PIO0's GPIO mux. */

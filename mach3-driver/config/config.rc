@@ -1,6 +1,6 @@
 #include <winres.h>
 #include "resource.h"
-IDD_SN_CONFIG DIALOGEX 0, 0, 340, 405
+IDD_SN_CONFIG DIALOGEX 0, 0, 610, 405
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "StepperNinja configuration"
 FONT 9, "Segoe UI"
@@ -19,10 +19,8 @@ BEGIN
     EDITTEXT IDC_SN_PULSE, 115, 120, 70, 14, ES_NUMBER
     LTEXT "DIR setup (ns):", -1, 10, 144, 100, 12
     EDITTEXT IDC_SN_SETUP, 115, 142, 70, 14, ES_NUMBER
-    LTEXT "DI active-low mask:", -1, 10, 166, 100, 12
-    EDITTEXT IDC_SN_INPUT_INVERT, 115, 164, 35, 14, ES_NUMBER
-    LTEXT "DO active-low mask:", -1, 175, 166, 105, 12
-    EDITTEXT IDC_SN_OUTPUT_INVERT, 285, 164, 35, 14, ES_NUMBER
+    LTEXT "DO active-low mask:", -1, 10, 166, 105, 12
+    EDITTEXT IDC_SN_OUTPUT_INVERT, 115, 164, 35, 14, ES_NUMBER
     LTEXT "DIR invert mask (XYZ):", -1, 10, 188, 105, 12
     EDITTEXT IDC_SN_DIR_INVERT, 115, 186, 35, 14, ES_NUMBER
     LTEXT "Home +dir mask (XYZ):", -1, 175, 188, 105, 12
@@ -40,6 +38,36 @@ BEGIN
     CONTROL "USB connection", IDC_SN_USB, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 10, 358, 95, 14
     LTEXT "COM port:", -1, 115, 358, 55, 12
     EDITTEXT IDC_SN_COM, 175, 356, 90, 14, ES_AUTOHSCROLL
-    DEFPUSHBUTTON "Save", IDOK, 210, 385, 55, 14
-    PUSHBUTTON "Cancel", IDCANCEL, 275, 385, 55, 14
+    GROUPBOX "Inputs - polarity and live state", -1, 350, 10, 250, 205
+    LTEXT "Signal / fixed GPIO", -1, 360, 28, 145, 12
+    LTEXT "Invert", -1, 505, 28, 36, 12
+    LTEXT "GPIO / State", -1, 546, 28, 52, 12
+    LTEXT "DI1  E-stop (GP13)", -1, 360, 50, 145, 12
+    CONTROL "", IDC_SN_DI1_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 48, 14, 14
+    LTEXT "-- / --", IDC_SN_DI1_STATE, 545, 50, 52, 12
+    LTEXT "DI2  X home / limit (GP14)", -1, 360, 72, 145, 12
+    CONTROL "", IDC_SN_DI2_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 70, 14, 14
+    LTEXT "-- / --", IDC_SN_DI2_STATE, 545, 72, 52, 12
+    LTEXT "DI3  Y home / limit (GP15)", -1, 360, 94, 145, 12
+    CONTROL "", IDC_SN_DI3_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 92, 14, 14
+    LTEXT "-- / --", IDC_SN_DI3_STATE, 545, 94, 52, 12
+    LTEXT "DI4  Z home / limit (GP22)", -1, 360, 116, 145, 12
+    CONTROL "", IDC_SN_DI4_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 114, 14, 14
+    LTEXT "-- / --", IDC_SN_DI4_STATE, 545, 116, 52, 12
+    LTEXT "DI5  Probe (GP26)", -1, 360, 138, 145, 12
+    CONTROL "", IDC_SN_DI5_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 136, 14, 14
+    LTEXT "-- / --", IDC_SN_DI5_STATE, 545, 138, 52, 12
+    LTEXT "DI6  General input (GP27)", -1, 360, 160, 145, 12
+    CONTROL "", IDC_SN_DI6_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 158, 14, 14
+    LTEXT "-- / --", IDC_SN_DI6_STATE, 545, 160, 52, 12
+    LTEXT "DI7  General input (GP28)", -1, 360, 182, 145, 12
+    CONTROL "", IDC_SN_DI7_INVERT, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 515, 180, 14, 14
+    LTEXT "-- / --", IDC_SN_DI7_STATE, 545, 182, 52, 12
+    PUSHBUTTON "Start input monitor", IDC_SN_MONITOR, 360, 223, 115, 18
+    LTEXT "Stopped. Start monitoring to read inputs.", IDC_SN_MONITOR_STATUS, 360, 248, 230, 36
+    LTEXT "H/L = physical GPIO. ON/off = current invert preview. No motion is armed.", -1, 360, 289, 230, 30
+    LTEXT "Checked = active low. Save also updates Mach3 Active Low for matching signals.", -1, 360, 325, 230, 30
+    LTEXT "Port 1 / pin 1..7 = DI1..DI7. GPIO assignments are fixed.", -1, 360, 359, 230, 22
+    DEFPUSHBUTTON "Save", IDOK, 480, 385, 55, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 545, 385, 55, 14
 END

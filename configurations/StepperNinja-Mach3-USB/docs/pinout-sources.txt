@@ -1,0 +1,3 @@
+Physical pins: https://datasheets.raspberrypi.com/pico/Pico-R3-A4-Pinout.pdf
+GPIO roles: common/profiles/mach3_3axis.h; docs/MACH3-PROTOCOL.en.md
+Top view, original 40-pin Raspberry Pi Pico/RP2040, USB at top.

@@ -159,6 +159,13 @@ std::string ControllerClient::command(uint16_t type, const uint8_t *payload,
       }
       next.probe_id = sn_read_u32(p + 96);
       next.probe_state = p[100];
+      next.has_raw_inputs = (p[102] & SN_STATUS_CAP_RAW_INPUTS) != 0;
+      next.raw_inputs = p[101] & 127;
+      if (p[102] & SN_STATUS_CAP_STEP_RATE) {
+        next.max_step_rate = sn_read_u32(p + 103);
+        if (!next.max_step_rate || next.max_step_rate > SN_MAX_STEP_RATE)
+          return "Unsupported firmware step-rate capability.";
+      }
       report_ = next;
       if (next.acknowledged != seq && type != SN_CLAIM) {
         close();

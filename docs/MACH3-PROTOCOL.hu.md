@@ -1,5 +1,34 @@
 # StepperNinja–Mach3: végrehajtás, reportok és protokoll
 
+## 200 kHz-es Mach3 mód
+
+A firmware és a DLL együtt frissítendő. A felső határ 200 lépés/ms/tengely,
+200 000 lépés/s. A magas és alacsony STEP-időt egyaránt ellenőrzi.
+1000 steps/mm és 10 000 mm/perc kb. 166,7 kHz: 2500 ns STEP-idővel használható.
+A teljes 200 kHz-hez legfeljebb 2000 ns STEP-idő kell (DIR setup 5000 ns).
+Hosszabb impulzust is lehet állítani, de kisebb sebesség szükséges hozzá.
+A külön **StepperNinjaMill1000** és **StepperNinjaTurn1000** mintaprofil
+1000 steps/mm, 10 000 mm/perc és 250 mm/s² értékeket tartalmaz.
+Csak az 1000 steps/mm-nek megfelelő mechanikai/mikrolépéses beállításhoz használd;
+a steps/mm puszta átírása nem növeli a fizikai felbontást.
+A profil XML-eket C:\Mach3 alá, a hozzájuk tartozó makrókat azonos nevű
+C:\Mach3\macros alkönyvtárba másold. Az új 1000-es indítók ezeket nyitják.
+A meglévő profilok kalibrációja megmarad. A PIO rövid impulzusvonatokat ad
+1 ms-os frame-ekben; az impulzusvonaton belüli frekvencia magasabb lehet az
+átlagos frame-frekvenciánál. A fizikai 200 kHz oszcilloszkópos mérése még nincs meg.
+
+## Bemenetenkénti invertálás
+
+A Config → Config Plugins → StepperNinja CONFIG ablak **Inputs - polarity and live state**
+részében mind a hét DI mellett külön **Invert** jelölőnégyzet van, a jel
+nevével és GPIO-számával. Bejelölve aktív alacsony, üresen aktív magas.
+A **Save** a jelenlegi profilba ment, és az adott bemenetre rendelt összes
+Mach3 jel **Active Low** értékét is összehangolja (például X++, X-- és X Home).
+A **Cancel** nem ment. A két gépprofil polaritása külön állítható.
+A régi profilok InputInvert értékei automatikusan betöltődnek a hét kapcsolóba.
+
+
+
 [English](MACH3-PROTOCOL.en.md)
 
 Ez a fájl a repóban megvalósított fejlesztési verzió működését írja le.
@@ -9,6 +38,22 @@ valósít meg, továbbá helyi koordinált G31-et érintési pozíciórögzíté
 A plugin Mach3 SDK 2.62-re írt adapter, natív Mach3 Feed Hold útvonallal.
 A valódi SDK integráció Windows alatt még ellenőrizendő; ez fejlesztési kiadás.
 Részletes példák: [Feed Hold és G31](MACH3-FEEDHOLD-G31.hu.md).
+
+## Élő bemenetdiagnosztika
+
+A futó StepperNinja driver konfigurációjában a bemenetkijelzés automatikusan
+elindul, a driver meglévő kapcsolatán. Nem nyit másik USB-kapcsolatot, és
+nem adja át a vezérlő tulajdonjogát. A kijelzés körülbelül 50 ms-onként frissül.
+**H/L** = fizikai GPIO-szint, **ON/off** = az Invert szerinti aktív/inaktív állapot.
+Az invertálás előnézete azonnali. A **Save** a firmware és a Mach3 bemeneti
+polaritását is frissíti, a **Cancel** megtartja a korábbi beállításokat.
+Az ablak bezárása után a driver ugyanazon a kapcsolaton folytatja a lekérdezést.
+A kapcsolat mezőinek szerkesztése csak Save után érvényesül.
+Kapcsolathibánál **-- / --** látszik. A monitor nem élesíti a vezérlőt.
+Ha a plugin nincs mozgásvezérlőnek kiválasztva, a **Start input monitor**
+gombbal indítható az önálló ellenőrzés.
+A korábbi csomag frissített UF2-je továbbra is megfelelő.
+Valódi USB-s Picóval ellenőrizve; a fizikai kapcsolók kapcsolgatása nincs tesztelve.
 
 ## 1. Feladatmegosztás és projektstruktúra
 
@@ -77,7 +122,9 @@ A Config Plugins ablak az adott profil `StepperNinjaMach3` XML szekciójába men
 IP, port, ReplyTimeoutMs, WatchdogMs, PWMHz, PulseNs, DirSetupNs, InputInvert,
 OutputInvert, DirectionInvert, HomePositive, HomeSlowPercent, HomeBackoff,
 HomeTravel. Cancel nem ment. A konfiguráció csak Reset/E-stop állapotban nyitható;
-előtte a plugin DISARM/RELEASE parancsot küld és bezárja a kapcsolatot.
+a plugin szükség esetén DISARM-ot küld, a kapcsolatot megtartja a bemenetek lekérdezéséhez.
+A Save letiltott vezérlő mellett frissíti a polaritást; új kapcsolat csak a kapcsolat
+beállításainak módosításakor szükséges.
 
 Alapérték: `192.168.0.177:8888`, válasz-timeout 500 ms, watchdog 500 ms,
 PWM 10 kHz, STEP magas idő 2500 ns, DIR setup 5000 ns, negatív homing,
@@ -183,7 +230,7 @@ Az aktív érzékelővel indulást elutasítja. Sebesség/gyorsulás minden éri
 tengely beállításával korlátozott. Hiányzó kontaktus a cél végén PROBE_MISS hiba.
 
 BATCH rekord: `i32 X_delta`, `i32 Y_delta`, `i32 Z_delta`, `u32 Mach3_line`.
-Minden rekord 1 ms. Maximum ±80 lépés/tengely/rekord és a konfigurált tengelysebesség;
+Minden rekord 1 ms. Maximum ±200 lépés/tengely/rekord és a konfigurált tengelysebesség;
 a firmware az egész batch-et ellenőrzi, részlegesen nem veszi át.
 A first az utolsó accepted_frame+1; ez sessionön belül nő, END/ABORT után is.
 A feltöltés idle állapotban még nem mozgat. START külön szükséges.
@@ -201,12 +248,12 @@ Tengelyrekordon belül: 0 max_velocity/u32, 4 acceleration/u32,
 34 limit_input/u8 (255=tiltva), 35 reserved=0.
 
 Érvényes tartományok: watchdog 100..2000 ms; PWM 4000..100000 Hz;
-pulse 1000..10000 ns; DIR setup 1000..20000 ns; sebesség 1..80000 lépés/s;
+pulse 1000..10000 ns; DIR setup 1000..20000 ns; sebesség 1..200000 lépés/s;
 gyorsulás 1..10000000 lépés/s². HomeSlow ≤ HomeFast ≤ MaxVelocity;
 0 < backoff ≤ home_travel ≤ 100000000 lépés. HomeOffset és SET_POSITION
 ±10¹² lépésen belül. MOVE delta nemnulla, legfeljebb ±10⁹ lépés.
 Az impulzusidő további korlátot ad:
-`max_velocity × (2 × pulse_ns + 1000) ≤ 850000000`.
+`6 + ceil(max_velocity/1000) * 2 * ceil(pulse_ns/100) <= (900 - 25 - 30 - ceil(dir_setup_ns/1000)) * 10`.
 
 ## 6. A teljes report és Mach3 megfeleltetés
 
@@ -244,7 +291,10 @@ nem csak a POLL válaszban érkeznek. A Pico 1 ms végrehajtója ettől függetl
 | 72 / 80 / 88 | i64 / tengely | Rögzített érintési XYZ, fizikai lépésben |
 | 96 | u32 | Probe azonosító = elfogadott PROBE sequence |
 | 100 | u8 | Probe állapot: NONE=0, ACTIVE=1, HIT=2, MISS=3, CANCELLED=4 |
-| 101 | 11 | Reserved = 0 |
+| 101 | 1 | Nyers DI1..DI7 GPIO-szintek, 0..6 bit |
+| 102 | 1 | Képességek: 0. bit = nyers bemenetek; 1. bit = STEP-frekvenciahatár érvényes |
+| 103 | 4 | Maximum step rate / tengelyenkenti maximum STEP frekvencia, u32 Hz |
+| 107 | 5 | Reserved = 0 |
 
 | Mach3 mező | Frissítés |
 |---|---|

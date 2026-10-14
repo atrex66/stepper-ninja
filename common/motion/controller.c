@@ -1,4 +1,5 @@
 #include "controller.h"
+#include "step_timing.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -77,7 +78,7 @@ int sn_config_decode(const uint8_t *p, size_t size, sn_machine_config *c) {
     v->home_direction = a[32] == 255 ? -1 : (int8_t)a[32];
     v->home_input = a[33];
     v->limit_input = a[34];
-    if (a[35] || !v->max_velocity || v->max_velocity > 80000 ||
+    if (a[35] || !v->max_velocity || v->max_velocity > SN_MAX_STEP_RATE ||
         !v->acceleration || v->acceleration > 10000000 || !v->home_fast ||
         v->home_fast > v->max_velocity || !v->home_slow ||
         v->home_slow > v->home_fast || !v->backoff ||
@@ -88,8 +89,8 @@ int sn_config_decode(const uint8_t *p, size_t size, sn_machine_config *c) {
         v->home_input < 1 || v->home_input > 6 ||
         (v->limit_input != 255 && (v->limit_input < 1 || v->limit_input > 6)))
       return 0;
-    /* Guaranteed frame fit, including low time and PIO overhead. */
-    if ((uint64_t)v->max_velocity * (c->pulse_ns * 2u + 1000u) > 850000000u)
+    /* Include rounded-up integer frames and exact high/low PIO timing. */
+    if (!sn_step_rate_fits(v->max_velocity, c->pulse_ns, c->dir_setup_ns))
       return 0;
   }
   return 1;
@@ -212,7 +213,7 @@ static uint32_t execute(sn_controller *c, const sn_packet *r) {
     int64_t delta[3];
     unsigned major = 0;
     double length = 0, speed = sn_read_u32(p + 24), acceleration = 1e100;
-    if (speed < 1 || speed > 80000)
+    if (speed < 1 || speed > SN_MAX_STEP_RATE)
       return SN_RANGE;
     for (unsigned i = 0; i < 3; ++i) {
       int64_t goal = sn_read_i64(p + 8 * i);
@@ -331,7 +332,7 @@ static uint32_t execute(sn_controller *c, const sn_packet *r) {
       for (unsigned a = 0; a < 3; ++a) {
         int32_t delta = signed32(sn_read_u32(p + 8 + i * 16 + a * 4));
         if (delta < -SN_MAX_STEPS_TICK || delta > SN_MAX_STEPS_TICK ||
-            fabs((double)delta) * 1000 > c->config.axis[a].max_velocity)
+            fabs((double)delta) > (c->config.axis[a].max_velocity + 999u) / 1000u)
           return SN_RANGE;
       }
     for (unsigned i = 0; i < count; ++i) {
@@ -669,4 +670,7 @@ void sn_controller_status(const sn_controller *c,
   }
   sn_write_u32(p + 96, c->probe_id);
   p[100] = c->probe_state;
+  p[101] = c->raw_inputs;
+  p[102] = SN_STATUS_CAP_RAW_INPUTS | SN_STATUS_CAP_STEP_RATE;
+  sn_write_u32(p + 103, SN_MAX_STEP_RATE);
 }

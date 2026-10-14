@@ -43,8 +43,13 @@ std::string SerialTransport::open(const std::string &port) {
   dcb.fRtsControl = RTS_CONTROL_DISABLE;
   dcb.fDsrSensitivity = dcb.fOutX = dcb.fInX = FALSE;
   dcb.fErrorChar = dcb.fNull = dcb.fAbortOnError = FALSE;
-  if (!SetCommState(h, &dcb) || !PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR)) {
-    close(); return "Cannot configure USB COM port.";
+  if (!SetCommState(h, &dcb)) {
+    const DWORD code = GetLastError();
+    close(); return "SetCommState failed (Win32 " + std::to_string(code) + ").";
+  }
+  if (!PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR)) {
+    const DWORD code = GetLastError();
+    close(); return "PurgeComm failed (Win32 " + std::to_string(code) + ").";
   }
 #else
   int fd = ::open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);

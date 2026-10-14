@@ -1,0 +1,41 @@
+﻿physical_pin,pico_signal,mach3_role,group
+1,GP0,X STEP,motion
+2,GP1,X DIR,motion
+3,GND,Közös föld / ground,ground
+4,GP2,Y STEP - maró / mill,motion
+5,GP3,Y DIR - maró / mill,motion
+6,GP4,Z STEP,motion
+7,GP5,Z DIR,motion
+8,GND,Közös föld / ground,ground
+9,GP6,PWM - orsó / spindle,output
+10,GP7,DO1 - motor ENABLE,output
+11,GP8,DO2 - orsó / spindle RUN,output
+12,GP9,DO3 - orsó / spindle DIR,output
+13,GND,Közös föld / ground,ground
+14,GP10,DO4 - ködhűtés / mist,output
+15,GP11,DO5 - árasztás / flood,output
+16,GP12,DO6 - általános / general OUT,output
+17,GP13,DI1 - vészstop / E-stop,input
+18,GND,Közös föld / ground,ground
+19,GP14,DI2 - X HOME + LIMIT,input
+20,GP15,DI3 - Y HOME + LIMIT,input
+21,GP16,Nincs kiosztva / unassigned,unused
+22,GP17,Nincs kiosztva / unassigned,unused
+23,GND,Közös föld / ground,ground
+24,GP18,Nincs kiosztva / unassigned,unused
+25,GP19,Nincs kiosztva / unassigned,unused
+26,GP20,Nincs kiosztva / unassigned,unused
+27,GP21,Nincs kiosztva / unassigned,unused
+28,GND,Közös föld / ground,ground
+29,GP22,DI4 - Z HOME + LIMIT,input
+30,RUN,Reset - nem I/O,power
+31,GP26,DI5 - tapintó / probe,input
+32,GP27,DI6 - általános / general IN,input
+33,AGND,Közös föld / ground,ground
+34,GP28,DI7 - általános / general IN,input
+35,ADC_VREF,ADC referencia / reference,power
+36,3V3_OUT,3.3 V táp / supply OUT,power
+37,3V3_EN,3.3 V enable - nem I/O,power
+38,GND,Közös föld / ground,ground
+39,VSYS,Tápbemenet / supply IN,power
+40,VBUS,USB 5 V,power
