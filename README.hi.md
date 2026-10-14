@@ -7,6 +7,11 @@ LinuxCNC और Mach3 के लिए एक open-source, free और high-perf
 इसमें Pico/Pico 2 firmware, Windows plugin, machine profiles और
 [अंग्रेज़ी में स्थापना निर्देश](configurations/StepperNinja-Mach3-USB/README.en.md) शामिल हैं।
 
+मैंने Windows पर पुष्टि की है कि पहले से कम्पाइल किए गए driver और firmware
+के साथ Mach3 के USB STEP outputs और inputs काम करते हैं।
+
+[Mach3 USB configuration directory — पहले से कम्पाइल किए गए driver, firmware और machine profiles](configurations/StepperNinja-Mach3-USB)।
+
 Stepper-ninja उपयोग करने के लिए आपको official breakout board की आवश्यकता नहीं है। एक सस्ता printer-port breakout board भी पर्याप्त हो सकता है, और अन्य configurations भी संभव हैं।
 
 ![official breakout board](docs/20250812_165926.jpg)

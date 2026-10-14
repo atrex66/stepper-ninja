@@ -7,6 +7,11 @@ Uma interface open-source, gratuita e de alto desempenho de step generator, I/O 
 Inclui firmware para Pico/Pico 2, plugin para Windows, perfis de máquina e
 [instruções de instalação em inglês](configurations/StepperNinja-Mach3-USB/README.en.md).
 
+Verifiquei no Windows que as saídas STEP e as entradas via USB do Mach3
+funcionam com o driver e o firmware pré-compilados.
+
+[Diretório de configuração Mach3 USB — driver e firmware pré-compilados e perfis de máquina](configurations/StepperNinja-Mach3-USB).
+
 Você não precisa da breakout board oficial para usar o stepper-ninja. Uma breakout board simples de porta paralela já pode ser suficiente, e outras configurações também são possíveis.
 
 ![official breakout board](docs/20250812_165926.jpg)

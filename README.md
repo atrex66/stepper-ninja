@@ -99,7 +99,7 @@ Implemented in the prototype:
   detection, and controlled cancellation.
 
 **Prototype status:** portable Linux tests cover motion, reports, and UDP behavior;
-these use a substitute Mach3 planner. USB STEP output from Mach3 on Windows has been reported working by the project author.
+these use a substitute Mach3 planner. I have verified on Windows that USB STEP outputs and inputs work from Mach3 with the prebuilt driver and firmware.
 Full Mach3 Feed Hold/G31 integration and hardware timing still need validation.
 USB CDC motion transport is implemented with automatic console handover; full
 Windows and physical machine validation remain pending. The Mach3 profile has no encoder; the LinuxCNC
@@ -109,6 +109,8 @@ The Pico firmware can also be built natively on Windows; no Linux machine is
 required to build the firmware and Mach3 DLL. Once real Mach3 and hardware
 testing has confirmed reliable operation, a release is planned with prebuilt
 firmware and driver binaries. That validated release is not available yet.
+
+[Mach3 USB configuration directory — prebuilt driver, firmware, and machine profiles](configurations/StepperNinja-Mach3-USB).
 
 See the [English build guide](docs/MACH3-BUILD.en.md) or
 [Hungarian build guide](docs/MACH3-BUILD.hu.md). The separate Mach3 profile

@@ -7,6 +7,11 @@ Eine freie, quelloffene und leistungsstarke Step-Generator-, Digital-I/O- und PW
 Enthält Pico/Pico-2-Firmware, das Windows-Plugin, Maschinenprofile und eine
 [Installationsanleitung auf Englisch](configurations/StepperNinja-Mach3-USB/README.en.md).
 
+Ich habe unter Windows bestätigt, dass die USB-STEP-Ausgänge und Eingänge
+von Mach3 mit dem vorkompilierten Treiber und der Firmware funktionieren.
+
+[Mach3-USB-Konfigurationsverzeichnis — vorkompilierter Treiber, Firmware und Maschinenprofile](configurations/StepperNinja-Mach3-USB).
+
 Du brauchst das offizielle Breakout-Board nicht, um stepper-ninja zu verwenden. Ein günstiges Parallelport-Breakout-Board reicht aus, und andere Konfigurationen sind ebenfalls möglich.
 
 ![official breakout board](docs/20250812_165926.jpg)

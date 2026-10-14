@@ -87,8 +87,9 @@ A prototípusban megvalósított funkciók:
   felismerésével és kontrollált megszakítással.
 
 **Prototípus státusz:** a Linux tesztek mozgást, reportokat és UDP működést
-ellenőriznek, helyettesített Mach3 pályatervezővel. A projekt készítőjének visszajelzése szerint
-Windows alatt a Mach3-ból USB-n már működik a STEP-jelkimenet.
+ellenőriznek, helyettesített Mach3 pályatervezővel. Windows alatt igazoltam,
+hogy az előre fordított driverrel és firmware-rel a Mach3 USB STEP-jelkimenetei
+és bemenetei is működnek.
 A teljes Mach3 Feed Hold/G31 integráció és a hardveridőzítés még ellenőrizendő.
 USB CDC mozgástranszport automatikus konzolátadással megvalósított;
 a teljes Windows- és fizikai gépteszt még hátravan. A Mach3 profilnak nincs encodere;
@@ -99,6 +100,8 @@ A Pico firmware natívan Windows alatt is fordítható; a firmware és a Mach3 D
 elkészítéséhez nem szükséges Linux gép. Amikor a valódi Mach3- és hardvertesztek
 igazolták a megbízható működést, tervezett release készül előre fordított
 firmware-rel és driverrel. Ez az igazolt release még nem érhető el.
+
+[Mach3 USB konfigurációs könyvtár — előre fordított driver, firmware és gépprofilok](configurations/StepperNinja-Mach3-USB).
 
 Lásd a [magyar fordítási útmutatót](docs/MACH3-BUILD.hu.md) vagy az
 [angol változatot](docs/MACH3-BUILD.en.md). A külön Mach3 profil megőrzi
