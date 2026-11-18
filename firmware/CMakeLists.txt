@@ -6,12 +6,12 @@ endif()
 set(CMAKE_BUILD_TYPE Release) # Release mód
 
 # WIZnet chip típusának beállítása (alapértelmezett: W5100S)
-set(BOARD "pico" CACHE STRING "Pico board type (pico or pico2)")
-set_property(CACHE BOARD PROPERTY STRINGS "pico" "pico2")
+set(BOARD "pico" CACHE STRING "Board type (pico, pico2 or rp23cnc)")
+set_property(CACHE BOARD PROPERTY STRINGS "pico" "pico2" "rp23cnc")
 
 # Ellenőrizzük az érvényes értékeket
-if(NOT BOARD MATCHES "^(pico|pico2)$")
-    message(FATAL_ERROR "Invalid board type: ${BOARD}. Must be pico or pico2")
+if(NOT BOARD MATCHES "^(pico|pico2|rp23cnc)$")
+    message(FATAL_ERROR "Invalid board type: ${BOARD}. Must be pico, pico2 or rp23cnc")
 endif()
 
 set(WIZCHIP_TYPE "W5100S" CACHE STRING "WIZnet chip type (W5100S or W5500)")
@@ -33,9 +33,16 @@ option(STEPPER_NINJA_RUN_FROM_RAM "Copy the firmware from flash to SRAM before e
 if(NOT WIZCHIP_TYPE MATCHES "^(W5100S|W5500)$")
     message(FATAL_ERROR "Invalid WIZCHIP_TYPE: ${WIZCHIP_TYPE}. Must be W5100S or W5500.")
 endif()
+if(BOARD STREQUAL "rp23cnc" AND
+   (NOT WIZCHIP_TYPE STREQUAL "W5500" OR NOT STEPPER_NINJA_PROFILE STREQUAL "linuxcnc"))
+    message(FATAL_ERROR "RP23CNC requires WIZCHIP_TYPE=W5500 and STEPPER_NINJA_PROFILE=linuxcnc")
+endif()
 
 
 set(PICO_BOARD ${BOARD})
+if(BOARD STREQUAL "rp23cnc")
+    list(APPEND PICO_BOARD_HEADER_DIRS "${CMAKE_CURRENT_LIST_DIR}/boards")
+endif()
 
 include(pico_sdk_import.cmake)
 

@@ -237,7 +237,12 @@ int main() {
     assert(steps[0] == -steps[1]);
   }
   assert(total == 100);
-  double bad[3] = {0, 100, 0};
+  double at_limit[3] = {SN_MAX_STEPS_TICK, -SN_MAX_STEPS_TICK, 0};
+  assert(acc.convert(at_limit, steps));
+  assert(steps[0] == SN_MAX_STEPS_TICK && steps[1] == -SN_MAX_STEPS_TICK);
+  double bad[3] = {0, SN_MAX_STEPS_TICK + 1.0, 0};
+  assert(!acc.convert(bad, steps));
+  bad[1] = -SN_MAX_STEPS_TICK - 1.0;
   assert(!acc.convert(bad, steps));
   std::cout << "PASS: real UDP client, lost ACK retry, stale report rejection, "
                "measured reports, native Feed Hold/Cycle Start, G31 and "

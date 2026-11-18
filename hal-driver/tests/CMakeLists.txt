@@ -73,3 +73,5 @@ target_compile_options(encoder-index-contract PRIVATE -UNDEBUG -Wall -Wextra -We
 add_test(NAME encoder-index-contract COMMAND encoder-index-contract)
 add_test(NAME firmware-step-ring-contract COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/../common/tests/step_ring_contract.py" "${CMAKE_C_COMPILER}")
+add_test(NAME firmware-custom-gpio-contract COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/custom_gpio_contract.py" "${CMAKE_C_COMPILER}")

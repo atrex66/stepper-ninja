@@ -20,6 +20,7 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 - [Konfigurációs útmutató](docs/CONFIG.hu.md)
 - [IP konfiguráció](docs/IPCONFIG.hu.md)
 - [Saját breakout board készítése](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.hu.md)
+- [Phil Barrett RP23CNC konfiguráció](configurations/RP23CNC/README.hu.md) — külön LinuxCNC minta; a hardveres ellenőrzés még hátravan.
 - [Mach3 prototípus áttekintés](docs/MACH3.hu.md) ([English](docs/MACH3.en.md))
 - [Mach3 fordítási útmutató](docs/MACH3-BUILD.hu.md) ([English](docs/MACH3-BUILD.en.md))
 - [Mach3 protokoll és végrehajtási reportok](docs/MACH3-PROTOCOL.hu.md)

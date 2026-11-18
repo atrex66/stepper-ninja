@@ -20,6 +20,7 @@ You definitely do not need the official breakout board to use stepper-ninja. A c
 - [Configuration Guide](docs/CONFIG.md)
 - [IP Configuration Guide](docs/IPCONFIG.MD)
 - [Make Your Own Breakout Board](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.md)
+- [Phil Barrett RP23CNC configuration](configurations/RP23CNC/README.md) — separate LinuxCNC preset; hardware validation pending.
 - [Mach3 prototype overview](docs/MACH3.en.md) ([Magyar](docs/MACH3.hu.md))
 - [Mach3 build guide](docs/MACH3-BUILD.en.md) ([Magyar](docs/MACH3-BUILD.hu.md))
 - [Mach3 protocol and execution reports](docs/MACH3-PROTOCOL.en.md)

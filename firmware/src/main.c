@@ -1,4 +1,7 @@
 #include "main.h"
+#if defined(STEPPER_NINJA_RP23CNC) && !defined(SN_CONFIG_RP23CNC)
+#error "BOARD=rp23cnc requires configurations/RP23CNC/RP23CNC.h as config.h"
+#endif
 #include "encoder_index.h"
 #include "quadrature_encoder_substep.h"
 #define ENCODER_IDLE_STOP_SAMPLES 2500
@@ -338,8 +341,10 @@ void core1_entry() {
     memset(src_ip, 0, 4);
     sleep_ms(500);
 
+    #if LED_GPIO != GP_NULL
     gpio_init(LED_GPIO);
     gpio_set_dir(LED_GPIO, GPIO_OUT);
+    #endif
 
     // initialize encoder index pins
     #if encoders > 0
@@ -359,10 +364,17 @@ void core1_entry() {
     // =======================================================================
 
 #if defined(SN_HOST_MACH3) && SN_HOST_MACH3
-    while(1) { gpio_put(LED_GPIO,sn_mach3_runtime_armed());sleep_ms(10); }
+    while(1) {
+        #if LED_GPIO != GP_NULL
+        gpio_put(LED_GPIO,sn_mach3_runtime_armed());
+        #endif
+        sleep_ms(10);
+    }
 #else
     while(1){
+        #if LED_GPIO != GP_NULL
         gpio_put(LED_GPIO, !timeout_error);
+        #endif
         time_diff = (uint32_t)absolute_time_diff_us(last_packet_time, get_absolute_time());
         if (time_diff > TIMEOUT_US) {
             if (timeout_error == 0){
@@ -449,8 +461,10 @@ int main() {
 
     // stdio_init_all();
     stdio_usb_init();
+    #if LED_GPIO != GP_NULL
     gpio_init(LED_GPIO);
     gpio_set_dir(LED_GPIO, GPIO_OUT);
+    #endif
     sleep_ms(2000);
 
     src_ip = (uint8_t *)malloc(4);
@@ -492,12 +506,12 @@ int main() {
         //                clock_get_hz(clk_sys),
         //                clock_get_hz(clk_sys));
 
-        spi_init(spi0, 40000000);
+        spi_init(SPI_PORT, 40000000);
 
         // force spi clock speed
         #if pico_clock == 125000000
-            hw_write_masked(&spi_get_hw(spi0)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
-            hw_write_masked(&spi_get_hw(spi0)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
+            hw_write_masked(&spi_get_hw(SPI_PORT)->cr0, (0) << SPI_SSPCR0_SCR_LSB, SPI_SSPCR0_SCR_BITS); // SCR = 0
+            hw_write_masked(&spi_get_hw(SPI_PORT)->cpsr, 4, SPI_SSPCPSR_CPSDVSR_BITS); // CPSDVSR = 4
         #endif
     #endif
     
@@ -534,13 +548,13 @@ int main() {
 
     dma_channel_config_tx = dma_channel_get_default_config(dma_tx);
     channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
-    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+    channel_config_set_dreq(&dma_channel_config_tx, spi_get_dreq(SPI_PORT, true));
     channel_config_set_read_increment(&dma_channel_config_tx, true);
     channel_config_set_write_increment(&dma_channel_config_tx, false);
 
     dma_channel_config_rx = dma_channel_get_default_config(dma_rx);
     channel_config_set_transfer_data_size(&dma_channel_config_rx, DMA_SIZE_8);
-    channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
+    channel_config_set_dreq(&dma_channel_config_rx, spi_get_dreq(SPI_PORT, false));
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
 
@@ -865,7 +879,8 @@ void handle_data(){
         if (sizeof(output_pins)>0){
             //set output pins
             for (uint8_t i = 0; i < sizeof(output_pins); i++) {
-                if (output_pins[i] < 32){
+                // Output words are packed by list index, not physical GPIO bank.
+                if (i < 32){
                     gpio_put(output_pins[i], (rx_buffer->outputs[0] >> i) & 1);
                 } else {
                     gpio_put(output_pins[i], (rx_buffer->outputs[1] >> (i & 31)) & 1);
@@ -1056,7 +1071,7 @@ static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 {
     channel_config_set_read_increment(&dma_channel_config_tx, true);
     channel_config_set_write_increment(&dma_channel_config_tx, false);
-    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+    channel_config_set_dreq(&dma_channel_config_tx, spi_get_dreq(SPI_PORT, true));
     dma_channel_configure(dma_tx, &dma_channel_config_tx,
                           &spi_get_hw(SPI_PORT)->dr,
                           sBuf,
@@ -1065,7 +1080,7 @@ static void spi_read_fulldup(uint8_t *pBuf, uint8_t *sBuf,  uint16_t len)
 
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
-    channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
+    channel_config_set_dreq(&dma_channel_config_rx, spi_get_dreq(SPI_PORT, false));
     dma_channel_configure(dma_rx, &dma_channel_config_rx,
                           pBuf,                     
                           &spi_get_hw(SPI_PORT)->dr,
@@ -1110,9 +1125,11 @@ void w5100s_init() {
     gpio_set_dir(GPIO_CS, GPIO_OUT);
     cs_deselect();
 
+    #if GPIO_RESET != GP_NULL
     gpio_init(GPIO_RESET);
     gpio_set_dir(GPIO_RESET, GPIO_OUT);
     gpio_put(GPIO_RESET, 1);
+    #endif
 
     gpio_set_function(GPIO_SCK, GPIO_FUNC_SPI);
     gpio_set_function(GPIO_MOSI, GPIO_FUNC_SPI);
@@ -1123,9 +1140,11 @@ void w5100s_init() {
     
     reg_wizchip_spiburst_cbfunc(spi_read_burst, spi_write_burst);
 
+    #if GPIO_RESET != GP_NULL
     gpio_put(GPIO_RESET, 0);
     sleep_ms(100);
     gpio_put(GPIO_RESET, 1);
+    #endif
     sleep_ms(500);
 
     dma_tx = dma_claim_unused_channel(true);
@@ -1133,11 +1152,11 @@ void w5100s_init() {
 
     dma_channel_config_tx = dma_channel_get_default_config(dma_tx);
     channel_config_set_transfer_data_size(&dma_channel_config_tx, DMA_SIZE_8);
-    channel_config_set_dreq(&dma_channel_config_tx, DREQ_SPI0_TX);
+    channel_config_set_dreq(&dma_channel_config_tx, spi_get_dreq(SPI_PORT, true));
 
     dma_channel_config_rx = dma_channel_get_default_config(dma_rx);
     channel_config_set_transfer_data_size(&dma_channel_config_rx, DMA_SIZE_8);
-    channel_config_set_dreq(&dma_channel_config_rx, DREQ_SPI0_RX);
+    channel_config_set_dreq(&dma_channel_config_rx, spi_get_dreq(SPI_PORT, false));
     channel_config_set_read_increment(&dma_channel_config_rx, false);
     channel_config_set_write_increment(&dma_channel_config_rx, true);
 

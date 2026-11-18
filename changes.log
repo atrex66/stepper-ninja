@@ -1,5 +1,27 @@
 Stepper-Ninja Source-Only Change Log
 
+Date: 2026-11-18
+
+PicoBOB-DLX and RP23CNC LinuxCNC configurations
+- Correct the Expatria PicoBOB-DLX W5500 RESET/INT and LED assignments,
+  reserve GPIO14 for PWM, and complete the preset's shared definitions.
+- Add a separate Phil Barrett RP23CNC V1.0/V2 preset and RP2350B SDK board
+  definition: five axes, 14 inputs, 12 outputs, one PWM, and SPI1/W5500.
+  Include English/Hungarian wiring and build instructions.
+- Use configured SPI_PORT for initialization, clock registers, and DMA DREQs.
+- Decode custom GPIO outputs by list index, including physical GPIO32..47.
+  Retain the existing mapping for low GPIO lists; add a production-code test
+  for low, high, mixed-bank and 48-output configurations.
+- Skip optional GPIO LED/reset operations only when configured as GP_NULL.
+  Existing active configuration and other board pinouts remain unchanged.
+- Correct the outdated Mach3 waypoint-limit test to use SN_MAX_STEPS_TICK,
+  including accepted positive/negative boundaries and rejected excess values.
+  No change to Mach3 motion limits or runtime behavior.
+- Validation: 33/33 LinuxCNC/GPIO tests and 13/13 Mach3 portable tests;
+  RP23CNC, Pico, Pico 2, PicoBOB-DLX and Mach3 firmware builds successful.
+  RP23CNC HAL source compiles against installed LinuxCNC headers.
+  Physical board validation remains pending; no installation or flashing.
+
 Date: 2026-10-14
 
 StepperNinja Mach3 USB - first development version available for testing
