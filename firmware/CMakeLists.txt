@@ -83,6 +83,7 @@ include_directories(
 add_executable(stepper-ninja
     src/main.c
     modules/breakoutboard_common.c
+    modules/i2c_io.c
     modules/breakoutboard_1.c
     modules/breakoutboard_2.c
     modules/breakoutboard_3.c

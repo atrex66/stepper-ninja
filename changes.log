@@ -2,6 +2,22 @@ Stepper-Ninja Source-Only Change Log
 
 Date: 2026-11-18
 
+Configurable I2C digital I/O prototype (custom LinuxCNC configurations only)
+- Add config.h bus/device tables for MCP23008, MCP23017, TCA9535 and TCA9555.
+  Support two buses and two devices, per-pin direction/inversion, supported
+  pull-ups, logical startup/disconnect output levels and polling intervals.
+- Supply disabled defaults in footer.h; retain fixed breakout-board paths and
+  legacy io_expanders behavior. No packet layout change or active config edit.
+- Poll bounded-time transfers on core 1; use locked snapshots in packet code,
+  validate GPIO conflicts, report failed cycles, and retry initialization.
+- Export separate expander HAL input/output and online/valid pins. Reserve
+  output word 1, allowing up to 32 native outputs when the feature is enabled.
+- Include a two-bus example and English/Hungarian documentation. Mach3 support
+  and physical I2C validation are outside this prototype.
+- Validation: 35/35 LinuxCNC tests, including all four chip register maps, GPIO
+  coexistence, NAK/short-read recovery and HAL allocation failure paths. Enabled
+  Pico/W5100S and Pico 2/W5500 firmware builds pass. No installation or flashing.
+
 PicoBOB-DLX and RP23CNC LinuxCNC configurations
 - Correct the Expatria PicoBOB-DLX W5500 RESET/INT and LED assignments,
   reserve GPIO14 for PWM, and complete the preset's shared definitions.

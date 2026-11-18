@@ -151,6 +151,13 @@ typedef struct {
     sn_bit_pin rpi_input_not[32];
 
     sn_bit_pin output[64];
+    #if I2C_IO_ENABLE
+    sn_bit_pin i2c_input[I2C_IO_DEVICE_COUNT][16];
+    sn_bit_pin i2c_input_not[I2C_IO_DEVICE_COUNT][16];
+    sn_bit_pin i2c_output[I2C_IO_DEVICE_COUNT][16];
+    sn_bit_pin i2c_online[I2C_IO_DEVICE_COUNT];
+    sn_bit_pin i2c_valid[I2C_IO_DEVICE_COUNT];
+    #endif
     sn_bit_pin rpi_output[32];
 
 #if toolchanger_encoder == 1
@@ -585,6 +592,12 @@ void udp_io_process_recv(void *arg, long period)
     module_data_t *d = arg;
 
     if (d->watchdog_expired) {
+        #if I2C_IO_ENABLE
+        for (unsigned n = 0; n < I2C_IO_DEVICE_COUNT; ++n) {
+            sn_set_bit(d->i2c_online[n], 0);
+            sn_set_bit(d->i2c_valid[n], 0);
+        }
+        #endif
         sn_set_u32(d->step_ring_fill, 0);
         sn_set_bit(d->step_ring_active, 0);
         sn_set_bit(d->step_ring_underflow, 0);

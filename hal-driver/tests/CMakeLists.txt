@@ -75,3 +75,8 @@ add_test(NAME firmware-step-ring-contract COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/../common/tests/step_ring_contract.py" "${CMAKE_C_COMPILER}")
 add_test(NAME firmware-custom-gpio-contract COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/../common/tests/custom_gpio_contract.py" "${CMAKE_C_COMPILER}")
+add_test(NAME firmware-i2c-io-contract COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/i2c_io_contract.py" "${CMAKE_C_COMPILER}")
+add_test(NAME hal-i2c-io-contract COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/i2c_io_hal_contract.py"
+    --compiler "${CMAKE_C_COMPILER}" ${profile_include_args})

@@ -1,4 +1,5 @@
 #include "main.h"
+#include "i2c_io.h"
 #if defined(STEPPER_NINJA_RP23CNC) && !defined(SN_CONFIG_RP23CNC)
 #error "BOARD=rp23cnc requires configurations/RP23CNC/RP23CNC.h as config.h"
 #endif
@@ -453,6 +454,9 @@ void core1_entry() {
             }
             #endif
         }
+        #if I2C_IO_ENABLE
+        sn_i2c_io_poll(connected != 0);
+        #endif
     }
 #endif
 }
@@ -560,6 +564,9 @@ int main() {
 
     #endif
     
+    #if I2C_IO_ENABLE
+    sn_i2c_io_setup();
+    #endif
     multicore_launch_core1(core1_entry);
 
     PIO pio = pio0;
@@ -889,6 +896,14 @@ void handle_data(){
         }
     #endif
     // ===================================================================================
+    #if I2C_IO_ENABLE
+    uint32_t i2c_inputs, i2c_status;
+    sn_i2c_io_packet(rx_buffer->outputs[1], &i2c_inputs, &i2c_status);
+    tx_buffer->inputs[2] = i2c_inputs;
+    tx_buffer->inputs[3] = i2c_status;
+    input_buffer[2] = tx_buffer->inputs[2];
+    input_buffer[3] = tx_buffer->inputs[3];
+    #endif
 
     tx_buffer->step_ring_fill = 0;
     tx_buffer->step_ring_status = 0;

@@ -199,6 +199,37 @@
         #define I2C_PORT        i2c1
     #endif // breakout_board == 100
 
+    // Optional custom-board I2C I/O. Legacy board paths remain independent.
+    #include "i2c_io_config.h"
+    #ifndef I2C_IO_ENABLE
+    #define I2C_IO_ENABLE 0
+    #endif
+    #ifndef I2C_IO_BUS_COUNT
+    #define I2C_IO_BUS_COUNT 0
+    #endif
+    #ifndef I2C_IO_DEVICE_COUNT
+    #define I2C_IO_DEVICE_COUNT 0
+    #endif
+    #ifndef I2C_IO_BUSES
+    #define I2C_IO_BUSES {}
+    #endif
+    #ifndef I2C_IO_DEVICES
+    #define I2C_IO_DEVICES {}
+    #endif
+    #if I2C_IO_ENABLE
+        #if breakout_board != 0
+        #error "I2C_IO is only available for custom configurations (breakout_board=0)"
+        #endif
+        #if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+        #error "I2C_IO prototype currently supports the LinuxCNC profile only"
+        #endif
+        #if I2C_IO_BUS_COUNT < 1 || I2C_IO_BUS_COUNT > 2 || I2C_IO_DEVICE_COUNT < 1 || I2C_IO_DEVICE_COUNT > 2
+        #error "I2C_IO prototype requires 1..2 buses and 1..2 devices"
+        #endif
+        _Static_assert(sizeof((uint8_t[])out_pins) <= 32,
+                       "I2C_IO reserves output word 1: at most 32 native outputs");
+    #endif
+
     #define use_stepcounter 0 // Use step counter for the stepgen
     #define debug_mode 0   // only used in Raspberry PI communications
     #define max_statemachines stepgens + encoders
