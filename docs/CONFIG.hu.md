@@ -1,5 +1,7 @@
 # Stepper-Ninja konfigurációs útmutató
 
+Az új kártyakonfigurációk és az I²C-I/O prototípus a [test ágon](https://github.com/atrex66/stepper-ninja/tree/test) érhetők el. Fizikai hardveres ellenőrzésük még hátravan.
+
 Ez az útmutató a `config.h` fájl fő `#define` opcióit és azok használatát magyarázza el.
 
 A Stepper-Ninja két egymáshoz illeszkedő konfigurációs fejlécet használ:
@@ -59,6 +61,13 @@ A `breakout_board` a hardverelrendezést választja ki.
 | `100` | BreakoutBoard100 |
 
 Ha a `breakout_board` értéke nagyobb mint `0`, a `footer.h` több egyedi pin-definíciót boardspecifikus értékekre cserél.
+
+### További kártyakonfigurációk
+
+- [Expatria PicoBOB Deluxe A3 konfiguráció](../configurations/PicoBOB-DLX/picoBOB-DLX.h): javított W5500 RESET/INT-, LED- és PWM-kiosztás.
+- [Phil Barrett RP23CNC V1.0/V2](../configurations/RP23CNC/README.hu.md): öt tengely, 14 bemenet, 12 kimenet, egy főorsó-PWM, opcionális WIZ850io/W5500. Fordítása: `-DBOARD=rp23cnc -DWIZCHIP_TYPE=W5500`; a `BOARD=pico2` másik, 30 GPIO-s MCU-változatot választ.
+
+Ezek egyedi konfigurációk (`breakout_board=0`), nem új számozott breakout-board típusok. A kiválasztott mintát másold a `firmware/inc/config.h` helyére, majd azonos konfigurációval fordítsd újra a firmware-t és a HAL-t. A lábkiosztás és az opcionális `GP_NULL` LED/reset-kezelés kártyafüggő; ne másold át más kártyákra.
 
 ---
 
@@ -129,6 +138,46 @@ Ezek az értékek csak custom módban használatosak, vagy ha a kiválasztott br
 
 ---
 
+## Konfigurálható I²C digitális I/O (prototípus)
+
+Opcionális, egyszerű digitális I/O egyedi **LinuxCNC** konfigurációkhoz (`breakout_board=0`). Támogatott típusok: `SN_IO_MCP23008`, `SN_IO_MCP23017`, `SN_IO_TCA9535`, `SN_IO_TCA9555`. A fix breakout boardok külön úton maradnak, a régi `io_expanders` jelentése változatlan. A prototípus Mach3-hoz nem használható.
+
+| Define | Jelentés |
+|---|---|
+| `I2C_IO_ENABLE` | Az új modul engedélyezése; alapérték `0` |
+| `I2C_IO_BUS_COUNT` | Buszok száma, bekapcsolva 1–2; alapérték `0` |
+| `I2C_IO_BUSES` | Buszleírók listája; alapérték `{}` |
+| `I2C_IO_DEVICE_COUNT` | Bővítők száma összesen, bekapcsolva 1–2; alapérték `0` |
+| `I2C_IO_DEVICES` | Eszközleírók listája; alapérték `{}` |
+
+A beállításokat a `#include "footer.h"` **elé** tedd. A footer `#ifndef` védelemmel ad alapértékeket: a meglévő konfigurációkhoz nem kell új szakasz, további buszt sem inicializálnak. A firmware és a HAL azonos beállításokkal fordítandó.
+
+Példa: egy TCA9555, 0–7 bit bemenet, 8–15 bit kimenet, 10 ms-os lekérdezés:
+
+```c
+#define I2C_IO_ENABLE 1
+#define I2C_IO_BUS_COUNT 1
+#define I2C_IO_BUSES {{0, GP00, GP01, 400000, 1000}}
+#define I2C_IO_DEVICE_COUNT 1
+#define I2C_IO_DEVICES { \
+    {SN_IO_TCA9555, 0, 0x20, 0x00ff, 0, 0, 0, 0, 10} \
+}
+```
+
+A busz mezői sorrendben: vezérlő (0/1), SDA GPIO, SCL GPIO, sebesség Hz-ben (legfeljebb 400000), időkorlát SDK-műveletenként µs-ban (1–10000). Az eszköz mezői: típus, busztábla-index, 7 bites cím (0x20–0x27), iránymaszk (`1=bemenet`), felhúzómaszk, bemeneti invertálás, kimeneti invertálás, logikai indulási/kapcsolatvesztési kimeneti állapot, lekérdezési periódus ms-ban (1–60000).
+
+A példában a GPIO0/1 legyen szabad: nem ütközhet STEP/DIR-, enkóder/index-, natív I/O-, PWM-, billentyűmátrix-, LED- vagy kommunikációs lábbal. A [teljes, csak I/O-t használó példa](../configurations/I2C-IO/config.h) kiindulási minta, nem bármely kártyára ráilleszthető kiegészítés.
+
+- Legfeljebb két bővítő és 32 natív digitális kimenet. Bővítőnként 16 bites hely foglalt, MCP23008 esetén is. Mindkét natív GPIO-bemeneti bank megmarad. A csomagformátum változatlan.
+- MCP23008 esetén 8, a többinél 16 bites maszkok használhatók. Az új útvonal MCP23017-en elutasítja a 7/15 bit bemeneti használatát (GPA7/GPB7, az aktuális adatlap szerint csak kimenet). A régi boardkezelés nem változik.
+- TCA-nál a felhúzómaszk nulla. TCA9535-ben nincs belső I/O-felhúzó; a TCA9555 fix bemeneti felhúzását ez a mező nem kapcsolja ki.
+- HAL-példák: `stepgen-ninja.0.expander.0.input.0`, `input.0-not`, `output.8`, `online`, `valid`. Csak a beállított irány jön létre. A fizikai bemenet/állapot HAL_OUT, a fizikai kimenet parancsa HAL_IN.
+- A buszműveletek a step/enkóder IRQ-kon kívül futnak. Hibakor az `online`/`valid` hamis, a bemeneti adat az utolsó sikeres minta marad. Hibás buszon a kapcsolatvesztési kimeneti állapot kiírása nem garantálható.
+
+Részletek, korlátok és tesztelés: [I²C-I/O útmutató](I2C-IO.hu.md). A fizikai I²C-próba még hátravan.
+
+---
+
 ## PWM opciók
 
 | Define | Jelentés |
@@ -150,7 +199,8 @@ Csak akkor állítsd a `use_pwm` értékét `1`-re, ha a hardveredhez tartozó P
 | Define | Jelentés |
 |---|---|
 | `raspberry_pi_spi` | Wiznet Ethernet helyett SPI kapcsolat Raspberry Pi felé |
-| `raspi_int_out` | Interrupt/státusz pin a Raspberry Pi felé |
+| `RASPI_INT_OUT_GPIO` | Interrupt/státusz pin a Raspberry Pi felé |
+| `RASPI_SPI_CS_GPIO` | SPI chip-select GPIO a Raspberry Pi felé |
 | `raspi_inputs` | A Raspberry Pi által látható bemenetek |
 | `raspi_input_pullups` | Ezek pull-up beállításai |
 | `raspi_outputs` | A Raspberry Pi által vezérelt kimenetek |
@@ -196,6 +246,8 @@ Néhány hasznos opció CMake-ben választható ki, nem a `config.h`-ban.
 | `-DWIZCHIP_TYPE=W5500` | Build W5500-hoz |
 | `-DBOARD=pico` | Build Picóhoz |
 | `-DBOARD=pico2` | Build Pico2-höz |
+| `-DBOARD=rp23cnc` | RP23CNC fordítása (48 GPIO-s RP2350B; megfelelő minta és W5500 kell) |
+| `-DSTEPPER_NINJA_PROFILE=linuxcnc` / `mach3-3axis` | Host profil: `linuxcnc` (alapérték) vagy `mach3-3axis` (fix kiosztás) |
 | `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` | Futás előtt SRAM-ba másolja a firmware-t |
 
 Példa:
@@ -203,6 +255,8 @@ Példa:
 ```bash
 cmake -S firmware -B build -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 -DSTEPPER_NINJA_RUN_FROM_RAM=ON
 ```
+
+A Mach3 prototípus saját fix háromtengelyes profilt használ, nem a LinuxCNC rugalmas GPIO-kiosztását. Lásd a [Mach3 leírást](MACH3.hu.md) és a [fordítási útmutatót](MACH3-BUILD.hu.md). A Pico firmware Windows alatt is fordítható.
 
 ---
 

@@ -1,5 +1,7 @@
 # Guia de Configuração do Stepper-Ninja
 
+As novas configurações de placas e o protótipo de I/O I²C estão no [branch test](https://github.com/atrex66/stepper-ninja/tree/test). A validação em hardware físico ainda está pendente.
+
 Este guia explica as principais opções `#define` em `config.h` e onde elas são usadas.
 
 O Stepper-Ninja mantém cabeçalhos de configuração correspondentes em:
@@ -59,6 +61,13 @@ Se você usar os comandos `ipconfig` no terminal serial depois, os valores em te
 | `100` | BreakoutBoard100 |
 
 Quando `breakout_board` é maior que `0`, `footer.h` substitui várias definições de pinos customizados por valores específicos da placa.
+
+### Outras configurações de placas
+
+- [Expatria PicoBOB Deluxe A3](../configurations/PicoBOB-DLX/picoBOB-DLX.h): atribuições corrigidas de RESET/INT do W5500, LED e PWM.
+- [Phil Barrett RP23CNC V1.0/V2](../configurations/RP23CNC/README.md) (inglês): cinco eixos, 14 entradas, 12 saídas, um PWM de spindle e WIZ850io/W5500 opcional. Use `-DBOARD=rp23cnc -DWIZCHIP_TYPE=W5500`; `BOARD=pico2` seleciona outra variante do MCU, com 30 GPIOs.
+
+Esses modelos usam `breakout_board=0`, sem novos IDs numéricos. Copie o modelo escolhido para `firmware/inc/config.h` e recompile firmware e HAL com a mesma configuração. As atribuições de pinos e o uso opcional de `GP_NULL` para LED/reset são específicos da placa.
 
 ---
 
@@ -129,6 +138,46 @@ Esses valores só são usados no modo customizado ou quando a breakout board sel
 
 ---
 
+## I/O digital I²C configurável (protótipo)
+
+I/O digital opcional para configurações personalizadas do **LinuxCNC** (`breakout_board=0`). Tipos: `SN_IO_MCP23008`, `SN_IO_MCP23017`, `SN_IO_TCA9535`, `SN_IO_TCA9555`. As placas breakout fixas mantêm sua implementação e o significado de `io_expanders`. Este protótipo não oferece suporte ao Mach3.
+
+| Define | Significado |
+|---|---|
+| `I2C_IO_ENABLE` | Ativa o módulo; padrão `0` |
+| `I2C_IO_BUS_COUNT` | Quantidade de barramentos, 1–2 quando ativo; padrão `0` |
+| `I2C_IO_BUSES` | Lista de descritores de barramento; padrão `{}` |
+| `I2C_IO_DEVICE_COUNT` | Total de dispositivos, 1–2 quando ativo; padrão `0` |
+| `I2C_IO_DEVICES` | Lista de descritores de dispositivo; padrão `{}` |
+
+Insira as opções **antes** de `#include "footer.h"`. O footer fornece os padrões ausentes com `#ifndef`: configurações existentes não precisam de uma nova seção nem inicializam barramentos adicionais. Recompile firmware e HAL com opções idênticas.
+
+Exemplo: um TCA9555, bits 0–7 como entradas, 8–15 como saídas, leitura a cada 10 ms:
+
+```c
+#define I2C_IO_ENABLE 1
+#define I2C_IO_BUS_COUNT 1
+#define I2C_IO_BUSES {{0, GP00, GP01, 400000, 1000}}
+#define I2C_IO_DEVICE_COUNT 1
+#define I2C_IO_DEVICES { \
+    {SN_IO_TCA9555, 0, 0x20, 0x00ff, 0, 0, 0, 0, 10} \
+}
+```
+
+Campos do barramento: controlador (0/1), GPIO SDA, GPIO SCL, frequência em Hz (até 400000), timeout por transferência do SDK em µs (1–10000). Campos do dispositivo: tipo, índice na lista de barramentos, endereço de 7 bits (0x20–0x27), máscara de direção (`1=entrada`), pull-up, inversão de entradas, inversão de saídas, níveis lógicos de saída na inicialização/perda de conexão, intervalo em ms (1–60000).
+
+GPIO0/1 no exemplo devem estar livres, sem conflito com STEP/DIR, encoder/índice, I/O nativo, PWM, teclado, LED ou comunicação. Adapte o [exemplo completo de I/O](../configurations/I2C-IO/config.h) à placa.
+
+- Até dois dispositivos e 32 saídas digitais nativas. Cada expansor reserva 16 bits, inclusive MCP23008. Os dois bancos de entradas GPIO nativas são preservados; o formato dos pacotes não muda.
+- Máscaras de 8 bits para MCP23008 e 16 bits para os demais. O novo caminho rejeita os bits 7/15 como entradas no MCP23017 (GPA7/GPB7 são apenas saídas no datasheet atual); as placas existentes não mudam.
+- Máscara de pull-up zero nos TCA. TCA9535 não tem pull-ups internos de I/O; os pull-ups fixos de entrada do TCA9555 não podem ser desativados por esse campo.
+- Nomes HAL: `stepgen-ninja.0.expander.0.input.0`, `input.0-not`, `output.8`, `online`, `valid`. Apenas a direção configurada é exportada: entradas físicas/status HAL_OUT; comandos de saída HAL_IN.
+- As transferências ficam fora das IRQs de step/encoder. Uma falha limpa `online`/`valid`; as entradas mantêm a última amostra bem-sucedida. Um barramento com falha não garante a aplicação das saídas de perda de conexão.
+
+[Detalhes, limites e testes](I2C-IO.en.md) (inglês). Os testes físicos de I²C ainda estão pendentes.
+
+---
+
 ## Opções de PWM
 
 | Define | Significado |
@@ -150,7 +199,8 @@ Defina `use_pwm` como `1` somente quando a contagem de canais e os pinos PWM for
 | Define | Significado |
 |---|---|
 | `raspberry_pi_spi` | Usa link SPI com Raspberry Pi em vez de Ethernet Wiznet |
-| `raspi_int_out` | Pino de interrupção/status para o Raspberry Pi |
+| `RASPI_INT_OUT_GPIO` | Pino de interrupção/status para o Raspberry Pi |
+| `RASPI_SPI_CS_GPIO` | GPIO chip-select SPI para o Raspberry Pi |
 | `raspi_inputs` | Entradas visíveis ao Raspberry Pi |
 | `raspi_input_pullups` | Configuração de pull-up dessas entradas |
 | `raspi_outputs` | Saídas controladas pelo Raspberry Pi |
@@ -196,6 +246,8 @@ Algumas opções úteis são escolhidas no CMake, não em `config.h`.
 | `-DWIZCHIP_TYPE=W5500` | Build para W5500 |
 | `-DBOARD=pico` | Build para Pico |
 | `-DBOARD=pico2` | Build para Pico2 |
+| `-DBOARD=rp23cnc` | Compilar para RP23CNC com RP2350B de 48 GPIOs (modelo correspondente e W5500) |
+| `-DSTEPPER_NINJA_PROFILE=linuxcnc` / `mach3-3axis` | Perfil do host: `linuxcnc` (padrão) ou `mach3-3axis` (pinagem fixa) |
 | `-DSTEPPER_NINJA_RUN_FROM_RAM=ON` | Copia o firmware para SRAM antes da execução |
 
 Exemplo:
@@ -203,6 +255,8 @@ Exemplo:
 ```bash
 cmake -S firmware -B build -DBOARD=pico2 -DWIZCHIP_TYPE=W5500 -DSTEPPER_NINJA_RUN_FROM_RAM=ON
 ```
+
+O protótipo Mach3 utiliza seu próprio perfil fixo de três eixos. Veja [Mach3](MACH3.en.md) e as [instruções de compilação](MACH3-BUILD.en.md) (inglês). O firmware Pico também pode ser compilado no Windows.
 
 ---
 
