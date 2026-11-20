@@ -178,6 +178,18 @@ Részletek, korlátok és tesztelés: [I²C-I/O útmutató](I2C-IO.hu.md). A fiz
 
 ---
 
+## Konfigurálható I²C DAC-kimenetek (prototípus)
+
+Egyedi LinuxCNC konfigurációban az `I2C_DAC_ENABLE=1`, `I2C_DAC_CHANNEL_COUNT` (1–4) és `I2C_DAC_CHANNELS` a `footer.h` elé kerül. A közös `I2C_IO_BUS_COUNT` / `I2C_IO_BUSES` tábla digitális I/O nélkül is használható. A csatornaleíró mezői: típus, buszindex, 7 bites cím, fizikai csatorna, indulási/letiltási/kapcsolatvesztési nyers kód, frissítés ms-ban.
+
+Implementált típusok: `SN_DAC_MCP4725`, `SN_DAC_DAC5571`, `SN_DAC_DAC6571`, `SN_DAC_DAC7571`, `SN_DAC_AD5337`, `SN_DAC_AD5338`, `SN_DAC_AD5339`. Egykimenetes IC-nél a csatorna 0; AD533x A/B-nél 0/1, azonos címen két leíróval. Az `ANALOG_CH` követi a csatornaszámot; a kéréscsomag mérete ettől függ, ezért egyező konfigurációval fordított firmware és HAL kell.
+
+HAL-pinek: `stepgen-ninja.0.dac.0.enable`, `.value`, `.scale`, `.raw-command`, `.online`, `.valid`. A skála alapértéke 1; letiltott vagy hibás parancsnál a konfigurált nyers kód érvényes. Ez nem hoz létre fizikai 0–10 V-os illesztést. A régi fix boardok DAC-kezelése külön marad; hiányzó DAC-beállításoknál a footer kikapcsolt alapértékeket ad. EEPROM-írás nincs.
+
+[Teljes vegyes példa](../configurations/I2C-DAC/config.h) és [DAC-konfiguráció, típus-/ár-összehasonlítás, korlátok](I2C-DAC.hu.md). A test ágon érhető el; fizikai ellenőrzése még hátravan.
+
+---
+
 ## PWM opciók
 
 | Define | Jelentés |

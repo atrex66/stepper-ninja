@@ -1,5 +1,20 @@
 Stepper-Ninja Source-Only Change Log
 
+Date: 2026-11-20
+
+Configurable I2C DAC prototype for custom LinuxCNC configurations
+- Add volatile-write support for Microchip MCP4725, TI DAC5571/6571/7571,
+  and ADI AD5337/5338/5339, including independent A/B channel descriptors.
+- Support 1..4 DAC channels on the existing shared I2C bus table, with default-
+  disabled footer options, address/capacity checks and digital expander coexistence.
+- Use native-code analog packet fields, finite HAL scaling/clipping, disable and
+  disconnect codes, ACK status and bounded core-1 polling/recovery. No EEPROM
+  writes. Preserve fixed breakout-board MCP4725 code and legacy packet packing.
+- Add mixed configuration, HU/EN guides and sourced component/price comparison;
+  update all five configuration guides. Physical DAC testing remains pending.
+- Validation: 38/38 LinuxCNC tests; Pico/W5100S and Pico 2/W5500 mixed-profile
+  firmware builds pass. No hardware flashing or module installation.
+
 Date: 2026-11-18
 
 Configurable I2C digital I/O prototype (custom LinuxCNC configurations only)

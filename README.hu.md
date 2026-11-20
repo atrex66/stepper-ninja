@@ -20,6 +20,7 @@ A stepper-ninja használatához nincs szükség a hivatalos breakout boardra. Eg
 - [Konfigurációs útmutató](docs/CONFIG.hu.md)
 - [IP konfiguráció](docs/IPCONFIG.hu.md)
 - [Saját breakout board készítése](docs/MAKE-YOUR-OWN-BREAKOUTBOARD.hu.md)
+- [Konfigurálható I²C DAC prototípus](docs/I2C-DAC.hu.md) — Microchip, TI és Analog Devices; egyedi LinuxCNC konfigurációk, digitális I/O-val közös buszok.
 - [Konfigurálható I²C digitális I/O prototípus](docs/I2C-IO.hu.md) — MCP23008/MCP23017/TCA9535/TCA9555; egyedi LinuxCNC konfigurációkhoz, hardveres ellenőrzés előtt.
 - [Phil Barrett RP23CNC konfiguráció](configurations/RP23CNC/README.hu.md) — külön LinuxCNC minta; a hardveres ellenőrzés még hátravan.
 - [Mach3 prototípus áttekintés](docs/MACH3.hu.md) ([English](docs/MACH3.en.md))

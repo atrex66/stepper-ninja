@@ -121,3 +121,5 @@ kikapcsolt alapértékeit és a HAL-pinek bitkiosztását/létrehozási hibáit.
 Források: [Microchip MCP23017 adatlap](https://ww1.microchip.com/downloads/aemDocuments/documents/APID/ProductDocuments/DataSheets/MCP23017-Data-Sheet-DS20001952.pdf),
 [TI TCA9535](https://www.ti.com/product/TCA9535),
 [TI TCA9555 adatlap](https://www.ti.com/lit/ds/symlink/tca9555.pdf).
+
+A busztábla [I²C DAC-kimenetekkel](I2C-DAC.hu.md) is közös lehet. Ha mindkét funkció ki van kapcsolva, további busz nem inicializálódik. A DAC állapotjelzései az `inputs[3]` 16–19 és 24–27 bitjeit használják; a digitális I/O helyei megmaradnak.

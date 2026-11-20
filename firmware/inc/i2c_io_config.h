@@ -20,10 +20,9 @@ typedef struct {
 static inline unsigned sn_i2c_io_width(const sn_i2c_device_config *d)
 { return d->type == SN_IO_MCP23008 ? 8 : 16; }
 
-static inline bool sn_i2c_io_config_valid(const sn_i2c_bus_config *b, unsigned nb,
-                                        const sn_i2c_device_config *d, unsigned nd)
+static inline bool sn_i2c_buses_valid(const sn_i2c_bus_config *b, unsigned nb)
 {
-    if (!nb || nb > 2 || !nd || nd > SN_I2C_IO_MAX_DEVICES) return false;
+    if (!nb || nb > 2) return false;
     for (unsigned i = 0; i < nb; ++i) {
         if (b[i].controller > 1 || (b[i].sda & 3) != 2 * b[i].controller ||
             (b[i].scl & 3) != 2 * b[i].controller + 1 ||
@@ -35,6 +34,13 @@ static inline bool sn_i2c_io_config_valid(const sn_i2c_bus_config *b, unsigned n
                 b[i].sda == b[j].scl || b[i].scl == b[j].sda ||
                 b[i].scl == b[j].scl) return false;
     }
+    return true;
+}
+
+static inline bool sn_i2c_io_config_valid(const sn_i2c_bus_config *b, unsigned nb,
+                                        const sn_i2c_device_config *d, unsigned nd)
+{
+    if (!sn_i2c_buses_valid(b, nb) || !nd || nd > SN_I2C_IO_MAX_DEVICES) return false;
     for (unsigned i = 0; i < nd; ++i) {
         if (d[i].type > SN_IO_TCA9555 || d[i].bus >= nb ||
             d[i].address < 0x20 || d[i].address > 0x27 ||

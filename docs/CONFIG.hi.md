@@ -178,6 +178,18 @@ CFLAGS='-Dencoder_pio_version=ENCODER_PIO_LEGACY' cmake -S firmware -B build -DW
 
 ---
 
+## कॉन्फ़िगर करने योग्य I²C DAC आउटपुट (प्रोटोटाइप)
+
+कस्टम LinuxCNC कॉन्फ़िगरेशन में `I2C_DAC_ENABLE=1`, `I2C_DAC_CHANNEL_COUNT` (1–4) और `I2C_DAC_CHANNELS` को `footer.h` से पहले रखें। साझा `I2C_IO_BUS_COUNT` / `I2C_IO_BUSES` तालिका digital I/O बंद होने पर भी काम करती है। फ़ील्ड: प्रकार, बस index, 7-bit पता, भौतिक चैनल, startup/disable/disconnect का raw code और अवधि ms में।
+
+लागू प्रकार: `SN_DAC_MCP4725`, `SN_DAC_DAC5571`, `SN_DAC_DAC6571`, `SN_DAC_DAC7571`, `SN_DAC_AD5337`, `SN_DAC_AD5338`, `SN_DAC_AD5339`। एक-आउटपुट IC का चैनल 0 है; AD533x A/B के लिए एक ही पते पर दो प्रविष्टियों में 0/1 रखें। `ANALOG_CH` चैनल संख्या से निर्धारित होता है और request size बदलता है; firmware और HAL समान कॉन्फ़िगरेशन से बनाएँ।
+
+HAL पिन: `stepgen-ninja.0.dac.0.enable`, `.value`, `.scale`, `.raw-command`, `.online`, `.valid`। डिफ़ॉल्ट scale 1 है; बंद/अमान्य command पर निर्धारित raw code भेजा जाता है। इससे भौतिक 0–10 V interface नहीं बनता। स्थिर boards का DAC कोड अलग रहता है; अनुपस्थित DAC सेटिंग footer में बंद रहती है। EEPROM में नहीं लिखा जाता।
+
+[पूरा मिश्रित उदाहरण](../configurations/I2C-DAC/config.h) और [विवरण, कीमतें तथा सीमाएँ](I2C-DAC.en.md) (अंग्रेज़ी)। test branch पर उपलब्ध; भौतिक जाँच बाकी है।
+
+---
+
 ## PWM options
 
 | Define | अर्थ |

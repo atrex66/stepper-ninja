@@ -199,7 +199,7 @@
         #define I2C_PORT        i2c1
     #endif // breakout_board == 100
 
-    // Optional custom-board I2C I/O. Legacy board paths remain independent.
+    // Optional custom-board I2C digital I/O and DACs. Legacy boards stay independent.
     #include "i2c_io_config.h"
     #ifndef I2C_IO_ENABLE
     #define I2C_IO_ENABLE 0
@@ -215,6 +215,33 @@
     #endif
     #ifndef I2C_IO_DEVICES
     #define I2C_IO_DEVICES {}
+    #endif
+    #include "i2c_dac_config.h"
+    #ifndef I2C_DAC_ENABLE
+    #define I2C_DAC_ENABLE 0
+    #endif
+    #ifndef I2C_DAC_CHANNEL_COUNT
+    #define I2C_DAC_CHANNEL_COUNT 0
+    #endif
+    #ifndef I2C_DAC_CHANNELS
+    #define I2C_DAC_CHANNELS {}
+    #endif
+    #if I2C_DAC_ENABLE
+        #if breakout_board != 0
+        #error "I2C DAC requires custom configuration (breakout_board=0)"
+        #endif
+        #if defined(SN_HOST_MACH3) && SN_HOST_MACH3
+        #error "I2C DAC prototype currently supports LinuxCNC only"
+        #endif
+        #if I2C_IO_BUS_COUNT < 1 || I2C_IO_BUS_COUNT > 2 || I2C_DAC_CHANNEL_COUNT < 1 || I2C_DAC_CHANNEL_COUNT > 4
+        #error "I2C DAC requires 1..2 shared buses and 1..4 channel descriptors"
+        #endif
+        #ifndef ANALOG_CH
+        #define ANALOG_CH I2C_DAC_CHANNEL_COUNT
+        #endif
+        #if ANALOG_CH != I2C_DAC_CHANNEL_COUNT
+        #error "ANALOG_CH must match I2C_DAC_CHANNEL_COUNT for the custom DAC profile"
+        #endif
     #endif
     #if I2C_IO_ENABLE
         #if breakout_board != 0

@@ -5,43 +5,14 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from i2c_fake_sdk import make_fake_sdk
 
 root = Path(__file__).resolve().parents[2]
 with tempfile.TemporaryDirectory(prefix="sn-i2c-contract-") as directory:
     temp = Path(directory)
     shutil.copytree(root / "firmware/inc", temp / "inc")
     shutil.copyfile(root / "configurations/I2C-IO/config.h", temp / "inc/config.h")
-    (temp / "pico").mkdir()
-    (temp / "hardware").mkdir()
-    (temp / "pico/stdlib.h").write_text("""
-#include <stdint.h>
-#define NUM_BANK0_GPIOS 30
-#define GPIO_FUNC_I2C 3
-uint64_t time_us_64(void);
-void gpio_set_function(unsigned, unsigned);
-void gpio_pull_up(unsigned);
-""")
-    (temp / "pico/critical_section.h").write_text("""
-typedef struct { int unused; } critical_section_t;
-static inline void critical_section_init(critical_section_t *p) {(void)p;}
-static inline void critical_section_enter_blocking(critical_section_t *p) {(void)p;}
-static inline void critical_section_exit(critical_section_t *p) {(void)p;}
-""")
-    (temp / "hardware/i2c.h").write_text("""
-#ifndef FAKE_I2C_H
-#define FAKE_I2C_H
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-typedef struct { unsigned id; } i2c_inst_t;
-extern i2c_inst_t fake_ports[2];
-#define i2c0 (&fake_ports[0])
-#define i2c1 (&fake_ports[1])
-unsigned i2c_init(i2c_inst_t *, unsigned);
-int i2c_write_timeout_us(i2c_inst_t *, uint8_t, const uint8_t *, size_t, bool, unsigned);
-int i2c_read_timeout_us(i2c_inst_t *, uint8_t, uint8_t *, size_t, bool, unsigned);
-#endif
-""")
+    make_fake_sdk(temp)
     source = r'''
 #include <assert.h>
 #include <string.h>
@@ -142,13 +113,13 @@ int main(void) {
     original = (temp / "inc/config.h").read_text()
     # Every existing preset remains disabled, including the standalone legacy
     # printer-port header which does not include footer.h (undefined #if is 0).
-    (temp / "defaults.c").write_text('#include "config.h"\n#if I2C_IO_ENABLE || I2C_IO_BUS_COUNT || I2C_IO_DEVICE_COUNT\n#error Legacy preset enabled I2C IO\n#endif\nint main(void){return 0;}\n')
+    (temp / "defaults.c").write_text('#include "config.h"\n#if I2C_IO_ENABLE || I2C_IO_BUS_COUNT || I2C_IO_DEVICE_COUNT || I2C_DAC_ENABLE || I2C_DAC_CHANNEL_COUNT\n#error Legacy preset enabled I2C IO\n#endif\nint main(void){return 0;}\n')
     for config in [root / "firmware/inc/config.h", *root.glob("configurations/**/*.h")]:
-        if "I2C-IO" in str(config): continue
+        if any(part in {"I2C-IO", "I2C-DAC"} for part in config.parts): continue
         shutil.copyfile(config, temp / "inc/config.h")
         subprocess.run([sys.argv[1], "-std=c11", "-I"+str(temp/"inc"),
                         "-c", str(temp/"defaults.c"), "-o", str(temp/"defaults.o")], check=True)
-    print("PASS: all six existing configurations leave I2C IO disabled")
+    print("PASS: all six existing configurations leave I2C IO and DAC disabled")
     for name, cfg, defines in [
         ("fixed board", original.replace("#define breakout_board 0", "#define breakout_board 1"), []),
         ("Mach3", original, ["-DSN_HOST_MACH3=1"]),

@@ -178,6 +178,18 @@ GPIO0/1 im Beispiel müssen frei sein; keine Überschneidung mit STEP/DIR, Encod
 
 ---
 
+## Konfigurierbare I²C-DAC-Ausgänge (Prototyp)
+
+Eigene LinuxCNC-Konfigurationen können `I2C_DAC_ENABLE=1`, `I2C_DAC_CHANNEL_COUNT` (1–4) und `I2C_DAC_CHANNELS` vor `footer.h` setzen. Die gemeinsame Tabelle `I2C_IO_BUS_COUNT` / `I2C_IO_BUSES` funktioniert auch ohne digitale I/O. Deskriptorfelder: Typ, Busindex, 7-Bit-Adresse, physischer Kanal, Rohwert bei Start/Deaktivierung/Verbindungsverlust, Intervall in ms.
+
+Implementiert: `SN_DAC_MCP4725`, `SN_DAC_DAC5571`, `SN_DAC_DAC6571`, `SN_DAC_DAC7571`, `SN_DAC_AD5337`, `SN_DAC_AD5338`, `SN_DAC_AD5339`. Einzelkanal-ICs verwenden Kanal 0; AD533x A/B verwenden 0/1 und zwei Einträge an derselben Adresse. `ANALOG_CH` folgt der Kanalzahl und beeinflusst die Anfragegröße: Firmware und HAL mit identischer Konfiguration bauen.
+
+HAL-Pins: `stepgen-ninja.0.dac.0.enable`, `.value`, `.scale`, `.raw-command`, `.online`, `.valid`. Die Skala startet bei 1; deaktivierte/ungültige Befehle wählen den konfigurierten Rohwert. Eine physische 0–10-V-Schnittstelle entsteht dadurch nicht. Bestehende feste Boards behalten ihren DAC-Code; fehlende DAC-Einstellungen sind standardmäßig deaktiviert. Keine EEPROM-Schreibzugriffe.
+
+[Gemischtes Beispiel](../configurations/I2C-DAC/config.h) und [Details, Preise und Grenzen](I2C-DAC.en.md) (Englisch). Im test-Branch verfügbar; physische Validierung steht aus.
+
+---
+
 ## PWM-Optionen
 
 | Define | Bedeutung |

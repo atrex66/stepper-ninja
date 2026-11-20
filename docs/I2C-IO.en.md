@@ -8,7 +8,7 @@ No step, encoder or PWM signals are generated through these expanders.
 ## Compatibility and limits
 
 `footer.h` supplies disabled/empty defaults using `#ifndef`. Existing configs do
-not need an I2C section. Disabled builds initialize no new bus, reserve no pins,
+not need an I2C section. When both I²C I/O and DAC features are disabled, builds initialize no new bus, reserve no pins,
 export no expander HAL pins, and keep the existing packet layout. Legacy
 `io_expanders` retains its existing meaning and is not used by the new module.
 
@@ -112,7 +112,7 @@ or faulted bus can delay core 1; no hard real-time I/O timing is promised.
 - `outputs[1]`: expander 0 bits 0–15; expander 1 bits 16–31.
 - `inputs[0..1]`: existing native GPIO banks.
 - `inputs[2]`: expander input slots, in the same order.
-- `inputs[3]`: online bits 0/1, valid bits 8/9; other bits zero.
+- `inputs[3]`: online bits 0/1, valid bits 8/9. Optional DAC online/valid flags use bits 16–19/24–27; other bits zero.
 
 There is no new wire field or packet size. This does not negotiate the config:
 firmware and HAL must be rebuilt with matching descriptors. An old HAL binary
@@ -150,3 +150,5 @@ still required.
 Primary references: [Microchip MCP23017 datasheet](https://ww1.microchip.com/downloads/aemDocuments/documents/APID/ProductDocuments/DataSheets/MCP23017-Data-Sheet-DS20001952.pdf),
 [TI TCA9535](https://www.ti.com/product/TCA9535),
 [TI TCA9555 datasheet](https://www.ti.com/lit/ds/symlink/tca9555.pdf).
+
+DACs can share this bus table; see [configurable I²C DAC outputs](I2C-DAC.en.md). Their channel commands use the existing configuration-dependent analog fields, not digital output slots.

@@ -31,6 +31,7 @@ create_link() {
 create_link "firmware/inc/config.h" "config.h"
 create_link "firmware/inc/footer.h" "footer.h"
 create_link "firmware/inc/i2c_io_config.h" "i2c_io_config.h"
+create_link "firmware/inc/i2c_dac_config.h" "i2c_dac_config.h"
 create_link "firmware/inc/internals.h" "internals.h"
 create_link "firmware/inc/kbmatrix.h" "kbmatrix.h"
 create_link "firmware/modules/inc/jump_table.h" "jump_table.h"

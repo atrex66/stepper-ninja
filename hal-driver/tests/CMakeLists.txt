@@ -80,3 +80,13 @@ add_test(NAME firmware-i2c-io-contract COMMAND "${Python3_EXECUTABLE}"
 add_test(NAME hal-i2c-io-contract COMMAND "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/../common/tests/i2c_io_hal_contract.py"
     --compiler "${CMAKE_C_COMPILER}" ${profile_include_args})
+
+add_executable(i2c-dac-contract "${PROJECT_SOURCE_DIR}/../common/tests/i2c_dac_contract.c")
+target_include_directories(i2c-dac-contract PRIVATE "${PROJECT_SOURCE_DIR}/../firmware/inc")
+target_compile_options(i2c-dac-contract PRIVATE -UNDEBUG -Wall -Wextra -Werror)
+add_test(NAME i2c-dac-contract COMMAND i2c-dac-contract)
+add_test(NAME firmware-i2c-dac-runtime COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/i2c_dac_runtime.py" "${CMAKE_C_COMPILER}")
+add_test(NAME hal-i2c-dac-contract COMMAND "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/../common/tests/i2c_dac_hal_contract.py"
+    --compiler "${CMAKE_C_COMPILER}" ${profile_include_args})

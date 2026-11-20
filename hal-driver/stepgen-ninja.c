@@ -159,6 +159,14 @@ typedef struct {
     sn_bit_pin i2c_valid[I2C_IO_DEVICE_COUNT];
     #endif
     sn_bit_pin rpi_output[32];
+    #if I2C_DAC_ENABLE
+    sn_bit_pin dac_enable[I2C_DAC_CHANNEL_COUNT];
+    sn_float_pin dac_value[I2C_DAC_CHANNEL_COUNT];
+    sn_float_pin dac_scale[I2C_DAC_CHANNEL_COUNT];
+    sn_u32_pin dac_raw[I2C_DAC_CHANNEL_COUNT];
+    sn_bit_pin dac_online[I2C_DAC_CHANNEL_COUNT];
+    sn_bit_pin dac_valid[I2C_DAC_CHANNEL_COUNT];
+    #endif
 
 #if toolchanger_encoder == 1
     sn_bit_pin toolchanger_bit0;
@@ -592,6 +600,12 @@ void udp_io_process_recv(void *arg, long period)
     module_data_t *d = arg;
 
     if (d->watchdog_expired) {
+        #if I2C_DAC_ENABLE
+        for (unsigned n = 0; n < I2C_DAC_CHANNEL_COUNT; ++n) {
+            sn_set_bit(d->dac_online[n], 0);
+            sn_set_bit(d->dac_valid[n], 0);
+        }
+        #endif
         #if I2C_IO_ENABLE
         for (unsigned n = 0; n < I2C_IO_DEVICE_COUNT; ++n) {
             sn_set_bit(d->i2c_online[n], 0);
@@ -1034,7 +1048,7 @@ int rtapi_app_main(void)
             return r;
         }
         /* Breakout boards with analog channels register them in board helpers. */
-        #if ANALOG_CH > 0 && breakout_board < 1
+        #if ANALOG_CH > 0 && breakout_board < 1 && !I2C_DAC_ENABLE
             for (int i = 0; i < ANALOG_CH; i++) {
                 PIN_BIT_INIT(&hal_data[j].analog_enable[i], HAL_IN, 0, module_name ".%d.analog.%d.enable", j, i);
                 PIN_FLOAT_INIT(&hal_data[j].analog_min[i], HAL_IN, 0.0, module_name ".%d.analog.%d.minimum", j, i);

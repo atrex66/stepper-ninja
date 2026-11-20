@@ -12,6 +12,7 @@
 
 #if breakout_board == 0
 #include "i2c_io_hal.c"
+#include "i2c_dac_hal.c"
 
 static int bb_hal_setup_pins(module_data_t *d, int j, int comp_id,
                              char *name, uint32_t nsize)
@@ -51,7 +52,11 @@ static int bb_hal_setup_pins(module_data_t *d, int j, int comp_id,
     }
 
     #if I2C_IO_ENABLE
-    return i2c_hal_setup(d, j, comp_id, name, nsize);
+    r = i2c_hal_setup(d, j, comp_id, name, nsize);
+    if (r < 0) return r;
+    #endif
+    #if I2C_DAC_ENABLE
+    return dac_hal_setup(d, j, comp_id, name, nsize);
     #else
     return 0;
     #endif
@@ -61,6 +66,9 @@ static void bb_hal_process_recv(module_data_t *d)
 {
     #if I2C_IO_ENABLE
     i2c_hal_recv(d);
+    #endif
+    #if I2C_DAC_ENABLE
+    dac_hal_recv(d);
     #endif
     for (uint8_t i = 0; i < in_pins_no; i++) {
         if (input_pins[i] < 32) {
@@ -89,6 +97,9 @@ static void bb_hal_process_send(module_data_t *d)
     tx_buffer->outputs[1] = outs1;
     #if I2C_IO_ENABLE
     i2c_hal_send(d);
+    #endif
+    #if I2C_DAC_ENABLE
+    dac_hal_send(d);
     #endif
 }
 

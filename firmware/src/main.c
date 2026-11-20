@@ -454,7 +454,7 @@ void core1_entry() {
             }
             #endif
         }
-        #if I2C_IO_ENABLE
+        #if I2C_IO_ENABLE || I2C_DAC_ENABLE
         sn_i2c_io_poll(connected != 0);
         #endif
     }
@@ -564,7 +564,7 @@ int main() {
 
     #endif
     
-    #if I2C_IO_ENABLE
+    #if I2C_IO_ENABLE || I2C_DAC_ENABLE
     sn_i2c_io_setup();
     #endif
     multicore_launch_core1(core1_entry);
@@ -896,7 +896,12 @@ void handle_data(){
         }
     #endif
     // ===================================================================================
-    #if I2C_IO_ENABLE
+    #if I2C_IO_ENABLE || I2C_DAC_ENABLE
+    #if I2C_DAC_ENABLE
+    uint32_t dac_codes[I2C_DAC_CHANNEL_COUNT];
+    for (unsigned n = 0; n < I2C_DAC_CHANNEL_COUNT; ++n) dac_codes[n] = rx_buffer->analog_out[n];
+    sn_i2c_dac_commands(dac_codes);
+    #endif
     uint32_t i2c_inputs, i2c_status;
     sn_i2c_io_packet(rx_buffer->outputs[1], &i2c_inputs, &i2c_status);
     tx_buffer->inputs[2] = i2c_inputs;
